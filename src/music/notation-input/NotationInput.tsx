@@ -29,7 +29,17 @@ import {
   toScoreCoordinates,
   type RenderedScore,
 } from '../render';
-import { parsePitch, toGermanPitch, STEPS } from '../theory';
+import {
+  diatonicIndex,
+  naturalAt,
+  nearestWithStep,
+  parsePitch,
+  semitoneStep,
+  toGermanPitch,
+  STEPS,
+  type Pitch,
+  type Step,
+} from '../theory';
 import type {
   InputNote,
   KeysigAnswer,
@@ -40,6 +50,7 @@ import type {
   SlotAnswer,
 } from '../../scoring';
 import { pitchSlotCorrect } from '../../scoring';
+import { shortcutAllowed } from '../../ui/keyboard';
 import { AccidentalPalette, DurationPalette, ToolbarActions, type DurationChoice } from './toolbar';
 
 // ---------------------------------------------------------------------------
@@ -358,6 +369,18 @@ export function NotationInput({ task }: { task: NotationTask }) {
 // Modus «pitch» — einzelne Töne oder Akkordtöne setzen
 // ---------------------------------------------------------------------------
 
+/** Tonnamen auf der Tastatur, deutsch: h ist H, b ist B (H mit b). */
+const KEY_LETTERS = new Map<string, { step: Step; alter: number }>([
+  ['c', { step: 'c', alter: 0 }],
+  ['d', { step: 'd', alter: 0 }],
+  ['e', { step: 'e', alter: 0 }],
+  ['f', { step: 'f', alter: 0 }],
+  ['g', { step: 'g', alter: 0 }],
+  ['a', { step: 'a', alter: 0 }],
+  ['h', { step: 'b', alter: 0 }],
+  ['b', { step: 'b', alter: -1 }],
+]);
+
 function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as PitchAnswer | undefined) ?? {};
@@ -367,9 +390,26 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   const area = useRef<HTMLDivElement>(null);
   const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
 
+  // Tastatur (siehe ui/keyboard.ts). Gehorcht wird am Fenster, damit niemand
+  // erst ins Notenbild klicken muss. `handleKey` entsteht bei jedem Rendern
+  // neu und sieht so immer die aktuelle Antwort.
+  const keyHandler = useRef(handleKey);
+  keyHandler.current = handleKey;
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => keyHandler.current(event);
+    globalThis.addEventListener('keydown', listener);
+    return () => globalThis.removeEventListener('keydown', listener);
+  }, []);
+
   if (solution.type !== 'pitch') return null;
   const slots = solution.slots;
   const isChord = slots.some((s) => s.chord);
+
+  /** Der vorgegebene Ton — von ihm aus geht es los, solange nichts gesetzt ist. */
+  const givenKey = task.score.measures[0]?.notes.find(
+    (note, index) => !slots.some((slot) => slot.slot === index) && note.keys?.length,
+  )?.keys?.[0];
+  const given = givenKey ? parsePitch(givenKey) : null;
 
   /** Welcher Eingabeplatz liegt diesem x-Wert am nächsten? */
   const slotNear = (x: number) =>
@@ -465,6 +505,60 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
     const key = String(lone.slot);
     const own = placed[key];
     if (own?.length === 1 && own[0].a !== next) update({ ...placed, [key]: [{ ...own[0], a: next }] });
+  }
+
+  /**
+   * Tastatur — nur wenn ein einziger Ton zu setzen ist; bei Akkorden wäre
+   * nicht klar, welcher Ton sich bewegen soll.
+   *
+   *  - Tonname (c d e f g a h, b): setzt diesen Ton in die nächste Lage zum
+   *    gesetzten Ton, sonst zum vorgegebenen.
+   *  - ↑/↓: ein Halbton (`semitoneStep`); ohne Vorzeichen eine Stufe. Ist noch
+   *    nichts gesetzt, geht es vom vorgegebenen Ton aus.
+   *  - Umschalt + ↑/↓: eine Oktave.
+   *  - ⌫ oder Entf: den gesetzten Ton wegnehmen.
+   */
+  function handleKey(event: KeyboardEvent) {
+    if (solution.type !== 'pitch' || !lone || readOnly || !shortcutAllowed(event)) return;
+    const key = String(lone.slot);
+    const own = placed[key]?.[0];
+    const from: Pitch | null = own ? { step: own.s, alter: own.a, octave: own.o } : given;
+
+    let next: Pitch;
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      if (!from) return;
+      const direction = event.key === 'ArrowUp' ? 1 : -1;
+      next = event.shiftKey
+        ? { ...from, octave: from.octave + direction }
+        : task.noAccidentals
+          ? naturalAt(diatonicIndex(from) + direction)
+          : semitoneStep(from, direction);
+    } else if (event.key === 'Backspace' || event.key === 'Delete') {
+      if (!own) return;
+      event.preventDefault();
+      update({});
+      return;
+    } else {
+      const letter = KEY_LETTERS.get(event.key.toLowerCase());
+      if (!letter || !from || (task.noAccidentals && letter.alter !== 0)) return;
+      next = nearestWithStep(letter.step, letter.alter, from);
+    }
+
+    // Auch am Rand des Erlaubten sollen die Pfeile die Seite nicht verschieben.
+    event.preventDefault();
+    if (!withinReach(next)) return;
+    setAlter(next.alter);
+    update({ ...placed, [key]: [{ s: next.step, o: next.octave, a: next.alter, d: 'w' }] });
+  }
+
+  /** So weit wie mit dem Zeiger: bis LEDGER_STEPS Stufen über und unter das System. */
+  function withinReach(pitch: Pitch): boolean {
+    const geometry = live()?.staves[0];
+    if (!geometry) return true;
+    const top = diatonicForY(geometry, geometry.stave.getYForLine(0));
+    const bottom = diatonicForY(geometry, geometry.stave.getYForLine(4));
+    const index = diatonicIndex(pitch);
+    return index <= top + LEDGER_STEPS && index >= bottom - LEDGER_STEPS;
   }
 
   const summary = slots

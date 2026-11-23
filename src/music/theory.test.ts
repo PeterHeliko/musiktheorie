@@ -13,8 +13,10 @@ import {
   keySignatureSteps,
   majorScale,
   measureCapacity,
+  nearestWithStep,
   parseIntervalLabel,
   parsePitch,
+  semitoneStep,
   toGermanPitch,
   transposeByInterval,
   triadLabel,
@@ -214,6 +216,51 @@ describe('Tonarten', () => {
   it('bildet auch die Mollstufen der Durtonart korrekt ab', () => {
     expect(degreeChordName('C-Dur', 2)).toBe('D-Moll');
     expect(degreeChordName('C-Dur', 7)).toBe('H-vermindert');
+  });
+});
+
+describe('Tonhöhe mit der Tastatur', () => {
+  const walk = (start: string, direction: 1 | -1, count: number) => {
+    const names: string[] = [];
+    let pitch = p(start);
+    for (let i = 0; i < count; i++) {
+      pitch = semitoneStep(pitch, direction);
+      names.push(toGermanPitch(pitch));
+    }
+    return names;
+  };
+
+  it('geht aufwärts über Stammtöne und Kreuze', () => {
+    expect(walk('c4', 1, 12)).toEqual([
+      'cis1', 'd1', 'dis1', 'e1', 'f1', 'fis1', 'g1', 'gis1', 'a1', 'ais1', 'h1', 'c2',
+    ]);
+  });
+
+  it('geht abwärts über Stammtöne und b', () => {
+    expect(walk('c5', -1, 12)).toEqual([
+      'h1', 'b1', 'a1', 'as1', 'g1', 'ges1', 'f1', 'e1', 'es1', 'd1', 'des1', 'c1',
+    ]);
+  });
+
+  it('löst ungewöhnliche Schreibweisen zum nächsten Halbton auf', () => {
+    expect(toGermanPitch(semitoneStep(p('eis4'), 1))).toBe('fis1');
+    expect(toGermanPitch(semitoneStep(p('ces5'), -1))).toBe('b1');
+    expect(toGermanPitch(semitoneStep(p('his3'), 1))).toBe('cis1');
+    expect(toGermanPitch(semitoneStep(p('fes4'), 1))).toBe('f1');
+    expect(toGermanPitch(semitoneStep(p('es4'), 1))).toBe('e1');
+  });
+
+  it('setzt einen Stammton in die nächste Lage', () => {
+    const near = (step: 'c' | 'd' | 'e' | 'f' | 'g' | 'a' | 'b', from: string, alter = 0) =>
+      toGermanPitch(nearestWithStep(step, alter, p(from)));
+    expect(near('e', 'c4')).toBe('e1');
+    expect(near('f', 'c4')).toBe('f1');
+    expect(near('g', 'c4')).toBe('g');
+    expect(near('a', 'c4')).toBe('a');
+    expect(near('c', 'c4')).toBe('c1');
+    expect(near('c', 'a4')).toBe('c2');
+    expect(near('b', 'c4', -1)).toBe('b');
+    expect(near('d', 'h3')).toBe('d1');
   });
 });
 

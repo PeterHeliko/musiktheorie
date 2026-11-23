@@ -21,6 +21,7 @@ import { NotationInput } from '../music/notation-input/NotationInput';
 import { scoreTask, type TaskResult } from '../scoring';
 import { AnswerProvider, type AnswerStore } from '../state';
 import { FeedbackDetails, Verdict, gradeOf, hasDetails } from './Feedback';
+import { keyboardFocused, shortcutAllowed } from './keyboard';
 import { REFIT_EVENT, Score } from './Score';
 import { SelectTaskView } from './SelectTaskView';
 
@@ -139,6 +140,44 @@ export function QuestionView({
     target?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
   }, [result]);
 
+  /**
+   * Eingabe- oder Leertaste löst den Hauptknopf unten aus: «Prüfen», sobald
+   * etwas eingetragen ist, danach «Weiter». Gibt es gerade nichts zu tun,
+   * bleiben die Tasten beim Browser (die Leertaste scrollt dann wie gewohnt).
+   */
+  const primary = (): (() => void) | null => (result ? onNext : !single && canCheck ? check : null);
+  const primaryRef = useRef(primary);
+  primaryRef.current = primary;
+
+  useEffect(() => {
+    // Die Leertaste löst einen Knopf erst beim Loslassen aus. Wurde sie hier
+    // schon verwendet, darf das Loslassen nicht auch noch den Knopf drücken,
+    // der inzwischen den Fokus hat (nach dem Prüfen «Weiter»).
+    let spaceUsed = false;
+    const down = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (event.shiftKey || !shortcutAllowed(event) || keyboardFocused(event.target)) return;
+      const action = primaryRef.current();
+      if (!action) return;
+      event.preventDefault();
+      // Gedrückt halten soll nicht durch die Aufgaben rasen.
+      if (event.repeat) return;
+      if (event.key === ' ') spaceUsed = true;
+      action();
+    };
+    const up = (event: KeyboardEvent) => {
+      if (event.key !== ' ' || !spaceUsed) return;
+      spaceUsed = false;
+      event.preventDefault();
+    };
+    globalThis.addEventListener('keydown', down);
+    globalThis.addEventListener('keyup', up);
+    return () => {
+      globalThis.removeEventListener('keydown', down);
+      globalThis.removeEventListener('keyup', up);
+    };
+  }, []);
+
   const answered = () => {
     onAnswered();
     if (!single || result) return;
@@ -232,7 +271,13 @@ export function QuestionView({
             {result && <Verdict result={result} task={question.task} />}
             <div class="session-actions">
               {result ? (
-                <button type="button" class="primary" onClick={onNext} ref={nextButton}>
+                <button
+                  type="button"
+                  class="primary"
+                  onClick={onNext}
+                  ref={nextButton}
+                  aria-keyshortcuts="Enter Space"
+                >
                   {nextLabel}
                 </button>
               ) : (
@@ -241,7 +286,13 @@ export function QuestionView({
                     überspringen
                   </button>
                   {!single && (
-                    <button type="button" class="primary" onClick={check} disabled={!canCheck}>
+                    <button
+                      type="button"
+                      class="primary"
+                      onClick={check}
+                      disabled={!canCheck}
+                      aria-keyshortcuts="Enter Space"
+                    >
                       Prüfen
                     </button>
                   )}

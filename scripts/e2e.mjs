@@ -22,7 +22,7 @@ import { startServer } from './serve.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const SHOTS = join(ROOT, '.e2e-screenshots');
-const PORT = 4319;
+const PORT = Number(process.env.E2E_PORT ?? 4319);
 const BASE_PATH = process.env.BASE_PATH ?? '/musiktheorie/';
 const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 
@@ -460,6 +460,47 @@ async function main() {
     check(/Gesetzt:/.test(await touchPage.locator('.input-summary').innerText()), 'beim Loslassen steht die Note');
     check(scrollAfter === scrollBefore, `Ziehen verschiebt die Seite nicht (${scrollBefore} → ${scrollAfter})`);
     await touch.close();
+
+    // ------------------------------------------------- Tastatur
+    console.log('\nTastatur');
+    await page.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.notation-input svg');
+    const typed = async () => (await page.locator('.input-summary').innerText()).replace(/^Gesetzt:\s*/, '').trim();
+    const press = async (key) => {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(80);
+      return typed();
+    };
+    await press('Space');
+    check((await page.locator('.verdict').count()) === 0, 'ohne Eingabe tut die Leertaste nichts');
+    check(/^c[,\d]*$/i.test(await press('c')), `c setzt den Ton c («${await typed()}»)`);
+    check(/^cis[,\d]*$/i.test(await press('ArrowUp')), `↑ geht einen Halbton hinauf («${await typed()}»)`);
+    check(/^d[,\d]*$/i.test(await press('ArrowUp')), `und noch einen, auf den Stammton («${await typed()}»)`);
+    check(/^des[,\d]*$/i.test(await press('ArrowDown')), `↓ geht abwärts mit b («${await typed()}»)`);
+    const lowDes = await typed();
+    const highDes = await press('Shift+ArrowUp');
+    check(/^des/i.test(highDes) && highDes !== lowDes, `Umschalt + ↑ springt eine Oktave (${lowDes} → ${highDes})`);
+    check(/^b[,\d]*$/i.test(await press('b')), `b setzt das B («${await typed()}»)`);
+    await press('Backspace');
+    check(!/Gesetzt:/.test(await page.locator('.input-summary').innerText()), '⌫ nimmt den Ton weg');
+    // Mit der Maus gewählt, bleibt der Fokus auf dem ♯-Knopf. Die Eingabetaste
+    // soll trotzdem prüfen und nicht den Knopf ein zweites Mal drücken.
+    await page.locator('.toolbar button[aria-label^="Kreuz"]').click();
+    check(/^e[,\d]*$/i.test(await press('e')), `ein Tonname setzt den Stammton («${await typed()}»)`);
+    await press('Enter');
+    check(await page.locator('.verdict').isVisible(), 'die Eingabetaste prüft');
+    await page.waitForTimeout(250);
+    check(await page.locator('.verdict').isVisible(), 'und bleibt bei der Rückmeldung stehen');
+    check(/^e[,\d]*$/i.test(await press('f')), 'nach dem Prüfen ändern Tonnamen nichts mehr');
+    await press('Space');
+    check(
+      (await page.locator('.verdict').count()) === 0 && !/Gesetzt:/.test(await page.locator('.input-summary').innerText()),
+      'die Leertaste führt zur nächsten Aufgabe',
+    );
+    await press('g');
+    await press('Space');
+    await page.waitForTimeout(250);
+    check(await page.locator('.verdict').isVisible(), 'die Leertaste prüft, das Loslassen drückt nicht auch «Weiter»');
 
     // ------------------------------------------------- grösseres Notenbild
     console.log('\nNotenbild');

@@ -57,6 +57,38 @@ export function naturalAt(index: number): Pitch {
   return { step: STEPS[((index % 7) + 7) % 7], alter: 0, octave: Math.floor(index / 7) };
 }
 
+/**
+ * Einen Halbton höher oder tiefer, geschrieben wie in Notensatzprogrammen:
+ * auf dem Stammton, wo es einen gibt, sonst aufwärts mit Kreuz und abwärts
+ * mit b. Aufwärts also c → cis → d → dis → e → f, abwärts e → es → d → des
+ * → c → h → b.
+ */
+export function semitoneStep(p: Pitch, direction: 1 | -1): Pitch {
+  const target = midi(p) + direction;
+  // Auch ein doppelt versetzter Ton liegt höchstens zwei Stufen neben seinem
+  // Klang; drei Stufen nach jeder Seite reichen also immer.
+  const here = diatonicIndex(p);
+  const naturals = [-3, -2, -1, 0, 1, 2, 3].map((offset) => naturalAt(here + offset));
+  const natural = naturals.find((n) => midi(n) === target);
+  if (natural) return natural;
+  // Zwischen zwei Stammtönen liegt höchstens ein Halbton. Ist das Ziel keiner,
+  // sind beide Nachbarn Stammtöne.
+  const neighbour = naturals.find((n) => midi(n) === target - direction)!;
+  return { ...neighbour, alter: direction };
+}
+
+/**
+ * Der Ton mit diesem Stammton, der `reference` am nächsten liegt — gezählt in
+ * Stufen, also höchstens eine Quarte entfernt (wie der relative Modus von
+ * LilyPond). Bei gleichem Abstand gewinnt die Quarte aufwärts.
+ */
+export function nearestWithStep(step: Step, alter: number, reference: Pitch): Pitch {
+  const from = diatonicIndex(reference);
+  const up = (((stepIndex(step) - from) % 7) + 7) % 7;
+  const index = from + (up > 3 ? up - 7 : up);
+  return { step, alter, octave: Math.floor(index / 7) };
+}
+
 // ---------------------------------------------------------------------------
 // Deutsche Tonnamen
 // ---------------------------------------------------------------------------
