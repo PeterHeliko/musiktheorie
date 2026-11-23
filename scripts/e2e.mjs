@@ -775,7 +775,7 @@ async function main() {
       await page.waitForSelector('.sheet', { state: 'detached' });
     };
     const selectedChips = () =>
-      page.locator('.filter-field', { hasText: 'Welche Intervalle?' }).locator('.filter-chip.is-selected').count();
+      page.locator('.filter-field', { hasText: 'Abgefragte Intervalle' }).locator('.filter-chip.is-selected').count();
 
     await page.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
     await page.waitForSelector('.question');
@@ -792,7 +792,7 @@ async function main() {
 
     await openSettings();
     await page
-      .locator('.filter-field', { hasText: 'Welche Intervalle?' })
+      .locator('.filter-field', { hasText: 'Abgefragte Intervalle' })
       .locator('button:has-text("keine")')
       .click();
     check((await selectedChips()) === 1, 'Mehrfachauswahl behält den letzten Haken');

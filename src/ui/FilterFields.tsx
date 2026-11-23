@@ -65,6 +65,44 @@ function FilterField({
   );
 }
 
+/**
+ * Vorzeichen in Beschriftungen («♭ ♯», «𝄫 ♭ ♯ 𝄪») zeichnet Bravura, wie in
+ * der Werkzeugleiste. Als Unicode kämen ♭ ♯ und 𝄫 𝄪 aus zwei verschiedenen
+ * Blöcken und damit je nach System aus verschiedenen Schriften: ungleich
+ * gross und auf ungleicher Höhe.
+ */
+const ACCIDENTAL_GLYPHS: Record<string, { glyph: string; spoken: string; flat?: boolean }> = {
+  '𝄫': { glyph: '\uE264', spoken: 'Doppel-b', flat: true },
+  '♭': { glyph: '\uE260', spoken: 'b', flat: true },
+  '♯': { glyph: '\uE262', spoken: 'Kreuz' },
+  '𝄪': { glyph: '\uE263', spoken: 'Doppelkreuz' },
+};
+const ACCIDENTAL_PATTERN = /(𝄫|♭|♯|𝄪)/u;
+
+function OptionLabel({ label }: { label: string }) {
+  const parts = label.split(ACCIDENTAL_PATTERN);
+  if (parts.length === 1) return <>{label}</>;
+  return (
+    <>
+      {parts.map((part, index) => {
+        const accidental = ACCIDENTAL_GLYPHS[part];
+        if (!accidental) return part;
+        return (
+          <span key={index} class={`chip-accidental ${accidental.flat ? 'is-flat' : ''}`} aria-hidden="true">
+            {accidental.glyph}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+/** Vorlesbare Fassung, nur wo die Beschriftung Vorzeichen enthält. */
+function spokenLabel(label: string): string | undefined {
+  if (!ACCIDENTAL_PATTERN.test(label)) return undefined;
+  return label.replace(new RegExp(ACCIDENTAL_PATTERN.source, 'gu'), (symbol) => ACCIDENTAL_GLYPHS[symbol].spoken);
+}
+
 function MultiField({
   filter,
   values,
@@ -102,9 +140,10 @@ function MultiField({
               class={`filter-chip ${active ? 'is-selected' : ''}`}
               disabled={locked}
               title={locked ? `Mindestens ${minimum} muss ausgewählt bleiben.` : undefined}
+              aria-label={spokenLabel(option.label)}
               onClick={() => toggle(option.value)}
             >
-              {option.label}
+              <OptionLabel label={option.label} />
             </button>
           );
         })}
@@ -150,9 +189,10 @@ function SingleField({
           role="radio"
           aria-checked={current === option.value}
           class={`filter-chip ${current === option.value ? 'is-selected' : ''}`}
+          aria-label={spokenLabel(option.label)}
           onClick={() => set(filter.key, option.value)}
         >
-          {option.label}
+          <OptionLabel label={option.label} />
         </button>
       ))}
     </div>

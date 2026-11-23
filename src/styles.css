@@ -44,7 +44,22 @@
   min-height: 36px;
 }
 
-.filter-chip:hover:not(:disabled) {
+/*
+ * Vorzeichen aus Bravura in einer Beschriftung (FilterFields). SMuFL-Zeichen
+ * sind um die Grundlinie gebaut; angehoben auf die Mitte der Kleinbuchstaben.
+ * Das ♭ ragt weiter nach oben als nach unten und sitzt deshalb tiefer.
+ */
+.chip-accidental {
+  font-family: Bravura, serif;
+  font-size: 1.5em;
+  line-height: 0;
+  vertical-align: 0.22em;
+}
+.chip-accidental.is-flat {
+  vertical-align: 0.1em;
+}
+
+.filter-chip:hover:not(:disabled):not(.is-selected) {
   border-color: var(--accent);
   color: var(--accent);
 }

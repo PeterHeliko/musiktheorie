@@ -66,7 +66,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
   instruction: 'Bestimme das Intervall.',
 
   filters: [
-    { kind: 'multi', key: 'intervals', label: 'Welche Intervalle?', options: INTERVAL_OPTIONS },
+    { kind: 'multi', key: 'intervals', label: 'Abgefragte Intervalle', options: INTERVAL_OPTIONS },
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
     { kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTAL_OPTIONS },
     { kind: 'single', key: 'width', label: 'Lage', options: WIDTH_OPTIONS },
@@ -132,17 +132,16 @@ export const intervalleNotieren: Generator<WritingFilters> = {
   hint: 'Tippe die Stelle im System an oder ziehe dorthin; das Vorzeichen wählst du vorher in der Werkzeugleiste.',
 
   filters: [
-    { kind: 'multi', key: 'intervals', label: 'Welche Intervalle?', options: INTERVAL_OPTIONS },
+    { kind: 'multi', key: 'intervals', label: 'Abgefragte Intervalle', options: INTERVAL_OPTIONS },
     {
       kind: 'single',
       key: 'direction',
       label: 'Richtung',
       options: [
-        { value: 'frei', label: 'frei — beides gilt' },
+        { value: 'frei', label: 'frei' },
         { value: 'up', label: 'nur aufwärts' },
         { value: 'down', label: 'nur abwärts' },
       ],
-      hint: '«Frei» wertet beide Richtungen als richtig — du entscheidest, welche sinnvoller ist.',
     },
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
     { kind: 'single', key: 'accidentals', label: 'Vorzeichen des Starttons', options: ACCIDENTAL_OPTIONS },

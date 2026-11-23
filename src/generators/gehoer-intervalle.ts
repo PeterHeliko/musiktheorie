@@ -58,7 +58,7 @@ export const gehoerIntervalle: Generator<Filters> = {
     {
       kind: 'multi',
       key: 'intervals',
-      label: 'Welche Intervalle?',
+      label: 'Abgefragte Intervalle',
       options: INTERVAL_OPTIONS,
       hint: 'Verminderte Quinte und übermässige Quarte klingen gleich und laufen deshalb gemeinsam unter «Tritonus».',
     },

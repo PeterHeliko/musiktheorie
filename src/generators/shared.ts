@@ -41,9 +41,9 @@ import type { Rng } from './rng';
 export type AccidentalPolicy = 'stammton' | 'einfach' | 'alle';
 
 export const ACCIDENTAL_OPTIONS: SelectOption[] = [
-  { value: 'stammton', label: 'nur Stammtöne' },
-  { value: 'einfach', label: 'bis ein Vorzeichen' },
-  { value: 'alle', label: 'auch Doppelvorzeichen' },
+  { value: 'stammton', label: 'Keine' },
+  { value: 'einfach', label: '♭ ♯' },
+  { value: 'alle', label: '𝄫 ♭ ♯ 𝄪' },
 ];
 
 export function altersFor(policy: AccidentalPolicy): number[] {
@@ -352,7 +352,7 @@ export function intervalSizeNaming(
     id,
     kind: 'select',
     // Platz über und unter dem System wie bei der Feinbestimmung mit ihrer
-    // Vorgabe («bis ein Vorzeichen»), obwohl hier keine Vorzeichen vorkommen:
+    // Vorgabe (♭ ♯, also «einfach»), obwohl hier keine Vorzeichen vorkommen:
     // die beiden Übungen sollen gleich aussehen (Entscheid 2026-11-23). Auf
     // dem Telefon hochkant und auf dem Rechner kostet das nichts — dort ist
     // die Breite die Grenze, nicht die Höhe.

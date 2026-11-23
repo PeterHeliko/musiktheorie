@@ -71,7 +71,7 @@ export const intervalleGrobBestimmen: Generator<NamingFilters> = {
   hint: 'Zähle beide Töne mit: von Linie zur nächsten Linie ist eine Terz.',
 
   filters: [
-    { kind: 'multi', key: 'intervals', label: 'Welche Intervalle?', options: INTERVAL_SIZE_OPTIONS },
+    { kind: 'multi', key: 'intervals', label: 'Abgefragte Intervalle', options: INTERVAL_SIZE_OPTIONS },
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
     { kind: 'single', key: 'width', label: 'Lage', options: WIDTH_OPTIONS },
   ],
@@ -136,17 +136,16 @@ export const intervalleGrobNotieren: Generator<WritingFilters> = {
   hint: 'Tippe die Stelle im System an oder ziehe dorthin.',
 
   filters: [
-    { kind: 'multi', key: 'intervals', label: 'Welche Intervalle?', options: INTERVAL_SIZE_OPTIONS },
+    { kind: 'multi', key: 'intervals', label: 'Abgefragte Intervalle', options: INTERVAL_SIZE_OPTIONS },
     {
       kind: 'single',
       key: 'direction',
       label: 'Richtung',
       options: [
-        { value: 'frei', label: 'frei — beides gilt' },
+        { value: 'frei', label: 'frei' },
         { value: 'up', label: 'nur aufwärts' },
         { value: 'down', label: 'nur abwärts' },
       ],
-      hint: '«Frei» wertet beide Richtungen als richtig.',
     },
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
     { kind: 'single', key: 'width', label: 'Lage', options: WIDTH_OPTIONS },
