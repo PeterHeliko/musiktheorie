@@ -226,6 +226,7 @@
 .choice.is-selected.is-right {
   background: var(--good);
   border-color: var(--good);
+  color: var(--ink);
 }
 
 .choice.is-selected.is-wrong {
@@ -237,7 +238,7 @@
   background: var(--good-soft);
   border-color: var(--good);
   box-shadow: inset 0 0 0 1px var(--good);
-  color: var(--good);
+  color: var(--good-ink);
   font-weight: 600;
 }
 
@@ -374,7 +375,7 @@
 }
 
 .feedback-list li.is-correct .feedback-detail-mark {
-  color: var(--good);
+  color: var(--good-ink);
 }
 
 .feedback-list li.is-wrong .feedback-detail-mark {
@@ -406,7 +407,7 @@
 
 .feedback-correct {
   font-weight: 600;
-  color: var(--good);
+  color: var(--good-ink);
 }
 
 .feedback-solution {
@@ -671,7 +672,7 @@
 }
 
 .pitch-note.is-in-tune {
-  color: var(--good);
+  color: var(--good-ink);
 }
 
 .pitch-none {
@@ -1098,7 +1099,7 @@
 }
 
 .verdict.is-correct {
-  color: var(--good);
+  color: var(--good-ink);
 }
 
 .verdict.is-partial {
@@ -1122,7 +1123,7 @@
  * für Weiss (1,9:1) und bekommt dunkle Schrift (8,8:1).
  */
 .session-bar.is-correct {
-  --bar: #00d903;
+  --bar: var(--good);
   --bar-ink: var(--ink);
 }
 .session-bar.is-partial {

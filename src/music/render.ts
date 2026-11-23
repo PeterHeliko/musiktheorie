@@ -206,7 +206,7 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass'): DrawnNote {
 }
 
 /** Rückmeldung nach dem Prüfen — dieselben Farben wie --good / --bad. */
-export const CORRECT_COLOUR = '#1f7a4d';
+export const CORRECT_COLOUR = '#00d903';
 export const WRONG_COLOUR = '#b3261e';
 
 /** Farbe für vorgegebene Töne, die der Prüfling nicht ändern darf. */

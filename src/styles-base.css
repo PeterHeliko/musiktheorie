@@ -20,8 +20,12 @@
   --surface-alt: #f5f7fa;
   --accent: #1d6fa5;
   --accent-soft: #e8f2f9;
-  --good: #1f7a4d;
-  --good-soft: #e6f4ec;
+  /* Ein Grün für alles: Flächen, Rahmen, Notenköpfe. Für Schrift auf Weiss
+     ist es zu hell (1,9:1) — dort steht --good-ink, derselbe Farbton dunkler
+     (5,5:1). Auf grüner Fläche steht dunkle Schrift (--ink, 8,8:1). */
+  --good: #00d903;
+  --good-ink: #007a02;
+  --good-soft: #e6fbe6;
   --bad: #b3261e;
   --bad-soft: #fdecea;
   --warn-soft: #fff6e0;
@@ -886,7 +890,7 @@ button.primary:hover:not(:disabled) {
   font-weight: 700;
 }
 tr.is-correct .detail-mark {
-  color: var(--good);
+  color: var(--good-ink);
 }
 tr.is-wrong .detail-mark {
   color: var(--bad);
@@ -895,7 +899,7 @@ tr.is-wrong .detail-mark {
   font-weight: 600;
 }
 .detail-correct {
-  color: var(--good);
+  color: var(--good-ink);
 }
 /* Musikgeschichte: von Hand korrigiert, also weder Häkchen noch Kreuz. */
 tr.is-manual .detail-label {
@@ -1076,7 +1080,7 @@ tr.is-manual .detail-label {
 }
 li.is-correct .mark-badge {
   background: var(--good-soft);
-  color: var(--good);
+  color: var(--good-ink);
 }
 li.is-wrong .mark-badge {
   background: var(--bad-soft);
@@ -1093,7 +1097,7 @@ li.is-manual .mark-badge {
   font-weight: 600;
 }
 .mark-expected {
-  color: var(--good);
+  color: var(--good-ink);
   font-size: 0.85rem;
 }
 
