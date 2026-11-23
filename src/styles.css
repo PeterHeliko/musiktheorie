@@ -214,8 +214,15 @@
   color: var(--accent);
 }
 
+/*
+ * Was gefragt ist — ein Tonname, ein Intervall, eine Stufe — ist das Erste,
+ * was man lesen muss, und steht darum grösser als die Antwortknöpfe.
+ */
 .question .task-prompt {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+  font-size: 1.75rem;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
 /*
