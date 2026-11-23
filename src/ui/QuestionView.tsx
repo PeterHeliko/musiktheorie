@@ -7,8 +7,9 @@
  *    Sie steht fest am unteren Rand, auf dem Telefon also immer in
  *    Daumenreichweite und immer an derselben Stelle.
  *
- * Gezeichnet wird die Aufgabe von `SelectTaskView` und `NotationInput`. Beide
- * bekommen nur eine `Task` und wissen nichts vom Rest der Seite.
+ * Gezeichnet wird die Aufgabe von `SelectTaskView`, `NotationInput` oder
+ * `SingTaskView`. Sie bekommen nur eine `Task` und wissen nichts vom Rest der
+ * Seite.
  */
 
 import type { ComponentChildren } from 'preact';
@@ -24,6 +25,7 @@ import { FeedbackDetails, Verdict, gradeOf, hasDetails } from './Feedback';
 import { keyboardFocused, shortcutAllowed } from './keyboard';
 import { REFIT_EVENT, Score } from './Score';
 import { SelectTaskView } from './SelectTaskView';
+import { SingTaskView } from './SingTaskView';
 
 /**
  * Welche Felder hat die bisherige Antwort gegenstandslos gemacht?
@@ -109,6 +111,12 @@ export function QuestionView({
     question.task.kind === 'select' && question.task.fields.length === 1 && question.task.fields[0].buttons
       ? question.task.fields[0]
       : null;
+  /**
+   * Beim Singen ebenso: der erste gehaltene Ton ist die Antwort, die
+   * Singansicht trägt ihn ein, sobald er feststeht.
+   */
+  const sung = question.task.kind === 'sing';
+  const selfChecking = single !== null || sung;
 
   // Die Erklärung steht über der Aufgabe: ein- oder ausgeblendet ändert sie den
   // Platz, den ein Notenbild mit `fit` füllen darf.
@@ -145,7 +153,7 @@ export function QuestionView({
    * etwas eingetragen ist, danach «Weiter». Gibt es gerade nichts zu tun,
    * bleiben die Tasten beim Browser (die Leertaste scrollt dann wie gewohnt).
    */
-  const primary = (): (() => void) | null => (result ? onNext : !single && canCheck ? check : null);
+  const primary = (): (() => void) | null => (result ? onNext : !selfChecking && canCheck ? check : null);
   const primaryRef = useRef(primary);
   primaryRef.current = primary;
 
@@ -180,10 +188,14 @@ export function QuestionView({
 
   const answered = () => {
     onAnswered();
-    if (!single || result) return;
+    if (!selfChecking || result) return;
+    if (sung) {
+      check();
+      return;
+    }
     // Der Speicher ist zu diesem Zeitpunkt schon geschrieben. Leer heisst:
     // der Knopf wurde abgewählt — das ist keine Antwort.
-    const given = store.get<Record<string, string>>(question.task.id)?.[single.id];
+    const given = store.get<Record<string, string>>(question.task.id)?.[single!.id];
     if (given) check();
   };
 
@@ -229,6 +241,8 @@ export function QuestionView({
                 <ol class="task-list">
                   <SelectTaskView task={question.task} mutedFields={muted} revealed={result !== null} />
                 </ol>
+              ) : question.task.kind === 'sing' ? (
+                <SingTaskView task={question.task} />
               ) : question.task.kind === 'notation' ? (
                 <div class="question-notation">
                   {/* Bei einer Noteneingabe steht im Prompt, WAS gesucht ist — das
@@ -285,7 +299,7 @@ export function QuestionView({
                   <button type="button" class="link-button" onClick={onNext}>
                     überspringen
                   </button>
-                  {!single && (
+                  {!selfChecking && (
                     <button
                       type="button"
                       class="primary"

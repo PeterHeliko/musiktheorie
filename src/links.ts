@@ -60,6 +60,7 @@ export const PARAM_NAMES: Record<string, string> = {
   system: 'system',
   tempo: 'tempo',
   timeSignature: 'taktart',
+  tolerance: 'genauigkeit',
   tonic: 'grundton',
   width: 'lage',
   wording: 'bezeichnung',

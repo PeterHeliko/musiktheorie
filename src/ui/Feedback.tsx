@@ -41,6 +41,9 @@ export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
 
   let text: string;
   if (single && grade === 'correct') text = `${WORD.correct}: ${single.studentResponse}`;
+  // Beim Singen sieht man die eigene Antwort nicht als Knopf oder Note —
+  // deshalb steht da, was gesungen wurde.
+  else if (single && task.kind === 'sing') text = `Gesungen: ${single.studentResponse} · richtig wäre ${single.correctResponse}`;
   else if (single) text = `Richtig wäre: ${single.correctResponse}`;
   else text = WORD[grade];
 

@@ -38,6 +38,7 @@ const MODES = {
   'intervalle-bestimmen': 'Intervalle fein bestimmen',
   'intervalle-notieren': 'Intervalle notieren',
   'intervalle-hoeren': 'Intervalle hörend erkennen',
+  'intervalle-singen': 'Intervalle singen',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
@@ -231,6 +232,7 @@ async function main() {
           'Intervalle fein bestimmen',
           'Intervalle notieren',
           'Intervalle hörend erkennen',
+          'Intervalle singen',
         ].join('|'),
       `die Liste nennt die vollen Titel, ohne Beschreibung (${exerciseLinks.join(', ')})`,
     );
@@ -274,12 +276,13 @@ async function main() {
       const hasInstruction = (await page.locator('.question .instruction').innerText()).length > 10;
 
       // Lösbar heisst: es gibt etwas anzuklicken — Antwortknöpfe, eine
-      // Auswahlliste oder ein Notensystem, in das man schreiben kann.
+      // Auswahlliste, ein Notensystem, in das man schreiben kann, oder beim
+      // Singen der Knopf fürs Mikrofon.
       // Gewartet statt gemessen: VexFlow zeichnet erst nach dem ersten Rendern.
       let answerable = true;
       try {
         await page.waitForSelector(
-          '.question .choice, .question select, .question .notation-input svg',
+          '.question .choice, .question select, .question .notation-input svg, .question .sing-mic button',
           { timeout: 5000 },
         );
       } catch {
@@ -296,7 +299,7 @@ async function main() {
     console.log('\nÜbung auf dem Telefon');
     const phone = await browser.newContext({ ...devices['iPhone 13'] });
     const phonePage = await phone.newPage();
-    for (const mode of ['intervalle-hoeren', 'dreiklaenge-bestimmen', 'melodiediktat']) {
+    for (const mode of ['intervalle-hoeren', 'dreiklaenge-bestimmen', 'melodiediktat', 'intervalle-singen']) {
       await phonePage.goto(exercise(mode), { waitUntil: 'networkidle' });
       await phonePage.waitForSelector('.question');
       const viewport = phonePage.viewportSize();
@@ -998,6 +1001,71 @@ async function main() {
       (await micPage.locator('.pitch-numbers').innerText()).includes('Mikrofon ist aus'),
       'Mikrofon lässt sich ausschalten',
     );
+    check(micProblems.length === 0, `keine Konsolenfehler${micProblems.length ? `: ${micProblems.join('; ')}` : ''}`);
+
+    // ------------------------------------------------- Intervalle singen
+    // Dasselbe künstliche g, als gesungene Antwort. Feste Aufgaben, damit das
+    // Urteil feststeht (Stimmlage «mittel», die Vorgabe):
+    //  - Es → grosse Terz aufwärts → G: das g eine Oktave tiefer ist richtig;
+    //  - H → kleine Terz aufwärts → D: das g ist falsch.
+    console.log('\nIntervalle singen mit künstlichem Mikrofon');
+    const singPage = await micContext.newPage();
+    singPage.on('console', (message) => {
+      if (message.type() === 'error') micProblems.push(message.text());
+    });
+    await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=g3&richtung=auf&aufgabe=2&v=1`, {
+      waitUntil: 'networkidle',
+    });
+    check(
+      (await singPage.locator('.sing-task .task-prompt').innerText()) === 'grosse Terz aufwärts',
+      'nennt das Intervall',
+    );
+    check((await singPage.locator('.sing-task .score svg').count()) === 1, 'zeigt den Ausgangston im System');
+    check((await singPage.locator('button:has-text("Prüfen")').count()) === 0, 'kein Prüfen-Knopf');
+    await singPage.locator('.sing-mic button').click();
+    await singPage.waitForSelector('.sing-curve canvas');
+    check(
+      (await singPage.locator('.sing-status').innerText()).includes('Hör zu'),
+      'spielt zuerst den Ausgangston und hört dabei nicht zu',
+    );
+    await singPage.waitForSelector('.verdict', { timeout: 12_000 });
+    const rightVerdict = (await singPage.locator('.verdict').innerText()).replace(/\n/g, ' ');
+    check(/Richtig: g\b/.test(rightVerdict), `der Zielton eine Oktave tiefer ist richtig («${rightVerdict}»)`);
+    check(
+      (await singPage.locator('.session-bar.is-correct').count()) === 1,
+      'die Leiste unten wird grün',
+    );
+    const drawn = await singPage.locator('.sing-curve canvas').evaluate((canvas) => {
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      // Grüne Kurve: deutlich mehr Grün als Rot und Blau.
+      let green = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i + 1] > 90 && data[i] < 80 && data[i + 2] < 120) green++;
+      return green;
+    });
+    check(drawn > 50, `zeichnet die gesungene Linie grün (${drawn} Pixel)`);
+    await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-richtig.png') });
+
+    // Neu geladen ist das Mikrofon wieder zu. Danach, mit «Weiter», bleibt es offen.
+    await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=k3&richtung=auf&aufgabe=1&v=1`, {
+      waitUntil: 'networkidle',
+    });
+    await singPage.locator('.sing-mic button').click();
+    await singPage.waitForSelector('.verdict', { timeout: 12_000 });
+    const wrongVerdict = (await singPage.locator('.verdict').innerText()).replace(/\n/g, ' ');
+    check(
+      /Gesungen: g · richtig wäre d2/.test(wrongVerdict),
+      `ein anderer Ton ist falsch und wird genannt («${wrongVerdict}»)`,
+    );
+    check((await singPage.locator('.session-bar.is-wrong').count()) === 1, 'die Leiste unten wird rot');
+    await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-falsch.png') });
+    await singPage.locator('.session-actions button.primary').click();
+    await singPage.waitForSelector('.sing-curve canvas', { timeout: 5000 });
+    check(
+      (await singPage.locator('.sing-mic').count()) === 0,
+      'die nächste Aufgabe braucht keinen Mikrofonknopf mehr',
+    );
+    await singPage.locator('.session-icon[aria-label="Übung schliessen"]').click();
+    await singPage.waitForSelector('.list-page, .topic-page, .start-page', { timeout: 5000 }).catch(() => {});
     check(micProblems.length === 0, `keine Konsolenfehler${micProblems.length ? `: ${micProblems.join('; ')}` : ''}`);
   } finally {
     await micBrowser.close();

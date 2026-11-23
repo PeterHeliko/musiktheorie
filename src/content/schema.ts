@@ -208,7 +208,25 @@ export interface TextTableTask extends TaskBase {
   rows: number;
 }
 
-export type Task = SelectTask | NotationTask | TextTableTask;
+/**
+ * Singen: ein Ausgangston erklingt und steht da, gesungen wird ein Ton dazu.
+ * Bewertet wird nach den Regeln in `sing/judge.ts`; die Antwort sind die
+ * gehaltenen Töne (`SingAnswer`).
+ */
+export interface SingTask extends TaskBase {
+  kind: 'sing';
+  /** Notenbild mit dem Ausgangston. */
+  score: ScoreSpec;
+  /** Ausgangston, wie er erklingt und dasteht («e4»). */
+  reference: string;
+  /** Gesuchter Ton in der notierten Lage. Gesungen zählt er in jeder Oktave. */
+  target: string;
+  /** So weit darf der gesungene Ton danebenliegen (Cent). */
+  tolerance: number;
+  points: number;
+}
+
+export type Task = SelectTask | NotationTask | TextTableTask | SingTask;
 
 // ---------------------------------------------------------------------------
 // Aufbau der Prüfung

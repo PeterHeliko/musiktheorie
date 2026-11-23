@@ -10,10 +10,11 @@
  */
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { FilterValues, Generator } from '../generators/types';
+import type { FilterValues, Generator, Personal } from '../generators/types';
 import { canonicalFilters, encodeLink } from '../links';
 import { hrefFor } from '../router';
 import { ROUND_SIZES, type SessionSettings } from '../settings';
+import { VOICE_OPTIONS, isVoice } from '../sing/voice';
 import { FilterFields } from './FilterFields';
 import { ShareLinks } from './ShareLinks';
 
@@ -21,29 +22,38 @@ export function SettingsSheet({
   generator,
   filters,
   session,
+  personal,
   taskHref,
   onClose,
 }: {
   generator: Generator<FilterValues>;
   filters: FilterValues;
   session: SessionSettings;
+  /** Persönliches wie die Stimmlage — steht nie im Link. */
+  personal: Personal;
   /** Link zur laufenden Aufgabe bzw. Runde; null, wenn es keinen gibt. */
   taskHref: string | null;
   /** Mit den neuen Werten — oder null, wenn sich nichts geändert hat. */
-  onClose: (next: { filters: FilterValues; session: SessionSettings } | null) => void;
+  onClose: (next: { filters: FilterValues; session: SessionSettings; personal: Personal } | null) => void;
 }) {
   const [draftFilters, setDraftFilters] = useState(filters);
   const [draftSession, setDraftSession] = useState(session);
+  const [draftPersonal, setDraftPersonal] = useState(personal);
   const done = useRef<HTMLButtonElement>(null);
 
   const filtersChanged = JSON.stringify(canonicalFilters(generator, draftFilters)) !==
     JSON.stringify(canonicalFilters(generator, filters));
   const sessionChanged =
     draftSession.mode !== session.mode || (draftSession.mode === 'runde' && draftSession.size !== session.size);
-  const changed = filtersChanged || sessionChanged;
+  const personalChanged = draftPersonal.voice !== personal.voice;
+  const changed = filtersChanged || sessionChanged || personalChanged;
 
   const close = () =>
-    onClose(changed ? { filters: canonicalFilters(generator, draftFilters), session: draftSession } : null);
+    onClose(
+      changed
+        ? { filters: canonicalFilters(generator, draftFilters), session: draftSession, personal: draftPersonal }
+        : null,
+    );
 
   useEffect(() => {
     done.current?.focus();
@@ -125,6 +135,28 @@ export function SettingsSheet({
               </button>
             </div>
           </section>
+
+          {generator.skill === 'singen' && (
+            <section class="sheet-section">
+              <FilterFields
+                filters={[
+                  {
+                    kind: 'single',
+                    key: 'voice',
+                    label: 'Stimmlage',
+                    options: VOICE_OPTIONS,
+                    hint:
+                      'Wo du bequem singst; eine Oktave höher oder tiefer zählt auch. Gilt nur auf ' +
+                      'diesem Gerät und steht nicht im Link.',
+                  },
+                ]}
+                values={{ voice: draftPersonal.voice }}
+                onChange={(next) => {
+                  if (isVoice(next.voice)) setDraftPersonal({ ...draftPersonal, voice: next.voice });
+                }}
+              />
+            </section>
+          )}
 
           <section class="sheet-section">
             <h3>Teilen</h3>

@@ -1,11 +1,12 @@
 /**
  * Klang freischalten, bevor er gebraucht wird.
  *
- * Damit eine Höraufgabe von selbst erklingen kann, muss der Audiokontext
- * vorher in einer Nutzeraktion gestartet worden sein — auf iOS zwingend in der
- * Aktion selbst, nicht später. Die passenden Aktionen sind:
- *  - der Klick auf den Link zu einer Höraufgabe (die erste Aufgabe soll schon
- *    klingen), und
+ * Damit eine Höraufgabe (oder der Ausgangston einer Singaufgabe) von selbst
+ * erklingen kann, muss der Audiokontext vorher in einer Nutzeraktion gestartet
+ * worden sein — auf iOS zwingend in der Aktion selbst, nicht später. Die
+ * passenden Aktionen sind:
+ *  - der Klick auf den Link zu einer Hör- oder Singaufgabe (die erste Aufgabe
+ *    soll schon klingen), und
  *  - jeder Klick innerhalb einer Übung mit Hörbeispiel («Weiter», «Fertig» …).
  *
  * Auf allen anderen Seiten bleibt der Audiokontext unberührt.
@@ -20,7 +21,8 @@ function leadsToListening(anchor: HTMLAnchorElement): boolean {
   const url = new URL(anchor.href, globalThis.location.href);
   if (url.origin !== globalThis.location.origin || !url.pathname.startsWith(BASE)) return false;
   const route = routeFromPath(url.pathname.slice(BASE.length));
-  return route.page === 'uebung' && generatorById(route.id)?.skill === 'hoeren';
+  const skill = route.page === 'uebung' ? generatorById(route.id)?.skill : undefined;
+  return skill === 'hoeren' || skill === 'singen';
 }
 
 export function installAudioUnlock(): void {

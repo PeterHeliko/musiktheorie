@@ -125,6 +125,21 @@ wie lange die Auswertung dauert.
 - Die Browserprüfung spielt Chromium eine WAV-Datei als Mikrofon vor und erwartet das
   richtige «g».
 
+### Singen
+
+`/ueben/intervalle-singen/`: ein Ausgangston erklingt und steht im System, dazu das
+Intervall. Erst wenn der Ton verklungen ist, hört die Seite zu; die Linie zeigt, was man
+singt.
+
+- **Der erste gehaltene Ton entscheidet** (0,4 s ruhig, `src/sing/hold.ts`); kein «Prüfen».
+- **Den Ausgangston darf man vorher nachsingen** — er zählt nie als Antwort.
+- **Die Oktave ist egal**, die Richtung wird deshalb nicht geprüft. Bei der Oktave zählt
+  der Abstand zum gespielten oder zum selbst nachgesungenen Ausgangston.
+- Diese Regeln stehen nur in `src/sing/judge.ts`; Ansicht und Bewertung nutzen beide sie.
+- **Stimmlage** (hoch/mittel/tief) ist persönlich: unter ⚙, auf dem Gerät gespeichert, nie
+  im Link. Ein Aufgabenlink fragt bei allen dasselbe Intervall, in der eigenen Lage.
+- Die Browserprüfung singt mit dem künstlichen «g» einmal richtig und einmal falsch.
+
 ---
 
 ## Aufbau
@@ -135,7 +150,7 @@ src/
   links.ts         Übungszustand ↔ Adresszeile
   pages.ts         alle Seiten mit Titel und Beschreibung
   router.ts        Seitenwechsel ohne Neuladen
-  sing/            Mikrofon, Tonhöhenerkennung, Tonnamen
+  sing/            Mikrofon, Tonhöhenerkennung, gehaltene Töne, Bewertung, Stimmlage
   audio/           Klavier-Abspieler (Web Audio, Samples)
   music/           Theoriekern, Notensatz (VexFlow), Noteneingabe
   content/         Datenmodell der Aufgaben, Auswahllisten

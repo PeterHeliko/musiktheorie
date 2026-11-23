@@ -310,7 +310,8 @@
  */
 .session-actions button:not(.link-button),
 .round-actions button:not(.link-button),
-.notice button:not(.link-button) {
+.notice button:not(.link-button),
+.sing-mic button {
   font: inherit;
   min-height: 46px;
   padding: 10px 22px;
@@ -322,7 +323,8 @@
 
 .session-actions button.primary,
 .round-actions button.primary,
-.notice button.primary {
+.notice button.primary,
+.sing-mic button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
@@ -330,7 +332,8 @@
 }
 
 .session-actions button:disabled,
-.round-actions button:disabled {
+.round-actions button:disabled,
+.sing-mic button:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -1388,4 +1391,95 @@
   stroke-width: 1.75px;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* --------------------------------------------------------------- Singen */
+
+/*
+ * Singaufgabe: Intervall, Ausgangston und Abspielknopf oben, darunter die
+ * Tonhöhenkurve. Die Kurve bekommt den ganzen übrigen Platz — dafür wird die
+ * Aufgabe zur Spalte, die die Höhe der Übungsansicht füllt.
+ */
+.session-body:has(.sing-task) {
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+  padding-bottom: 12px;
+}
+
+.session-body:has(.sing-task) > .session-column,
+.session-body:has(.sing-task) .question {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sing-task {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sing-task .task-prompt {
+  margin: 0;
+}
+
+.sing-task > .score {
+  display: flex;
+  justify-content: center;
+}
+
+.sing-task .audio-player {
+  margin: 0;
+}
+
+/* Die Zeichenfläche liegt absolut im Rahmen: sonst bestimmte ihre eigene
+   Pixelgrösse mit, wie hoch der Rahmen wird. */
+.sing-curve {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 180px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.sing-curve canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--surface);
+}
+
+.sing-status {
+  margin: 0;
+  min-height: 1.5em;
+  color: var(--ink-soft);
+}
+
+.sing-mic {
+  flex: 1 1 0;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.sing-mic .privacy-note {
+  max-width: 30em;
+  margin: 0;
+}
+
+.sing-mic-error {
+  max-width: 30em;
+  margin: 0;
+  color: var(--bad);
 }

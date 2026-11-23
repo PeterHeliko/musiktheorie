@@ -16,7 +16,8 @@ import { player } from '../audio/player';
 import { parsePitch, toGermanPitch } from '../music/theory';
 import { ANALYSIS_WINDOW, MicrophoneError, closeMicrophone, openMicrophone, type Microphone } from '../sing/microphone';
 import { NoiseGate, rms, toDb } from '../sing/level';
-import { DEFAULT_A4, midiFromFrequency, nameFromMidi, nearestNote, type NearestNote } from '../sing/notes';
+import { drawCurve, type CurvePoint } from '../sing/curve';
+import { DEFAULT_A4, midiFromFrequency, nearestNote, type NearestNote } from '../sing/notes';
 import { PitchSmoother, detectPitch } from '../sing/pitch';
 
 /** So viele Sekunden zeigt die Tonhöhenkurve. */
@@ -198,13 +199,6 @@ export function PitchTool() {
   );
 }
 
-const SUPERSCRIPT_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
-
-/** Für die Beschriftung im Bild, wo es kein <sup> gibt: «c1» → «c¹». */
-function superscriptOctave(name: string): string {
-  return name.replace(/\d/g, (digit) => SUPERSCRIPT_DIGITS[Number(digit)]);
-}
-
 /** «a1» → «a¹», «cis2» → «cis²». */
 function NoteName({ name }: { name: string }) {
   const match = /^(.*?)(\d+)$/.exec(name);
@@ -323,12 +317,6 @@ function formatDb(db: number): string {
 // Messschleife
 // ---------------------------------------------------------------------------
 
-interface Point {
-  time: number;
-  /** MIDI mit Nachkommastellen, oder null bei Stille. */
-  midi: number | null;
-}
-
 /**
  * Liest bei jedem Bildaufbau ein Fenster vom Mikrofon, schätzt die Tonhöhe und
  * zeichnet die Kurve. Gibt eine Funktion zum Anhalten zurück.
@@ -347,7 +335,7 @@ function runLoop(
   // eine feste Schwelle. Auf iOS kommt das Mikrofon sehr leise an.
   const gate = new NoiseGate();
   let peak = 0;
-  const history: Point[] = [];
+  const history: CurvePoint[] = [];
   let centre: number | null = null;
   let frame = 0;
   let handle = 0;
@@ -407,7 +395,14 @@ function runLoop(
       windowStart = now;
     }
 
-    if (canvas.current) draw(canvas.current, history, centre, now);
+    if (canvas.current) {
+      drawCurve(canvas.current, history, {
+        now,
+        seconds: HISTORY_SECONDS,
+        centre,
+        semitones: VISIBLE_SEMITONES,
+      });
+    }
     frame++;
     handle = requestAnimationFrame(tick);
   };
@@ -417,70 +412,4 @@ function runLoop(
     stopped = true;
     cancelAnimationFrame(handle);
   };
-}
-
-function draw(element: HTMLCanvasElement, history: Point[], centre: number | null, now: number): void {
-  const ratio = globalThis.devicePixelRatio || 1;
-  const width = element.clientWidth;
-  const height = element.clientHeight;
-  if (element.width !== Math.round(width * ratio) || element.height !== Math.round(height * ratio)) {
-    element.width = Math.round(width * ratio);
-    element.height = Math.round(height * ratio);
-  }
-  const g = element.getContext('2d');
-  if (!g) return;
-  g.setTransform(ratio, 0, 0, ratio, 0, 0);
-
-  const styles = getComputedStyle(element);
-  const ink = styles.getPropertyValue('--ink-soft').trim() || '#5b6472';
-  const line = styles.getPropertyValue('--line').trim() || '#d9dee6';
-  const accent = styles.getPropertyValue('--accent').trim() || '#1d6fa5';
-  const surface = styles.getPropertyValue('--surface').trim() || '#fff';
-
-  g.fillStyle = surface;
-  g.fillRect(0, 0, width, height);
-
-  const mid = centre ?? 64;
-  const low = mid - VISIBLE_SEMITONES / 2;
-  const y = (midi: number) => height - ((midi - low) / VISIBLE_SEMITONES) * height;
-  const labelWidth = 34;
-
-  // Raster: eine Linie je Halbton, beschriftet sind die Stammtöne.
-  g.font = '12px system-ui, sans-serif';
-  g.textBaseline = 'middle';
-  for (let midi = Math.ceil(low); midi <= low + VISIBLE_SEMITONES; midi++) {
-    const natural = [0, 2, 4, 5, 7, 9, 11].includes(((midi % 12) + 12) % 12);
-    g.strokeStyle = line;
-    g.lineWidth = natural ? 1 : 0.5;
-    g.globalAlpha = natural ? 1 : 0.5;
-    g.beginPath();
-    g.moveTo(labelWidth, y(midi));
-    g.lineTo(width, y(midi));
-    g.stroke();
-    if (natural) {
-      g.globalAlpha = 1;
-      g.fillStyle = ink;
-      g.fillText(superscriptOctave(nameFromMidi(midi)), 4, y(midi));
-    }
-  }
-  g.globalAlpha = 1;
-
-  // Kurve: Lücken bei Stille bleiben Lücken.
-  const x = (time: number) =>
-    labelWidth + ((time - (now - HISTORY_SECONDS * 1000)) / (HISTORY_SECONDS * 1000)) * (width - labelWidth);
-  g.strokeStyle = accent;
-  g.lineWidth = 2.5;
-  g.lineJoin = 'round';
-  g.beginPath();
-  let drawing = false;
-  for (const point of history) {
-    if (point.midi === null) {
-      drawing = false;
-      continue;
-    }
-    if (drawing) g.lineTo(x(point.time), y(point.midi));
-    else g.moveTo(x(point.time), y(point.midi));
-    drawing = true;
-  }
-  g.stroke();
 }

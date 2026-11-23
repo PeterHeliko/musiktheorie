@@ -9,7 +9,9 @@
  */
 
 import { resolveOptions } from '../content/options';
-import type { NotationTask, PitchSlotSolution, SelectField, Task, TextTableTask } from '../content/schema';
+import type { NotationTask, PitchSlotSolution, SelectField, SingTask, Task, TextTableTask } from '../content/schema';
+import { judgeSung } from '../sing/judge';
+import { nameFromMidi } from '../sing/notes';
 import {
   DURATION_LABELS,
   germanNoteName,
@@ -345,6 +347,52 @@ function scoreTextTable(task: TextTableTask, answer: TextTableAnswer | undefined
 }
 
 // ---------------------------------------------------------------------------
+// Singen
+// ---------------------------------------------------------------------------
+
+/** Die gehaltenen Töne in der gesungenen Reihenfolge, MIDI mit Nachkommastellen. */
+export interface SingAnswer {
+  notes: number[];
+}
+
+/** «e1», «e1, 20 Cent zu tief». Kleine Abweichungen sind keine Rede wert. */
+function describeSung(name: string, cents: number | null): string {
+  if (cents === null || Math.abs(cents) < 10) return name;
+  return `${name}, ${Math.abs(cents)} Cent zu ${cents < 0 ? 'tief' : 'hoch'}`;
+}
+
+function scoreSing(task: SingTask, answer: SingAnswer | undefined): Detail[] {
+  const target = parsePitch(task.target);
+  const verdict = judgeSung(
+    { reference: midi(parsePitch(task.reference)), target: midi(target), tolerance: task.tolerance },
+    answer?.notes ?? [],
+  );
+
+  let sung = '—';
+  if (verdict.note !== null) {
+    // Der richtige Ton heisst so, wie er notiert wäre (eis, nicht f) — in
+    // der Oktave, in der er gesungen wurde. Ein falscher Ton hat keine
+    // Schreibweise aus der Aufgabe und heisst, wie man ihn meist liest.
+    sung = verdict.rightNote
+      ? describeSung(toGermanPitch({ ...target, octave: target.octave + verdict.octaveShift }), verdict.cents)
+      : nameFromMidi(Math.round(verdict.note));
+  }
+
+  return [
+    {
+      id: `${task.id}_gesungen`,
+      label: task.prompt ?? 'Gesungen',
+      earned: verdict.correct ? task.points : 0,
+      possible: task.points,
+      studentResponse: sung,
+      correctResponse: toGermanPitch(target),
+      correct: verdict.correct,
+      interactionType: 'performance',
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Gesamtauswertung
 // ---------------------------------------------------------------------------
 
@@ -363,6 +411,8 @@ export function scoreTask(
     if (task.fields?.length) {
       details = details.concat(scoreSelectFields(task.id, task.fields, value.f));
     }
+  } else if (task.kind === 'sing') {
+    details = scoreSing(task, answer as SingAnswer | undefined);
   } else {
     details = scoreTextTable(task, answer as TextTableAnswer | undefined);
   }

@@ -13,6 +13,7 @@
 
 import type { AudioEvent, AudioItem } from '../content/audio';
 import type { ScoreSpec, SelectOption, Task } from '../content/schema';
+import type { Voice } from '../sing/voice';
 import type { Rng } from './rng';
 
 /**
@@ -191,8 +192,21 @@ export interface Generator<F extends FilterValues = FilterValues> {
    * Würfelt eine Aufgabe. Muss die eigene Lösung gegen den Theoriekern prüfen
    * und lieber werfen als eine falsche Aufgabe stellen — eine Übungsseite, die
    * Falsches beibringt, ist schlimmer als eine, die abstürzt.
+   *
+   * `personal` sind die persönlichen Einstellungen der übenden Person (etwa
+   * die Stimmlage). Sie stehen nie im Link: derselbe Aufgabenlink ergibt bei
+   * jemand anderem dieselbe Aufgabe in dessen Lage.
    */
-  generate(filters: F, rng: Rng): Question;
+  generate(filters: F, rng: Rng, personal?: Personal): Question;
+}
+
+/**
+ * Was zur Person gehört und nicht zur Übung: bleibt auf dem Gerät, gilt für
+ * alle Übungen und steht nie in einem Link (CONCEPT §7).
+ */
+export interface Personal {
+  /** Stimmlage für die Singübungen. */
+  voice: Voice;
 }
 
 /**

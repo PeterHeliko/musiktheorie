@@ -21,6 +21,16 @@ export interface Microphone {
 export const ANALYSIS_WINDOW = 2048;
 
 let current: Promise<Microphone> | null = null;
+/** Das geöffnete Mikrofon, sobald es bereitsteht. */
+let ready: Microphone | null = null;
+
+/**
+ * Ist das Mikrofon schon offen? Dann braucht eine Singaufgabe keinen Knopf
+ * mehr, sondern hört nach dem Ausgangston gleich zu.
+ */
+export function openedMicrophone(): Microphone | null {
+  return ready;
+}
 
 /**
  * Mikrofon öffnen oder das offene zurückgeben. Muss aus einer Nutzeraktion
@@ -29,10 +39,18 @@ let current: Promise<Microphone> | null = null;
  */
 export function openMicrophone(): Promise<Microphone> {
   if (!current) {
-    current = open().catch((error) => {
-      current = null;
-      throw error;
-    });
+    const pending = open().then(
+      (microphone) => {
+        // Inzwischen wieder geschlossen? Dann gilt es nicht als offen.
+        if (current === pending) ready = microphone;
+        return microphone;
+      },
+      (error) => {
+        if (current === pending) current = null;
+        throw error;
+      },
+    );
+    current = pending;
   }
   return current;
 }
@@ -96,6 +114,7 @@ export async function closeMicrophone(): Promise<void> {
   if (!current) return;
   const pending = current;
   current = null;
+  ready = null;
   try {
     const microphone = await pending;
     for (const track of microphone.stream.getTracks()) track.stop();

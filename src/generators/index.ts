@@ -19,6 +19,7 @@ import { gehoerTonleitern } from './gehoer-tonleitern';
 import { dreiklaengeBestimmen, dreiklaengeStufen } from './dreiklaenge';
 import { intervalleBestimmen, intervalleNotieren } from './intervalle';
 import { intervalleGrobBestimmen, intervalleGrobNotieren } from './intervalle-grob';
+import { intervalleSingen } from './intervalle-singen';
 import { rhythmusNotenwerte, rhythmusPausen } from './rhythmus';
 import { tonartenHalbtonschritte, tonartenVorzeichen, tonartenZuordnen } from './tonarten';
 import { TOPICS, TOPIC_GROUPS, type FilterValues, type Generator, type Question, type TopicId } from './types';
@@ -36,6 +37,7 @@ export const GENERATORS: Generator<FilterValues>[] = [
   intervalleBestimmen,
   intervalleNotieren,
   gehoerIntervalle,
+  intervalleSingen,
   tonartenZuordnen,
   tonartenVorzeichen,
   tonartenHalbtonschritte,

@@ -180,7 +180,7 @@ groups.
 | Intervalle notieren           | Notieren   | fein   | ✓     |
 | Intervalle auf der Klaviatur  | Klaviatur  |        |       |
 | Intervalle hören              | Hören      | fein   | ✓     |
-| Intervalle singen             | Singen     |        | ★     |
+| Intervalle singen             | Singen     | fein   | ✓ ★   |
 
 *Später:* über die Oktave hinaus, Komplementärintervalle.
 

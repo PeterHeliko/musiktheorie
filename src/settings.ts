@@ -10,7 +10,8 @@
  * und nichts, was die Seite über jemanden erzählen könnte.
  */
 
-import type { FilterValues } from './generators/types';
+import type { FilterValues, Personal } from './generators/types';
+import { DEFAULT_VOICE, isVoice } from './sing/voice';
 
 /**
  * Alle Seiten unter peterheliko.github.io teilen sich denselben localStorage —
@@ -36,6 +37,8 @@ interface Stored {
   filters: Record<string, FilterValues>;
   session: Record<string, SessionSettings>;
   stats: Record<string, ModeStats>;
+  /** Persönliche Einstellungen, für alle Übungen gleich. Fehlt in älteren Ständen. */
+  personal?: Partial<Personal>;
 }
 
 export const ROUND_SIZES = [10, 20, 30];
@@ -57,6 +60,7 @@ function load(): Stored {
       filters: parsed.filters ?? {},
       session: parsed.session ?? {},
       stats: parsed.stats ?? {},
+      personal: parsed.personal ?? {},
     };
   } catch {
     // Kaputter oder fremder Inhalt darf die Seite nicht blockieren.
@@ -112,6 +116,18 @@ export function recordResult(id: string, correct: boolean): void {
     attempted: current.attempted + 1,
     correct: current.correct + (correct ? 1 : 0),
   };
+  save(state);
+}
+
+/** Persönliche Einstellungen; Unlesbares fällt auf die Vorgabe zurück. */
+export function loadPersonal(): Personal {
+  const stored = load().personal ?? {};
+  return { voice: isVoice(stored.voice) ? stored.voice : DEFAULT_VOICE };
+}
+
+export function savePersonal(personal: Personal): void {
+  const state = load();
+  state.personal = personal;
   save(state);
 }
 

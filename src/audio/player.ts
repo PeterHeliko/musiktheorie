@@ -203,8 +203,16 @@ export class SamplePlayer {
   /**
    * Spielt die Ereignisfolge ab und löst auf, wenn der letzte Ton verklungen
    * ist. Ein laufendes Beispiel wird vorher abgebrochen.
+   *
+   * `finalRelease`: so lange klingt der Schlusston aus (s). Vorgabe ist das
+   * lange Ausklingen; beim Singen soll er bald schweigen, denn erst danach
+   * hört das Mikrofon zu.
    */
-  async play(events: AudioEvent[], tempo: number): Promise<void> {
+  async play(
+    events: AudioEvent[],
+    tempo: number,
+    { finalRelease = FINAL_RELEASE }: { finalRelease?: number } = {},
+  ): Promise<void> {
     this.stop();
     await this.ensure(samplesFor(events));
 
@@ -225,16 +233,19 @@ export class SamplePlayer {
       offset += event.quarters;
 
       if (event.click) {
-        this.schedule(CLICK, 1, at, length, false, sources);
+        this.schedule(CLICK, 1, at, length, null, sources);
         return;
       }
       for (const pitch of event.pitches) {
         const { name, rate } = sampleFor(pitch);
-        this.schedule(name, rate, at, length, isLast, sources);
+        this.schedule(name, rate, at, length, isLast ? finalRelease : null, sources);
       }
     });
 
-    const total = offset * secondsPerQuarter + FINAL_RELEASE;
+    // Fertig ist, wenn der Schlusston verklungen ist: Notendauer, Überhang, Ausklingen.
+    const last = events[events.length - 1];
+    const overhang = last ? Math.min(MAX_OVERHANG, last.quarters * secondsPerQuarter * OVERHANG_RATIO) : 0;
+    const total = offset * secondsPerQuarter + overhang + finalRelease;
 
     return new Promise<void>((resolve) => {
       const timer = globalThis.setTimeout(() => {
@@ -261,7 +272,8 @@ export class SamplePlayer {
     rate: number,
     at: number,
     length: number,
-    ringOut: boolean,
+    /** Ausklingzeit des Schlusstons; null = gewöhnlicher Ton. */
+    ringOut: number | null,
     sources: AudioBufferSourceNode[],
   ): void {
     const buffer = this.buffers.get(name);
@@ -273,7 +285,7 @@ export class SamplePlayer {
     source.playbackRate.value = rate;
 
     const gain = context.createGain();
-    const release = ringOut ? FINAL_RELEASE : releaseFor(length);
+    const release = ringOut ?? releaseFor(length);
     const dampenAt = at + length + Math.min(MAX_OVERHANG, length * OVERHANG_RATIO);
 
     // Einblenden gegen das Knacken am Tonanfang …

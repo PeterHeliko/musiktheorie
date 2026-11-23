@@ -21,13 +21,16 @@ import { describe, expect, it } from 'vitest';
 import { GENERATORS, generatorById } from './index';
 import { makeRng } from './rng';
 import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
-import type { NotationTask, SelectTask, Task } from '../content/schema';
-import { INTERVAL_SIZE_OPTIONS, intervalSizeAnswer, resolveOptions } from '../content/options';
+import type { NotationTask, SelectTask, SingTask, Task } from '../content/schema';
+import { INTERVAL_SIZE_OPTIONS, intervalAnswer, intervalSizeAnswer, resolveOptions } from '../content/options';
+import { VOICE_RANGES, type Voice } from '../sing/voice';
 import { fromPitch, scoreTask, type InputNote } from '../scoring';
 import { LEDGER_ROOM, windowFor } from './shared';
 import {
   durationInQuarters,
   intervalBetween,
+  intervalFullName,
+  intervalLabel,
   keySignatureSteps,
   measureCapacity,
   midi,
@@ -58,6 +61,10 @@ function generate(id: string, filters: FilterValues = {}, count = RUNS): Questio
 function correctAnswerFor(task: Task): unknown {
   if (task.kind === 'select') {
     return Object.fromEntries(task.fields.map((field) => [field.id, field.correct]));
+  }
+  if (task.kind === 'sing') {
+    // Erst den Ausgangston nachsingen (erlaubt), dann genau den Zielton.
+    return { notes: [midi(parsePitch(task.reference)), midi(parsePitch(task.target))] };
   }
   if (task.kind !== 'notation') return {};
 
@@ -101,6 +108,14 @@ function notationAnswerFor(task: NotationTask): unknown {
 function wrongAnswerFor(task: Task): unknown {
   if (task.kind === 'select') {
     return Object.fromEntries(task.fields.map((field) => [field.id, `${field.correct}-falsch`]));
+  }
+  if (task.kind === 'sing') {
+    // Einen Halbton neben dem Ziel; ist das der Ausgangston (kleine Sekunde
+    // abwärts), zwei — der Ausgangston wäre gar keine Antwort.
+    const target = midi(parsePitch(task.target));
+    const reference = midi(parsePitch(task.reference));
+    const wrong = (target + 1 - reference) % 12 === 0 ? target + 2 : target + 1;
+    return { notes: [wrong] };
   }
   if (task.kind !== 'notation') return {};
   const solution = (task as NotationTask).solution;
@@ -528,6 +543,104 @@ describe('Filter', () => {
 // Rhythmus und Melodie gehen auf
 // ---------------------------------------------------------------------------
 
+describe('Intervalle singen', () => {
+  const sing = (question: Question) => question.task as SingTask;
+  const generator = generatorById('intervalle-singen')!;
+  /** Wie `generate()`, aber mit Stimmlage. */
+  const withVoice = (voice: Voice, filters: FilterValues = {}, count = RUNS) =>
+    Array.from({ length: count }, (_, i) =>
+      generator.generate({ ...generator.defaults, ...filters }, makeRng(i * 2654435761), { voice }),
+    );
+
+  it('bleibt mit beiden Tönen in der Stimmlage', () => {
+    for (const voice of ['hoch', 'mittel', 'tief'] as const) {
+      const { low, high } = VOICE_RANGES[voice];
+      for (const question of withVoice(voice)) {
+        for (const key of [sing(question).reference, sing(question).target]) {
+          const value = midi(parsePitch(key));
+          expect(value, `${voice}: ${key}`).toBeGreaterThanOrEqual(low);
+          expect(value, `${voice}: ${key}`).toBeLessThanOrEqual(high);
+        }
+      }
+    }
+  });
+
+  it('zeigt den Ausgangston im Schlüssel der Stimmlage', () => {
+    expect(sing(withVoice('tief', {}, 1)[0]).score.clef).toBe('bass');
+    expect(sing(withVoice('hoch', {}, 1)[0]).score.clef).toBe('treble');
+    const shown = sing(withVoice('mittel', {}, 1)[0]);
+    expect(shown.score.measures[0].notes[0].keys).toEqual([shown.reference]);
+  });
+
+  it('verlangt das genannte Intervall in der genannten Richtung', () => {
+    for (const question of generate('intervalle-singen')) {
+      const task = sing(question);
+      const reference = parsePitch(task.reference);
+      const target = parsePitch(task.target);
+      const name = intervalFullName(intervalBetween(reference, target));
+      if (midi(target) === midi(reference)) expect(task.prompt).toBe(name);
+      else expect(task.prompt).toBe(`${name} ${midi(target) > midi(reference) ? 'aufwärts' : 'abwärts'}`);
+    }
+  });
+
+  it('fragt nur die angekreuzten Intervalle, und jedes davon', () => {
+    const asked = new Set(
+      generate('intervalle-singen', { intervals: ['k3', 'tritonus', 'r8'] }).map((question) => {
+        const task = sing(question);
+        return intervalAnswer(intervalLabel(intervalBetween(parsePitch(task.reference), parsePitch(task.target))));
+      }),
+    );
+    expect([...asked].sort()).toEqual(['k3', 'r8', 'tritonus']);
+  });
+
+  it('hält die Richtung ein', () => {
+    for (const question of generate('intervalle-singen', { directions: ['down'], intervals: ['g3', 'r5'] })) {
+      const task = sing(question);
+      expect(midi(parsePitch(task.target))).toBeLessThan(midi(parsePitch(task.reference)));
+      expect(task.prompt).toMatch(/abwärts$/);
+    }
+  });
+
+  it('übernimmt die Genauigkeit', () => {
+    for (const question of generate('intervalle-singen', { tolerance: '15' }, 10)) {
+      expect(sing(question).tolerance).toBe(15);
+    }
+  });
+
+  it('fragt mit demselben Startwert in jeder Stimmlage dasselbe Intervall', () => {
+    const [hoch, tief] = [withVoice('hoch', {}, 50), withVoice('tief', {}, 50)];
+    hoch.forEach((question, i) => expect(sing(tief[i]).prompt).toBe(sing(question).prompt));
+  });
+
+  it('wertet die ganze Aufgabe eine Oktave tiefer als richtig', () => {
+    // Ausgangston eine Oktave tiefer nachgesungen, dann der Zielton dort.
+    for (const question of generate('intervalle-singen', {}, 50)) {
+      const task = sing(question);
+      const notes = [midi(parsePitch(task.reference)) - 12, midi(parsePitch(task.target)) - 12];
+      expect(scoreTask(task, { notes }).earned, task.prompt).toBe(task.points);
+    }
+  });
+
+  it('wertet den Zielton allein in einer anderen Oktave als richtig, ausser bei der Oktave', () => {
+    // Bei der Oktave wäre der Zielton eine Oktave tiefer der gespielte Ton.
+    for (const question of generate('intervalle-singen', { intervals: ['k3', 'r5', 'g7'] }, 50)) {
+      const task = sing(question);
+      const lower = midi(parsePitch(task.target)) - 12;
+      expect(scoreTask(task, { notes: [lower] }).earned, task.prompt).toBe(task.points);
+    }
+  });
+
+  it('nimmt nach dem Ausgangston den ersten anderen Ton als Antwort', () => {
+    for (const question of generate('intervalle-singen', { intervals: ['g3'] }, 20)) {
+      const task = sing(question);
+      const target = midi(parsePitch(task.target));
+      // Ausgangston, dann daneben, dann richtig: zählt nicht mehr.
+      const result = scoreTask(task, { notes: [midi(parsePitch(task.reference)), target + 1, target] });
+      expect(result.earned).toBe(0);
+    }
+  });
+});
+
 describe('Takte gehen auf', () => {
   it.each(['4/4', '3/4', '2/4'])('füllt bei %s jeden Takt der Pausenaufgabe', (timeSignature) => {
     const questions = generate('pausen-ergaenzen', { timeSignature });
@@ -823,6 +936,10 @@ function allKeysOf(task: Task): string[] {
     }
   };
   if (task.kind === 'select') collect(task.score);
+  if (task.kind === 'sing') {
+    collect(task.score);
+    keys.push(task.reference, task.target);
+  }
   if (task.kind === 'notation') {
     collect(task.score);
     if (task.solution.type === 'melody') {

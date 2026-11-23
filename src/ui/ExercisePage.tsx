@@ -31,19 +31,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { deriveSeeds, makeRng, randomSeed } from '../generators/rng';
-import type { FilterValues, Generator, Question } from '../generators/types';
+import type { FilterValues, Generator, Personal, Question } from '../generators/types';
 import { canonicalFilters, decodeLink, encodeLink } from '../links';
 import type { TaskResult } from '../scoring';
 import { hrefFor, navigate, replaceQuery } from '../router';
 import {
   clearFilters,
   loadFilters,
+  loadPersonal,
   loadSession,
   recordResult,
   saveFilters,
+  savePersonal,
   saveSession,
   type SessionSettings,
 } from '../settings';
+import { closeMicrophone } from '../sing/microphone';
 import { AnswerStore } from '../state';
 import { CloseIcon, GearIcon, InfoIcon } from './icons';
 import { QuestionView } from './QuestionView';
@@ -101,6 +104,8 @@ export function ExercisePage({
 
   const [filters, setFilters] = useState<FilterValues>(start.filters);
   const [session, setSession] = useState<SessionSettings>(start.session);
+  /** Persönliches wie die Stimmlage: vom Gerät, nie aus dem Link. */
+  const [personal, setPersonal] = useState<Personal>(loadPersonal);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outdated, setOutdated] = useState(start.outdated);
   /**
@@ -127,6 +132,7 @@ export function ExercisePage({
       generator,
       start.filters,
       inRound ? deriveSeeds(start.seed, start.session.size)[0] : start.seed,
+      personal,
     ),
   );
   /** Bereits beantwortete Aufgaben der laufenden Runde. */
@@ -157,10 +163,19 @@ export function ExercisePage({
     replaceQuery(pageHref + (taskQuery ?? exerciseQuery));
   }, [pageHref, taskQuery, exerciseQuery]);
 
+  // Wer die Singübung verlässt, schaltet das Mikrofon aus — das Aufnahme-
+  // zeichen des Browsers soll nicht weiterleuchten.
+  useEffect(
+    () => () => {
+      if (generator.skill === 'singen') void closeMicrophone();
+    },
+    [],
+  );
+
   // ---------------------------------------------------------------- Ablauf
   /** Neue Runde bzw. neue endlose Folge mit diesen Einstellungen. */
   const restart = useCallback(
-    (values: FilterValues, next: SessionSettings) => {
+    (values: FilterValues, next: SessionSettings, own: Personal) => {
       setRound([]);
       setSummary(null);
       setRoundTarget(next.size);
@@ -170,11 +185,11 @@ export function ExercisePage({
         const seeds = deriveSeeds(seed, next.size);
         setRoundSeed(seed);
         setQueue(seeds.slice(1));
-        setCurrent(build(generator, values, seeds[0]));
+        setCurrent(build(generator, values, seeds[0], own));
       } else {
         setRoundSeed(null);
         setQueue([]);
-        setCurrent(build(generator, values, randomSeed()));
+        setCurrent(build(generator, values, randomSeed(), own));
       }
     },
     [generator],
@@ -182,7 +197,7 @@ export function ExercisePage({
 
   /** Neue Einstellungen aus dem Blatt (oder «auf Vorgabe»): speichern und neu beginnen. */
   const applySettings = useCallback(
-    (next: { filters: FilterValues; session: SessionSettings }) => {
+    (next: { filters: FilterValues; session: SessionSettings; personal?: Personal }) => {
       const canonical = canonicalFilters(generator, next.filters);
       setFilters(canonical);
       if (JSON.stringify(canonical) === JSON.stringify(canonicalFilters(generator, generator.defaults))) {
@@ -192,10 +207,15 @@ export function ExercisePage({
       }
       setSession(next.session);
       saveSession(generator.id, next.session);
+      const own = next.personal ?? personal;
+      if (next.personal) {
+        setPersonal(next.personal);
+        savePersonal(next.personal);
+      }
       setOutdated(false);
-      restart(canonical, next.session);
+      restart(canonical, next.session, own);
     },
-    [generator, restart],
+    [generator, restart, personal],
   );
 
   const repeatWrong = useCallback(
@@ -205,9 +225,9 @@ export function ExercisePage({
       setRoundTarget(seeds.length);
       setRoundSeed(null);
       setQueue(seeds.slice(1));
-      setCurrent(build(generator, filters, seeds[0]));
+      setCurrent(build(generator, filters, seeds[0], personal));
     },
-    [generator, filters],
+    [generator, filters, personal],
   );
 
   const check = useCallback(
@@ -230,11 +250,11 @@ export function ExercisePage({
     if (queue.length > 0) {
       const [seed, ...rest] = queue;
       setQueue(rest);
-      setCurrent(build(generator, filters, seed));
+      setCurrent(build(generator, filters, seed, personal));
       return;
     }
-    setCurrent(build(generator, filters, randomSeed()));
-  }, [queue, inRound, round, roundTarget, generator, filters]);
+    setCurrent(build(generator, filters, randomSeed(), personal));
+  }, [queue, inRound, round, roundTarget, generator, filters, personal]);
 
   // ---------------------------------------------------------------- Ansicht
   const topicHref = hrefFor({ page: 'thema', topic: generator.topic });
@@ -268,7 +288,7 @@ export function ExercisePage({
         <div class="session-column">
           <RoundSummary
             entries={summary}
-            onRepeat={() => restart(filters, session)}
+            onRepeat={() => restart(filters, session, personal)}
             onRepeatWrong={repeatWrong}
             onBack={() => navigate(topicHref)}
           />
@@ -357,6 +377,7 @@ export function ExercisePage({
           generator={generator}
           filters={filters}
           session={session}
+          personal={personal}
           taskHref={taskQuery !== null ? pageHref + taskQuery : null}
           onClose={(changes) => {
             setSettingsOpen(false);
@@ -373,12 +394,17 @@ export function ExercisePage({
  * zulassen —, wird die Meldung angezeigt statt der Aufgabe. Die Generatoren
  * werfen absichtlich mit einem Satz, der sagt, welcher Filter zu eng ist.
  */
-function build(generator: Generator<FilterValues>, filters: FilterValues, seed: number): Current {
+function build(
+  generator: Generator<FilterValues>,
+  filters: FilterValues,
+  seed: number,
+  personal: Personal,
+): Current {
   const store = new AnswerStore();
   try {
     return {
       seed,
-      question: generator.generate(filters, makeRng(seed)),
+      question: generator.generate(filters, makeRng(seed), personal),
       error: null,
       store,
       result: null,
