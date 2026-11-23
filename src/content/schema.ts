@@ -102,6 +102,12 @@ export interface SelectField {
   points: number;
   /** Als Knopfraster statt als Auswahlliste darstellen (kurze Antworten). */
   buttons?: boolean;
+  /**
+   * Besondere Anordnung des Knopfrasters. «intervals»: nach Intervallgrösse
+   * gruppiert — hochkant zeilenweise (Sekunden, Terzen, …), quer in zwei
+   * Reihen wie eine Klaviatur (kleine zwischen den grossen).
+   */
+  buttonLayout?: 'intervals';
 }
 
 // ---------------------------------------------------------------------------

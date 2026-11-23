@@ -132,7 +132,7 @@ export const gehoerIntervalle: Generator<Filters> = {
 
     const id = taskId('gi', rng);
     return {
-      task: heardInterval(id, pair.label),
+      task: heardInterval(id, pair.label, intervals),
       audio: {
         id,
         kind: 'interval',

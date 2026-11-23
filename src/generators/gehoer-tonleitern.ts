@@ -11,7 +11,13 @@ import { SCALE_PATTERNS, type ScaleType } from '../content/audio';
 import { OPTION_SETS } from '../content/options';
 import { midi, parseIntervalLabel, parsePitch, transposeByInterval } from '../music/theory';
 import type { Rng } from './rng';
-import { candidatePitches, insist, pitchKey, taskId } from './shared';
+import {
+  candidatePitches,
+  insist,
+  optionsFrom,
+  pitchKey,
+  taskId,
+} from './shared';
 import { multi, single, toggle, type FilterValues, type Generator, type Question } from './types';
 
 const LIMITED_PLAYS = 3;
@@ -120,7 +126,9 @@ export const gehoerTonleitern: Generator<Filters> = {
       task: {
         id,
         kind: 'select',
-        fields: [{ id: 'a', optionSet: 'scaleType', correct: scale, points: 1, buttons: true }],
+        fields: [
+          { id: 'a', options: optionsFrom('scaleType', scaleTypes), correct: scale, points: 1, buttons: true },
+        ],
       },
       audio: { id, kind: 'scale', tonic, scale, direction },
       instruction:

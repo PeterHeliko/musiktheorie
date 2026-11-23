@@ -154,6 +154,7 @@ export function QuestionView({
                 tempo={tempo}
                 maxPlays={question.maxPlays}
                 allowSlow={question.allowSlow}
+                autoplay
               />
             )}
 

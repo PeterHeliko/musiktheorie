@@ -157,6 +157,50 @@ export class SamplePlayer {
   }
 
   /**
+   * Aus einer Nutzeraktion heraus aufrufen (Klick, Tastendruck): danach darf
+   * die Seite Klang abspielen, ohne dass erneut geklickt wird — etwa beim
+   * automatischen Abspielen der nächsten Aufgabe.
+   *
+   * Chrome und Firefox merken sich jede Nutzeraktion auf der Seite. iOS nicht:
+   * dort muss der Audiokontext IN der Aktion gestartet werden, und erst ein
+   * tatsächlich gespielter (hier stiller) Ton gibt ihn dauerhaft frei.
+   */
+  unlock(): void {
+    try {
+      const context = this.ctx();
+      if (context.state !== 'running') void context.resume();
+      const silence = context.createBufferSource();
+      silence.buffer = context.createBuffer(1, 1, 22050);
+      silence.connect(context.destination);
+      silence.start(0);
+    } catch {
+      // Kein Audio im Browser: dann gibt es auch nichts freizuschalten.
+    }
+  }
+
+  /**
+   * Darf jetzt ohne Klick abgespielt werden? Versucht den Kontext zu starten
+   * und wartet dafür kurz. Ohne vorherige Nutzeraktion bleibt er angehalten —
+   * dann wird eben nicht automatisch abgespielt, und der Knopf tut es.
+   */
+  async canPlayWithoutGesture(timeoutMs = 250): Promise<boolean> {
+    let context: AudioContext;
+    try {
+      context = this.ctx();
+    } catch {
+      return false;
+    }
+    if (context.state === 'running') return true;
+    const resumed = context.resume().then(
+      () => true,
+      () => false,
+    );
+    const timeout = new Promise<boolean>((done) => setTimeout(() => done(false), timeoutMs));
+    // `state` hat sich durch resume() womöglich geändert — TypeScript weiss das nicht.
+    return (await Promise.race([resumed, timeout])) && (context.state as AudioContextState) === 'running';
+  }
+
+  /**
    * Spielt die Ereignisfolge ab und löst auf, wenn der letzte Ton verklungen
    * ist. Ein laufendes Beispiel wird vorher abgebrochen.
    */

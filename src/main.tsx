@@ -9,11 +9,13 @@ import { render } from 'preact';
 import './styles.css';
 import { App } from './ui/App';
 import { interceptLinks } from './router';
+import { installAudioUnlock } from './audio/unlock';
 
 const root = document.getElementById('app');
 if (!root) throw new Error('Kein Element mit der Kennung «app» gefunden.');
 
 interceptLinks();
+installAudioUnlock();
 render(<App />, root);
 
 // Klaviersamples werden nicht hier vorgeladen, sondern von jeder Aufgabe mit

@@ -207,6 +207,15 @@ export const HIGHLIGHT_COLOUR = '#1d6fa5';
 export const INPUT_COLOUR = '#111827';
 /** Farbe für Platzhalter, die noch auszufüllen sind. */
 export const MUTED_COLOUR = '#b0b7c3';
+/**
+ * Anzeigegrösse gegenüber der Zeichengrösse. VexFlow zeichnet ein System mit
+ * 10 px Linienabstand — gut für ein Prüfungsblatt, zu klein zum Üben auf dem
+ * Telefon. Das SVG wird deshalb vergrössert angezeigt (höchstens so breit wie
+ * der Platz). Koordinaten rechnet `toScoreCoordinates` über das viewBox um,
+ * die Noteneingabe bleibt also genau.
+ */
+export const SCORE_SCALE = 1.5;
+
 /** Vorschau unter dem Mauszeiger: erkennbar, aber klar als «noch nicht gesetzt». */
 const PREVIEW_STYLE = { fillStyle: '#5aa9dd', strokeStyle: '#5aa9dd' };
 
@@ -382,7 +391,7 @@ export function renderScore(container: HTMLDivElement, spec: ScoreSpec): Rendere
   svg.removeAttribute('width');
   svg.removeAttribute('height');
   svg.style.width = '100%';
-  svg.style.maxWidth = `${width}px`;
+  svg.style.maxWidth = `${Math.round(width * SCORE_SCALE)}px`;
   svg.style.height = 'auto';
 
   return { svg, width, height: layout.height, staves, bassStaves, notes };

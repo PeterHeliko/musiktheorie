@@ -1057,3 +1057,32 @@
     min-width: 0;
   }
 }
+
+/* ------------------------------------------------------- Intervall-Raster */
+
+/* Anordnung siehe SelectTaskView.tsx (PORTRAIT, LANDSCAPE). */
+.interval-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-areas: var(--portrait);
+}
+
+@media (orientation: landscape) {
+  .interval-grid {
+    gap: 8px 6px;
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+    grid-template-areas: var(--landscape);
+  }
+}
+
+.interval-grid .choice {
+  min-width: 0;
+  padding: 6px 4px;
+  line-height: 1.2;
+  white-space: normal;
+  /* Quer sind die Felder schmal: «Sekunde» darf getrennt werden, aber nicht
+     mitten in einer Silbe (lang="de-CH" am <html>). */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}

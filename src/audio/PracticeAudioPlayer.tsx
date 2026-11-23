@@ -8,9 +8,13 @@
  *    «Wiedergaben begrenzen» ein.
  *  - Ein «langsamer»-Knopf für das Diktat: dieselbe Melodie, gemächlicher.
  *    Beim Mitschreiben ist das die häufigste Hilfe, die man sich wünscht.
+ *  - Mit `autoplay` erklingt jede neue Aufgabe von selbst, sofern der Browser
+ *    es erlaubt (nach einer Nutzeraktion auf der Seite, siehe player.unlock).
+ *    Sonst bleibt es beim Knopf. Bei begrenzten Wiedergaben zählt das
+ *    automatische Abspielen als erste.
  */
 
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { AudioEvent } from '../content/audio';
 import { player, samplesFor } from './player';
 
@@ -22,12 +26,15 @@ export function PracticeAudioPlayer({
   tempo,
   maxPlays,
   allowSlow = false,
+  autoplay = false,
 }: {
   events: AudioEvent[];
   tempo: number;
   /** Weglassen = unbegrenzt. */
   maxPlays?: number;
   allowSlow?: boolean;
+  /** Neue Aufgabe gleich abspielen, wenn der Browser es zulässt. */
+  autoplay?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   const [used, setUsed] = useState(0);
@@ -44,7 +51,17 @@ export function PracticeAudioPlayer({
     setUsed(0);
     setFailed(false);
     player.preload(samplesFor(events));
-    return () => player.stop();
+
+    let cancelled = false;
+    if (autoplay) {
+      void player.canPlayWithoutGesture().then((allowed) => {
+        if (allowed && !cancelled) void startRef.current(1);
+      });
+    }
+    return () => {
+      cancelled = true;
+      player.stop();
+    };
   }, [events]);
 
   const start = useCallback(
@@ -65,6 +82,9 @@ export function PracticeAudioPlayer({
     },
     [events, tempo, exhausted, playing],
   );
+  // Für das automatische Abspielen: immer die aktuelle Fassung von `start`.
+  const startRef = useRef(start);
+  startRef.current = start;
 
   return (
     <div class="audio-player">

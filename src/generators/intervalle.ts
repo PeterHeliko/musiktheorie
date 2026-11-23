@@ -98,6 +98,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
         [pitchKey(pair.low), pitchKey(pair.high)],
         pair.label,
         clef,
+        intervals,
       ),
     };
   },

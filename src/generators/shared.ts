@@ -9,7 +9,7 @@
  *    Vorzeichen). Das ist der Teil, den jeder Generator sonst neu erfände.
  */
 
-import { intervalAnswer } from '../content/options';
+import { OPTION_SETS, intervalAnswer } from '../content/options';
 import type {
   MeasureSpec,
   NotationTask,
@@ -197,31 +197,60 @@ export function measure(notes: MeasureSpec['notes']): MeasureSpec {
   return { notes };
 }
 
-/** Hörbeispiel mit ausgeschriebenem Intervall-Knopfraster. */
-export function heardInterval(id: string, label: string): SelectTask {
+/**
+ * Antwortoptionen einer Liste, eingeschränkt auf das, was die Einstellungen
+ * zulassen. Wer nur Terzen übt, soll nicht zwischen dreizehn Intervallen
+ * suchen müssen — und eine Antwort, die nie richtig sein kann, ist kein
+ * Wissen, das geprüft wird. Reihenfolge wie in der Liste.
+ */
+export function optionsFrom(set: string, allowed: readonly string[]): SelectOption[] {
+  const options = OPTION_SETS[set];
+  if (!options) throw new Error(`Unbekannte Optionsliste: «${set}»`);
+  return options.filter((option) => allowed.includes(option.value));
+}
+
+/** Hörbeispiel mit Intervall-Knopfraster; `allowed` = die eingestellten Intervalle. */
+export function heardInterval(id: string, label: string, allowed: readonly string[]): SelectTask {
   return {
     id,
     kind: 'select',
     fields: [
-      { id: 'a', optionSet: 'interval', correct: intervalAnswer(label), points: 2, buttons: true },
+      {
+        id: 'a',
+        options: optionsFrom('interval', allowed),
+        correct: intervalAnswer(label),
+        points: 2,
+        buttons: true,
+        buttonLayout: 'intervals',
+      },
     ],
   };
 }
 
-/** Zwei Töne als Ganze auf einem System, dazu das Intervall-Knopfraster. */
+/**
+ * Zwei Töne als Ganze auf einem System, darunter das Intervall-Knopfraster.
+ * Untereinander statt nebeneinander: das Raster braucht quer die ganze Breite.
+ */
 export function intervalNaming(
   id: string,
   keys: [string, string],
   label: string,
   clef: 'treble' | 'bass',
+  allowed: readonly string[],
 ): SelectTask {
   return {
     id,
     kind: 'select',
-    layout: 'side',
     score: { clef, width: 150, measures: [{ notes: [{ keys, duration: 'w' }] }] },
     fields: [
-      { id: 'a', optionSet: 'interval', correct: intervalAnswer(label), points: 2, buttons: true },
+      {
+        id: 'a',
+        options: optionsFrom('interval', allowed),
+        correct: intervalAnswer(label),
+        points: 2,
+        buttons: true,
+        buttonLayout: 'intervals',
+      },
     ],
   };
 }

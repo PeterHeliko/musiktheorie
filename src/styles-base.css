@@ -284,7 +284,8 @@ h3 {
 .legend-item {
   margin: 0;
   text-align: center;
-  width: 92px;
+  /* Zeichenbreite 80 × SCORE_SCALE (render.ts) plus etwas Luft. */
+  width: 132px;
 }
 .legend-item figcaption {
   font-weight: 700;
@@ -589,6 +590,12 @@ button:focus-visible {
   padding: 4px;
   cursor: crosshair;
   background: var(--surface);
+  /* Gezogen wird die Tonhöhe, nicht die Seite; gesetzt wird beim Loslassen
+     (usePointerPlacement in NotationInput.tsx). */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 /* Im Bearbeiten-Modus wird ausgewählt, nicht gesetzt. */
 .score-click-area.is-editing {

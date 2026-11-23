@@ -17,6 +17,7 @@ import {
   glyph,
   insist,
   measure,
+  optionsFrom,
   parseDurationValue,
   taskId,
 } from './shared';
@@ -97,7 +98,7 @@ export const rhythmusNotenwerte: Generator<ValueFilters> = {
           fields: [
             {
               id: 'a',
-              optionSet: 'noteValue',
+              options: optionsFrom('noteValue', durations),
               correct: wanted,
               points: 1,
               buttons: true,

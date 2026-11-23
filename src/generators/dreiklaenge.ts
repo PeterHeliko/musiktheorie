@@ -37,11 +37,15 @@ import {
   degreeTask,
   insist,
   noteName,
+  optionsFrom,
   pitchKey,
   taskId,
   triadNaming,
 } from './shared';
 import { multi, single, type FilterValues, type Generator, type Question } from './types';
+
+/** Die sieben Stammtöne, so wie sie in der Grundton-Auswahl heissen. */
+const NATURAL_NOTE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'H'];
 
 // ---------------------------------------------------------------------------
 // Dreiklänge bestimmen
@@ -189,10 +193,19 @@ export const dreiklaengeBestimmen: Generator<NamingFilters> = {
           };
 
     const available: Record<string, SelectField> = {
-      root: { id: 'root', label: 'Grundton', optionSet: 'rootNote', correct: noteName(root), points: 1 },
-      quality: { id: 'quality', label: 'Geschlecht', optionSet: 'triadQuality', correct: quality, points: 1 },
-      inv: { id: 'inv', label: 'Umkehrung', optionSet: 'inversion', correct: inversion, points: 1 },
-      pos: { id: 'pos', label: 'Lage', optionSet: 'position', correct: position, points: 1 },
+      root: {
+        id: 'root',
+        label: 'Grundton',
+        // «nur Stammtöne»: auch nur Stammtöne zur Auswahl.
+        options: OPTION_SETS.rootNote.filter(
+          (option) => policy !== 'stammton' || NATURAL_NOTE_NAMES.includes(option.value),
+        ),
+        correct: noteName(root),
+        points: 1,
+      },
+      quality: { id: 'quality', label: 'Geschlecht', options: optionsFrom('triadQuality', qualities), correct: quality, points: 1 },
+      inv: { id: 'inv', label: 'Umkehrung', options: optionsFrom('inversion', inversions), correct: inversion, points: 1 },
+      pos: { id: 'pos', label: 'Lage', options: optionsFrom('position', positions), correct: position, points: 1 },
     };
     const fields = ASK_OPTIONS.filter((option) => ask.includes(option.value)).map(
       (option) => available[option.value],

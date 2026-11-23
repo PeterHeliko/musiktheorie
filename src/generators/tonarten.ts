@@ -28,6 +28,7 @@ import {
   keyMatching,
   keySignatureTask,
   measure,
+  optionsFrom,
   pitchKey,
   taskId,
 } from './shared';
@@ -176,13 +177,20 @@ export const tonartenZuordnen: Generator<MatchFilters> = {
 
     const fields: SelectField[] = [];
     if (ask.includes('dur')) {
-      fields.push({ id: 'dur', label: 'Durtonart', optionSet: 'majorKey', correct: key.major, points: 1 });
+      fields.push({
+        id: 'dur',
+        label: 'Durtonart',
+        // Nur Tonarten innerhalb der eingestellten Vorzeichen stehen zur Wahl.
+        options: optionsFrom('majorKey', pool.map((entry) => entry.major)),
+        correct: key.major,
+        points: 1,
+      });
     }
     if (ask.includes('moll')) {
       fields.push({
         id: 'moll',
         label: 'parallele Molltonart',
-        optionSet: 'minorKey',
+        options: optionsFrom('minorKey', pool.map((entry) => entry.minor)),
         correct: key.minor,
         points: 1,
       });

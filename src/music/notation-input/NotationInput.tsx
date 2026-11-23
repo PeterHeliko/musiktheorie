@@ -22,6 +22,7 @@ import type { MeasureSpec, NotationTask, NoteSpec, ScoreSpec } from '../../conte
 import { useExam } from '../../state';
 import { Score } from '../../ui/Score';
 import {
+  SCORE_SCALE,
   diatonicForY,
   diatonicToStep,
   noteHeadCentre,
@@ -102,26 +103,49 @@ function useRenderedRef() {
 }
 
 /**
- * Misst die verfügbare Breite. Ohne das bliebe rechts neben dem Notenbild
+ * Misst die verfügbare Breite und gibt die Breite zurück, mit der das
+ * Notenbild gezeichnet werden muss, um sie zu füllen. Ohne das bliebe rechts
  * ungenutzter Platz stehen, und auf schmalen Geräten würde es zu breit.
+ *
+ * Geteilt durch SCORE_SCALE: das Bild wird vergrössert angezeigt. Wer es mit
+ * der vollen Breite zeichnete, bekäme breitere Takte, aber keine grösseren
+ * Noten.
+ *
+ * `minDraw`: so breit muss mindestens gezeichnet werden, damit die Takte nicht
+ * zu eng werden. Auf schmalen Bildschirmen fällt die Vergrösserung dann
+ * entsprechend kleiner aus — höchstens bis zur ursprünglichen Grösse, nie
+ * darunter.
  */
-function useMeasuredWidth(fallback: number): [Ref<HTMLDivElement>, number] {
+function drawWidthFor(available: number, minDraw: number): number {
+  return Math.max(Math.floor(available / SCORE_SCALE), Math.min(available, minDraw));
+}
+
+function useMeasuredWidth(fallback: number, minDraw = 0): [Ref<HTMLDivElement>, number] {
   const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(fallback);
+  const [width, setWidth] = useState(drawWidthFor(fallback, minDraw));
 
   useEffect(() => {
     const element = ref.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      const measured = Math.round(element.clientWidth);
+      const measured = drawWidthFor(Math.round(element.clientWidth), minDraw);
       // Kleine Schwankungen ignorieren, sonst zeichnet VexFlow dauernd neu.
       if (measured > 0) setWidth((previous) => (Math.abs(previous - measured) < 3 ? previous : measured));
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [minDraw]);
 
   return [ref, width];
+}
+
+/**
+ * Mindestbreite in Zeicheneinheiten für ein System mit so vielen Takten:
+ * Schlüssel, Vorzeichen und Taktart vorweg, dann rund 90 je Takt — genug für
+ * vier Viertel oder acht Achtel samt Vorzeichen.
+ */
+function minDrawWidth(measures: number): number {
+  return 90 + measures * 90;
 }
 
 /** Wo im Notenbild liegt dieser Zeigerpunkt? */
@@ -173,6 +197,69 @@ function useHover(live: () => RenderedScore | null, enabled: boolean) {
 
   const onLeave = useCallback(() => setHover(null), []);
   return { hover, onMove, onLeave, clearHover: onLeave };
+}
+
+/**
+ * Zeigen, ziehen, loslassen.
+ *
+ * Gesetzt wird beim LOSLASSEN, nicht beim Drücken. Bis dahin zeigt die blaue
+ * Vorschau, wo die Note landen würde, und folgt dem Finger bzw. der Maus. So
+ * lässt sich die Tonhöhe auf dem Telefon in Ruhe suchen — der Finger verdeckt
+ * die Stelle, an der er aufsetzt, und ein Tippen träfe selten die richtige
+ * Linie.
+ *
+ * - Mit der Maus erscheint die Vorschau schon beim Darüberfahren.
+ * - Loslassen ausserhalb des Notenbilds bricht ab, ebenso ein vom System
+ *   abgebrochener Zeiger (z.B. ein eingehender Anruf).
+ * - Der Zeiger wird am Rahmen festgehalten (Pointer Capture). Der Rahmen bleibt
+ *   beim Neuzeichnen bestehen, das SVG darin nicht — ohne Capture ginge das
+ *   Loslassen ins Leere, sobald die Vorschau das SVG ersetzt hat.
+ * - Im Rahmen scrollt der Finger nicht die Seite (CSS touch-action: none),
+ *   sonst würde senkrechtes Ziehen die Seite verschieben statt die Tonhöhe.
+ */
+function usePointerPlacement(
+  hover: { onMove: (event: MouseEvent) => void; onLeave: () => void },
+  enabled: boolean,
+  commit: (event: PointerEvent) => void,
+) {
+  const active = useRef<number | null>(null);
+  // Immer die aktuelle Fassung: `commit` ist bei jedem Rendern eine neue Funktion.
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
+
+  const finish = (event: PointerEvent, apply: boolean) => {
+    if (active.current !== event.pointerId) return;
+    active.current = null;
+    const area = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const inside =
+      event.clientX >= area.left &&
+      event.clientX <= area.right &&
+      event.clientY >= area.top &&
+      event.clientY <= area.bottom;
+    if (apply && inside) commitRef.current(event);
+    // Ohne Maus gibt es kein «Darüberfahren»: nach dem Loslassen verschwindet
+    // die Vorschau.
+    if (event.pointerType !== 'mouse' || !inside) hover.onLeave();
+  };
+
+  return {
+    onPointerDown: (event: PointerEvent) => {
+      if (!enabled || event.button !== 0) return;
+      active.current = event.pointerId;
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+      // Kein Markieren von Text, kein Fokuswechsel beim Ziehen.
+      event.preventDefault();
+      hover.onMove(event);
+    },
+    onPointerMove: (event: PointerEvent) => {
+      if (active.current === event.pointerId || event.pointerType === 'mouse') hover.onMove(event);
+    },
+    onPointerUp: (event: PointerEvent) => finish(event, true),
+    onPointerCancel: (event: PointerEvent) => finish(event, false),
+    onPointerLeave: (event: PointerEvent) => {
+      if (active.current === null && event.pointerType === 'mouse') hover.onLeave();
+    },
+  };
 }
 
 function noteFrom(diatonic: number, alter: number, choice: DurationChoice, rest = false): InputNote {
@@ -248,6 +335,7 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   const [alter, setAlter] = useState(0);
   const { rendered, onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
 
   if (solution.type !== 'pitch') return null;
   const slots = solution.slots;
@@ -302,9 +390,8 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   }, [task.score, JSON.stringify(placed), JSON.stringify(slots), hover?.diatonic, hover?.x, alter]);
 
   function handleClick(event: PointerEvent) {
-    // pointerdown statt click: die Vorschau zeichnet das SVG neu, sobald sich
-    // der Zeiger bewegt. Läge dazwischen ein mousedown, verlöre der Browser
-    // das Ziel und das click-Ereignis bliebe aus.
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
+    // die Vorschau zuletzt stand.
     if (event.button !== 0) return;
     if (readOnly) return;
     const hit = locate(live(), event);
@@ -349,7 +436,7 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         </ToolbarActions>
       </div>
 
-      <div class="score-click-area" onPointerDown={handleClick} onMouseMove={onMove} onMouseLeave={onLeave}>
+      <div class="score-click-area" {...pointer}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
@@ -359,9 +446,9 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
             Gesetzt: <b>{summary.join(', ')}</b>
           </>
         ) : isChord ? (
-          'Klicke zwei Töne über den vorgegebenen Grundton.'
+          'Setze zwei Töne über den vorgegebenen Grundton. Gesetzt wird beim Loslassen.'
         ) : (
-          'Klicke auf die gewünschte Tonhöhe.'
+          'Auf die gewünschte Tonhöhe tippen oder dorthin ziehen. Gesetzt wird beim Loslassen.'
         )}
       </p>
     </>
@@ -387,7 +474,8 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
   const [selection, setSelection] = useState<Selection[]>([]);
   const { rendered, onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave, clearHover } = useHover(live, !readOnly && editMode === 'eingabe');
-  const [wrapper, width] = useMeasuredWidth(720);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
+  const [wrapper, width] = useMeasuredWidth(720, minDrawWidth(task.score.measures.length));
 
   if (solution.type !== 'melody') return null;
 
@@ -442,9 +530,8 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
   ]);
 
   function handleClick(event: PointerEvent) {
-    // pointerdown statt click: die Vorschau zeichnet das SVG neu, sobald sich
-    // der Zeiger bewegt. Läge dazwischen ein mousedown, verlöre der Browser
-    // das Ziel und das click-Ereignis bliebe aus.
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
+    // die Vorschau zuletzt stand.
     if (event.button !== 0) return;
     if (readOnly) return;
     const hit = locate(live(), event);
@@ -632,9 +719,7 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
         ref={wrapper}
         class={`score-click-area ${editMode === 'bearbeiten' ? 'is-editing' : ''}`}
         tabIndex={0}
-        onPointerDown={handleClick}
-        onMouseMove={onMove}
-        onMouseLeave={onLeave}
+        {...pointer}
         onKeyDown={handleKeyDown}
         role="application"
         aria-label="Noteneingabe für das Diktat"
@@ -644,7 +729,7 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
 
       <p class="input-hint">
         {editMode === 'eingabe'
-          ? 'Notenwert wählen, dann auf die gewünschte Tonhöhe klicken.'
+          ? 'Notenwert wählen, dann auf die gewünschte Tonhöhe tippen oder dorthin ziehen. Gesetzt wird beim Loslassen.'
           : 'Noten anklicken, um sie auszuwählen. Ausgewählte Noten lassen sich verschieben oder löschen.'}
       </p>
     </>
@@ -661,7 +746,8 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
   const [choice, setChoice] = useState<DurationChoice>({ duration: 'q', dotted: false });
   const { onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
-  const [wrapper, width] = useMeasuredWidth(760);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
+  const [wrapper, width] = useMeasuredWidth(760, minDrawWidth(task.score.measures.length));
 
   if (solution.type !== 'slot') return null;
   const asRest = task.mode === 'rest';
@@ -701,9 +787,8 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
   }, [task.score, JSON.stringify(placed), asRest, hover?.measure, JSON.stringify(choice), width]);
 
   function handleClick(event: PointerEvent) {
-    // pointerdown statt click: die Vorschau zeichnet das SVG neu, sobald sich
-    // der Zeiger bewegt. Läge dazwischen ein mousedown, verlöre der Browser
-    // das Ziel und das click-Ereignis bliebe aus.
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
+    // die Vorschau zuletzt stand.
     if (event.button !== 0) return;
     if (readOnly) return;
     const hit = locate(live(), event);
@@ -737,9 +822,7 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
       <div
         ref={wrapper}
         class="score-click-area"
-        onPointerDown={handleClick}
-        onMouseMove={onMove}
-        onMouseLeave={onLeave}
+        {...pointer}
       >
         <Score spec={spec} onRendered={onRendered} />
       </div>
@@ -761,6 +844,7 @@ function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
   const value = (answer.n as KeysigAnswer | undefined) ?? { sign: 1, placed: [] };
   const { onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
 
   if (solution.type !== 'keysig') return null;
 
@@ -779,9 +863,8 @@ function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
   }, [task.score, JSON.stringify(value), hover?.diatonic]);
 
   function handleClick(event: PointerEvent) {
-    // pointerdown statt click: die Vorschau zeichnet das SVG neu, sobald sich
-    // der Zeiger bewegt. Läge dazwischen ein mousedown, verlöre der Browser
-    // das Ziel und das click-Ereignis bliebe aus.
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
+    // die Vorschau zuletzt stand.
     if (event.button !== 0) return;
     if (readOnly) return;
     const hit = locate(live(), event);
@@ -846,13 +929,13 @@ function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
         </ToolbarActions>
       </div>
 
-      <div class="score-click-area" onPointerDown={handleClick} onMouseMove={onMove} onMouseLeave={onLeave}>
+      <div class="score-click-area" {...pointer}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
       {value.placed.length === 0 && (
         <p class="input-summary">
-          Wähle ♯ oder ♭ und klicke die Vorzeichen der Reihe nach auf die richtigen Linien.
+          Wähle ♯ oder ♭ und setze die Vorzeichen der Reihe nach auf die richtigen Linien.
         </p>
       )}
     </>

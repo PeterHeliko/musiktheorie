@@ -16,7 +16,13 @@ import {
   type TriadQuality,
 } from '../music/theory';
 import type { Rng } from './rng';
-import { candidatePitches, insist, pitchKey, taskId } from './shared';
+import {
+  candidatePitches,
+  insist,
+  optionsFrom,
+  pitchKey,
+  taskId,
+} from './shared';
 import { multi, single, toggle, type FilterValues, type Generator, type Question } from './types';
 
 const LIMITED_PLAYS = 3;
@@ -159,7 +165,7 @@ export const gehoerDreiklaenge: Generator<Filters> = {
           {
             id: 'a',
             label: askInversion ? 'Geschlecht' : undefined,
-            optionSet: 'triadQuality',
+            options: optionsFrom('triadQuality', qualities),
             correct: quality,
             points: 1,
             buttons: true,
@@ -169,7 +175,7 @@ export const gehoerDreiklaenge: Generator<Filters> = {
                 {
                   id: 'inv',
                   label: 'Umkehrung',
-                  optionSet: 'inversion',
+                  options: optionsFrom('inversion', inversions),
                   correct: inversion,
                   points: 1,
                   buttons: true,

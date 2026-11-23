@@ -374,6 +374,124 @@ async function main() {
     check(await page.locator('.verdict').isVisible(), 'Noteneingabe wird bewertet');
     await page.screenshot({ path: join(SHOTS, 'noteneingabe.png'), fullPage: true });
 
+    // ------------------------------------------------- Ziehen und loslassen
+    console.log('\nNoteneingabe: ziehen, gesetzt wird beim Loslassen');
+    await page.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.notation-input svg');
+    const area = await page.locator('.score-click-area').boundingBox();
+    const prüfen = page.locator('button:has-text("Prüfen")');
+    await page.mouse.move(area.x + area.width * 0.72, area.y + area.height * 0.3);
+    await page.mouse.down();
+    await page.mouse.move(area.x + area.width * 0.72, area.y + area.height * 0.6, { steps: 6 });
+    check(await prüfen.isDisabled(), 'beim Drücken und Ziehen ist noch nichts gesetzt');
+    check(
+      (await page.locator('.score-click-area svg [fill="#5aa9dd"], .score-click-area svg [stroke="#5aa9dd"]').count()) > 0,
+      'die Vorschau folgt dem Zeiger',
+    );
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    check(!(await prüfen.isDisabled()), 'beim Loslassen wird die Note gesetzt');
+    const placedText = await page.locator('.input-summary').innerText();
+    check(/Gesetzt:/.test(placedText), `und genannt («${placedText}»)`);
+
+    await page.locator('.toolbar button:has-text("Zurücksetzen")').click();
+    await page.mouse.move(area.x + area.width * 0.5, area.y + area.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(area.x + area.width * 0.5, area.y + area.height + 80, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    // «Zurücksetzen» zählt selbst als Eingabe (Prüfen wird frei) — ob eine Note
+    // steht, sagt die Zeile unter dem Notenbild.
+    const afterCancel = await page.locator('.input-summary').innerText();
+    check(!/Gesetzt:/.test(afterCancel), `Loslassen ausserhalb des Notenbilds bricht ab («${afterCancel}»)`);
+
+    // ------------------------------------------------- grösseres Notenbild
+    console.log('\nNotenbild');
+    await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.question .task-visual svg');
+    const scoreBox = await page.locator('.question .task-visual svg').boundingBox();
+    check(scoreBox.width >= 220, `das Notenbild wird vergrössert angezeigt (${Math.round(scoreBox.width)} px breit)`);
+
+    // ------------------------------------------------- Antwortoptionen
+    console.log('\nAntwortoptionen folgen den Einstellungen');
+    await page.goto(exercise('intervalle-hoeren', '?intervalle=k3,g3'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.question .choice');
+    const shownChoices = await page.locator('.question .choice').allInnerTexts();
+    check(
+      shownChoices.join('|') === 'kleine Terz|grosse Terz',
+      `nur die eingestellten Intervalle stehen zur Wahl (${shownChoices.join(', ')})`,
+    );
+
+    // Intervalle quer: zwei Reihen wie eine Klaviatur.
+    await page.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.interval-grid');
+    const centre = async (p, label) => {
+      const box = await p.locator('.interval-grid .choice', { hasText: new RegExp(`^${label}$`) }).boundingBox();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+    const prime = await centre(page, 'reine Prime');
+    const k2 = await centre(page, 'kleine Sekunde');
+    const g2 = await centre(page, 'grosse Sekunde');
+    const tritone = await centre(page, 'Tritonus');
+    const fourth = await centre(page, 'reine Quarte');
+    const fifth = await centre(page, 'reine Quinte');
+    const octave = await centre(page, 'reine Oktave');
+    check(
+      Math.abs(prime.y - octave.y) < 2 && Math.abs(prime.y - g2.y) < 2 && k2.y < prime.y - 10,
+      'quer: grosse und reine unten, kleine oben',
+    );
+    check(
+      k2.x > prime.x && k2.x < g2.x && tritone.x > fourth.x && tritone.x < fifth.x,
+      'quer: kleine Sekunde zwischen Prime und grosser Sekunde, Tritonus zwischen Quarte und Quinte',
+    );
+    await page.screenshot({ path: join(SHOTS, 'intervalle-quer.png'), fullPage: true });
+
+    const portrait = await browser.newContext({ ...devices['iPhone 13'] });
+    const portraitPage = await portrait.newPage();
+    await portraitPage.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
+    await portraitPage.waitForSelector('.interval-grid');
+    const pk2 = await centre(portraitPage, 'kleine Sekunde');
+    const pg2 = await centre(portraitPage, 'grosse Sekunde');
+    const pk3 = await centre(portraitPage, 'kleine Terz');
+    const p4 = await centre(portraitPage, 'reine Quarte');
+    const ptt = await centre(portraitPage, 'Tritonus');
+    const p5 = await centre(portraitPage, 'reine Quinte');
+    const p1 = await centre(portraitPage, 'reine Prime');
+    const p8 = await centre(portraitPage, 'reine Oktave');
+    check(
+      Math.abs(pk2.y - pg2.y) < 2 && pk3.y > pk2.y && Math.abs(p4.y - ptt.y) < 2 && Math.abs(ptt.y - p5.y) < 2,
+      'hochkant: Sekunden, Terzen, Quarte/Tritonus/Quinte je in einer Zeile',
+    );
+    check(Math.abs(p1.y - p8.y) < 2 && p1.y > p5.y, 'hochkant: Prime und Oktave zuletzt');
+    await portraitPage.screenshot({ path: join(SHOTS, 'telefon-intervalle-hochkant.png') });
+    await portrait.close();
+
+    // ------------------------------------------------- automatisch abspielen
+    console.log('\nHörbeispiel spielt von selbst');
+    const autoContext = await browser.newContext();
+    const autoPage = await autoContext.newPage();
+    await autoPage.goto(`${BASE}ueben/intervalle/`, { waitUntil: 'networkidle' });
+    await autoPage.locator('.nav-list a', { hasText: 'Intervalle hörend erkennen' }).click();
+    let autoStarted = true;
+    try {
+      await autoPage.waitForSelector('.play-button.is-playing', { timeout: 6000 });
+    } catch {
+      autoStarted = false;
+    }
+    check(autoStarted, 'nach dem Öffnen aus der Liste erklingt die erste Aufgabe');
+    await autoPage.waitForSelector('.play-button:not(.is-playing)', { timeout: 20_000 });
+    await autoPage.locator('.question .choice').first().click();
+    await autoPage.waitForSelector('.verdict');
+    await autoPage.locator('.session-bar button:has-text("Weiter")').click();
+    let autoAgain = true;
+    try {
+      await autoPage.waitForSelector('.play-button.is-playing', { timeout: 6000 });
+    } catch {
+      autoAgain = false;
+    }
+    check(autoAgain, 'nach «Weiter» erklingt die nächste von selbst');
+    await autoContext.close();
+
     // -------------------------------------------------------------------- Klang
     console.log('\nHörbeispiel');
     // Eigener Kontext mit leerem Zwischenspeicher, damit jede Anfrage zählt.
@@ -384,6 +502,8 @@ async function main() {
       if (response.url().includes('/samples/') && response.status() === 200) samples.push(response.url());
     });
     await audioPage.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
+    // Ohne vorherige Nutzeraktion spielt nichts von selbst — der Knopf schon.
+    await audioPage.waitForSelector('.play-button:not(.is-playing)', { timeout: 20_000 });
     await audioPage.locator('.play-button').first().click();
     await audioPage.waitForSelector('.play-button.is-playing', { timeout: 5000 });
     check(true, 'Wiedergabe startet');

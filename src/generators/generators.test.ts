@@ -22,6 +22,7 @@ import { GENERATORS, generatorById } from './index';
 import { makeRng } from './rng';
 import type { FilterValues, Question } from './types';
 import type { NotationTask, SelectTask, Task } from '../content/schema';
+import { resolveOptions } from '../content/options';
 import { fromPitch, scoreTask, type InputNote } from '../scoring';
 import {
   durationInQuarters,
@@ -721,3 +722,97 @@ function allKeysOf(task: Task): string[] {
 
 /** Nur damit der Import benutzt wird, wenn Tests umgebaut werden. */
 export type { InputNote };
+
+// ---------------------------------------------------------------------------
+// Antwortoptionen folgen den Einstellungen
+// ---------------------------------------------------------------------------
+
+/** Werte der Auswahloptionen eines Felds — so, wie die Oberfläche sie zeigt. */
+function offered(question: Question, fieldId: string): string[] {
+  const task = question.task as SelectTask;
+  const field = task.fields.find((entry) => entry.id === fieldId);
+  if (!field) throw new Error(`Feld ${fieldId} fehlt`);
+  return resolveOptions(field).map((option) => option.value);
+}
+
+describe('Antwortoptionen', () => {
+  it('bieten bei jeder Übung die richtige Antwort an', () => {
+    // Die wichtigste Regel beim Einschränken: nie so weit, dass die Lösung fehlt.
+    for (const generator of GENERATORS) {
+      for (const question of generate(generator.id, {}, 60)) {
+        if (question.task.kind !== 'select') continue;
+        for (const field of question.task.fields) {
+          expect(resolveOptions(field).map((o) => o.value), `${generator.id}.${field.id}`).toContain(field.correct);
+        }
+      }
+    }
+  });
+
+  it('bieten beim Intervallhören nur die eingestellten Intervalle an', () => {
+    for (const question of generate('intervalle-hoeren', { intervals: ['k3', 'g3'] }, 20)) {
+      expect(offered(question, 'a')).toEqual(['k3', 'g3']);
+    }
+  });
+
+  it('bieten beim Intervallbestimmen nur die eingestellten Intervalle an', () => {
+    for (const question of generate('intervalle-bestimmen', { intervals: ['r4', 'tritonus', 'r5'] }, 20)) {
+      expect(offered(question, 'a')).toEqual(['r4', 'tritonus', 'r5']);
+    }
+  });
+
+  it('ordnen Intervalle als Raster an', () => {
+    for (const id of ['intervalle-hoeren', 'intervalle-bestimmen']) {
+      const field = (generate(id, {}, 1)[0].task as SelectTask).fields[0];
+      expect(field.buttonLayout, id).toBe('intervals');
+    }
+  });
+
+  it('bieten beim Tonleiterhören nur die eingestellten Arten an', () => {
+    for (const question of generate('tonleitern-hoeren', { scaleTypes: ['dur', 'moll-harmonisch'] }, 20)) {
+      expect(offered(question, 'a')).toEqual(['dur', 'moll-harmonisch']);
+    }
+  });
+
+  it('bieten beim Dreiklanghören nur die eingestellten Geschlechter und Umkehrungen an', () => {
+    const questions = generate(
+      'dreiklaenge-hoeren',
+      { qualities: ['dur', 'moll'], inversions: ['grundstellung', 'sextakkord'], askInversion: true },
+      20,
+    );
+    for (const question of questions) {
+      expect(offered(question, 'a')).toEqual(['dur', 'moll']);
+      expect(offered(question, 'inv')).toEqual(['grundstellung', 'sextakkord']);
+    }
+  });
+
+  it('bieten beim Dreiklangbestimmen nur Eingestelltes an', () => {
+    const questions = generate(
+      'dreiklaenge-bestimmen',
+      { qualities: ['moll'], inversions: ['sextakkord'], positions: ['terzlage', 'quintlage'], accidentals: 'stammton' },
+      20,
+    );
+    for (const question of questions) {
+      expect(offered(question, 'quality')).toEqual(['moll']);
+      expect(offered(question, 'inv')).toEqual(['sextakkord']);
+      expect(offered(question, 'pos')).toEqual(['terzlage', 'quintlage']);
+      expect(offered(question, 'root')).toEqual(['C', 'D', 'E', 'F', 'G', 'A', 'H']);
+    }
+    // Mit Vorzeichen: alle Grundtöne.
+    const withAccidentals = generate('dreiklaenge-bestimmen', { accidentals: 'einfach' }, 1)[0];
+    expect(offered(withAccidentals, 'root').length).toBeGreaterThan(7);
+  });
+
+  it('bieten beim Tonartenzuordnen nur Tonarten innerhalb der Vorzeichengrenze an', () => {
+    for (const question of generate('tonarten-zuordnen', { maxAccidentals: 1, signs: ['kreuz', 'keine'] }, 20)) {
+      expect(offered(question, 'dur')).toEqual(['C-Dur', 'G-Dur']);
+      expect(offered(question, 'moll')).toEqual(['a-Moll', 'e-Moll']);
+    }
+  });
+
+  it('bieten beim Notenwertezuordnen nur die eingestellten Werte an', () => {
+    const questions = generate('notenwerte-zuordnen', { durations: ['h', 'q', '8'], direction: 'zeichen-name' }, 20);
+    for (const question of questions) {
+      expect(offered(question, 'a')).toEqual(['h', 'q', '8']);
+    }
+  });
+});
