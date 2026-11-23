@@ -164,6 +164,18 @@ export function topicTitle(id: TopicId): string {
   return TOPICS.find((topic) => topic.id === id)?.title ?? id;
 }
 
+/**
+ * Titel für Tab, Linkvorschau und Teilen: mit der Gruppe, wo das Thema
+ * welche hat. Grob- und Feinbestimmung tragen dieselben Übungstitel
+ * («Intervalle notieren»); ein geteilter Link soll trotzdem sagen, welche es
+ * ist. Die Kopfzeile der Übung und die Liste zeigen den kurzen Titel — dort
+ * steht die Gruppe schon daneben (Entscheid 2026-11-23).
+ */
+export function fullTitle(generator: { topic: TopicId; group?: string; title: string }): string {
+  const group = TOPIC_GROUPS[generator.topic]?.find((entry) => entry.id === generator.group);
+  return group ? `${generator.title} (${group.title})` : generator.title;
+}
+
 export interface Generator<F extends FilterValues = FilterValues> {
   /**
    * Stabil — steht in jedem geteilten Link (`/ueben/<id>/`). Nach dem Start

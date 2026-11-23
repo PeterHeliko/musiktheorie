@@ -74,6 +74,28 @@ export const DEFAULT_INTERVAL_SIZES: string[] = INTERVAL_SIZE_OPTIONS.map((optio
   (value) => value !== 'prime',
 );
 
+/**
+ * Halbtöne (0–12) → Antwortwert der Feinbestimmung. Auf der Klaviatur gibt es
+ * keine Schreibweise; dort bestimmt der Abstand allein die Antwort — und das
+ * Antwortraster kennt ausser dem Tritonus keine übermässigen und
+ * verminderten Intervalle, also ist sie eindeutig.
+ */
+export const SEMITONE_ANSWERS: readonly string[] = [
+  'r1',
+  'k2',
+  'g2',
+  'k3',
+  'g3',
+  'r4',
+  'tritonus',
+  'r5',
+  'k6',
+  'g6',
+  'k7',
+  'g7',
+  'r8',
+];
+
 /** Ordnungszahl (1–8) → Antwortwert der Grobbestimmung. */
 export function intervalSizeAnswer(number: number): string {
   const option = INTERVAL_SIZE_OPTIONS[number - 1];

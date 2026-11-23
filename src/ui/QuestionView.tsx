@@ -7,8 +7,8 @@
  *    Sie steht fest am unteren Rand, auf dem Telefon also immer in
  *    Daumenreichweite und immer an derselben Stelle.
  *
- * Gezeichnet wird die Aufgabe von `SelectTaskView`, `NotationInput` oder
- * `SingTaskView`. Sie bekommen nur eine `Task` und wissen nichts vom Rest der
+ * Gezeichnet wird die Aufgabe von `SelectTaskView`, `NotationInput`,
+ * `SingTaskView` oder `KeyboardTaskView`. Sie bekommen nur eine `Task` und wissen nichts vom Rest der
  * Seite.
  */
 
@@ -22,6 +22,7 @@ import { NotationInput } from '../music/notation-input/NotationInput';
 import { scoreTask, type TaskResult } from '../scoring';
 import { AnswerProvider, type AnswerStore } from '../state';
 import { FeedbackDetails, Verdict, gradeOf, hasDetails } from './Feedback';
+import { KeyboardTaskView } from './KeyboardTaskView';
 import { keyboardFocused, shortcutAllowed } from './keyboard';
 import { REFIT_EVENT, Score } from './Score';
 import { SelectTaskView } from './SelectTaskView';
@@ -211,7 +212,9 @@ export function QuestionView({
                 {hint && <p class="hint" dangerouslySetInnerHTML={{ __html: hint }} />}
               </div>
             )}
-            {question.context && question.task.kind !== 'notation' && (
+            {/* Noteneingabe und Klaviatur stellen die Zeile selbst unter das
+                verlangte Intervall. */}
+            {question.context && question.task.kind !== 'notation' && question.task.kind !== 'keyboard' && (
               <p class="task-context">{question.context}</p>
             )}
 
@@ -243,6 +246,8 @@ export function QuestionView({
                 </ol>
               ) : question.task.kind === 'sing' ? (
                 <SingTaskView task={question.task} />
+              ) : question.task.kind === 'keyboard' ? (
+                <KeyboardTaskView task={question.task} context={question.context} revealed={result !== null} />
               ) : question.task.kind === 'notation' ? (
                 <div class="question-notation">
                   {/* Bei einer Noteneingabe steht im Prompt, WAS gesucht ist — das

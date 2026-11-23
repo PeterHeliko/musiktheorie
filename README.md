@@ -110,6 +110,22 @@ Link / Speicher / Filterformular
 - **⚙ Einstellungen:** Übungsform, Filter, Zurücksetzen, Teilen. Änderungen gelten beim
   Schliessen; ohne Änderung läuft die Aufgabe weiter.
 
+### Klaviatur
+
+`src/ui/PianoKeyboard.tsx` zeichnet eine Klaviatur als Bild oder als Eingabe; was eine Taste
+bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
+(`src/music/piano.ts`).
+
+- **Benennen** (`SelectTask.keyboard`): markierte Tasten, darunter die gewohnten
+  Antwortknöpfe. Stumm.
+- **Spielen** (`KeyboardTask`): Antippen wählt eine Taste und lässt sie klingen, «Prüfen»
+  gibt sie ab. Die Rückmeldung nennt das gespielte Intervall, nicht den Tonnamen — die
+  vorgegebene Taste hat keine Schreibweise.
+- Vorgegebene Tasten tragen einen blauen Punkt, die gewählte ist blau gefüllt, nach dem
+  Prüfen grün oder rot wie die Antwortknöpfe.
+- In der Übung füllt sie den Platz, den die Antworten übrig lassen, wie ein Notenbild mit
+  `fit`.
+
 ### Tonhöhe (Versuch)
 
 `/werkzeuge/tonhoehe/` zeigt den gesungenen Ton, die Abweichung in Cent und eine

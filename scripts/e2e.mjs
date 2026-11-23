@@ -29,16 +29,20 @@ const BASE = `http://127.0.0.1:${PORT}${BASE_PATH}`;
 const headed = process.argv.includes('--headed');
 const slow = process.argv.includes('--slow');
 
-/** Alle Übungen mit Titel — muss zu src/generators/ passen. */
+/** Alle Übungen mit Titel im Tab (samt Gruppe) — muss zu src/generators/ passen. */
 const MODES = {
   'notenwerte-zuordnen': 'Notenwerte und Pausenzeichen zuordnen',
   'pausen-ergaenzen': 'Fehlende Pausen ergänzen',
-  'intervalle-grob-bestimmen': 'Intervalle grob bestimmen',
-  'intervalle-grob-notieren': 'Intervalle grob notieren',
-  'intervalle-bestimmen': 'Intervalle fein bestimmen',
-  'intervalle-notieren': 'Intervalle notieren',
-  'intervalle-hoeren': 'Intervalle hörend erkennen',
-  'intervalle-singen': 'Intervalle singen',
+  'intervalle-grob-bestimmen': 'Intervalle in Noten benennen (Grobbestimmung)',
+  'intervalle-grob-notieren': 'Intervalle notieren (Grobbestimmung)',
+  'intervalle-grob-klaviatur-benennen': 'Intervalle auf Klaviatur benennen (Grobbestimmung)',
+  'intervalle-grob-klaviatur-spielen': 'Intervalle auf Klaviatur spielen (Grobbestimmung)',
+  'intervalle-bestimmen': 'Intervalle in Noten benennen (Feinbestimmung)',
+  'intervalle-notieren': 'Intervalle notieren (Feinbestimmung)',
+  'intervalle-klaviatur-benennen': 'Intervalle auf Klaviatur benennen (Feinbestimmung)',
+  'intervalle-klaviatur-spielen': 'Intervalle auf Klaviatur spielen (Feinbestimmung)',
+  'intervalle-hoeren': 'Intervalle hörend erkennen (Feinbestimmung)',
+  'intervalle-singen': 'Intervalle singen (Feinbestimmung)',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
@@ -227,14 +231,18 @@ async function main() {
     check(
       exerciseLinks.join('|') ===
         [
-          'Intervalle grob bestimmen',
-          'Intervalle grob notieren',
-          'Intervalle fein bestimmen',
+          'Intervalle in Noten benennen',
           'Intervalle notieren',
+          'Intervalle auf Klaviatur benennen',
+          'Intervalle auf Klaviatur spielen',
+          'Intervalle in Noten benennen',
+          'Intervalle notieren',
+          'Intervalle auf Klaviatur benennen',
+          'Intervalle auf Klaviatur spielen',
           'Intervalle hörend erkennen',
           'Intervalle singen',
         ].join('|'),
-      `die Liste nennt die vollen Titel, ohne Beschreibung (${exerciseLinks.join(', ')})`,
+      `die Liste nennt die Titel, ohne Beschreibung (${exerciseLinks.join(', ')})`,
     );
     const groupHeadings = await page.locator('.list-page h2').allInnerTexts();
     check(
@@ -242,13 +250,20 @@ async function main() {
       `gegliedert in Grob- und Feinbestimmung (${groupHeadings.join(', ')})`,
     );
     await page.screenshot({ path: join(SHOTS, '01-thema.png'), fullPage: true });
-    await page.locator('.nav-list a', { hasText: 'Intervalle fein bestimmen' }).click();
+    await page
+      .locator('.list-page section', { has: page.locator('h2', { hasText: 'Feinbestimmung' }) })
+      .locator('.nav-list a', { hasText: 'Intervalle in Noten benennen' })
+      .click();
     await page.waitForSelector('.question');
     check(page.url().startsWith(exercise('intervalle-bestimmen')), 'eine Übung öffnet sich');
     check(await page.evaluate(() => window.__ohneNeuladen === true), 'alles ohne die Seite neu zu laden');
     check(
-      (await page.title()) === 'Intervalle fein bestimmen · Musiktheorie üben',
-      'der Titel im Tab folgt',
+      (await page.title()) === 'Intervalle in Noten benennen (Feinbestimmung) · Musiktheorie üben',
+      `der Titel im Tab folgt, mit der Gruppe («${await page.title()}»)`,
+    );
+    check(
+      (await page.locator('.session-title').innerText()) === 'Intervalle in Noten benennen',
+      'die Kopfzeile zeigt den kurzen Titel',
     );
     check((await page.locator('.site-header').count()) === 0, 'in der Übung ist die Kopfzeile der Website weg');
     await page.locator('.session-icon[aria-label="Übung schliessen"]').click();
@@ -282,7 +297,7 @@ async function main() {
       let answerable = true;
       try {
         await page.waitForSelector(
-          '.question .choice, .question select, .question .notation-input svg, .question .sing-mic button',
+          '.question .choice, .question select, .question .notation-input svg, .question .sing-mic button, .question .piano-key:not([disabled])',
           { timeout: 5000 },
         );
       } catch {
@@ -662,6 +677,116 @@ async function main() {
       await landscapePage.screenshot({ path: join(SHOTS, `telefon-quer-${id}.png`) });
     }
     await landscape.close();
+
+    // ------------------------------------------------- Klaviatur
+    console.log('\nKlaviatur');
+    await page.goto(exercise('intervalle-klaviatur-benennen'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.question .piano');
+    const keyCount = async (p, selector) => p.locator(`.question .piano ${selector}`).count();
+    check(
+      (await keyCount(page, '.piano-key.is-white')) === 14 && (await keyCount(page, '.piano-key.is-black')) === 10,
+      'zwei Oktaven: 14 weisse und 10 schwarze Tasten',
+    );
+    const lowest = await page.locator('.question .piano .piano-key').first().getAttribute('data-key');
+    check(lowest === '48', `sie beginnt auf c (Taste ${lowest})`);
+    check(
+      (await keyCount(page, '.piano-dot')) === 2 && (await keyCount(page, 'button')) === 0,
+      'Benennen: zwei Tasten markiert, die Klaviatur ist nur ein Bild',
+    );
+    await page.locator('.question .choice').first().click();
+    await page.waitForSelector('.verdict');
+    check(true, 'Benennen: ein Klick auf eine Antwort genügt');
+    await page.screenshot({ path: join(SHOTS, 'klaviatur-benennen.png'), fullPage: true });
+
+    /** Startet eine Spielaufgabe und gibt die markierte Taste zurück. */
+    const startKey = async (p) => {
+      await p.waitForSelector('.question .piano .piano-dot');
+      return Number(await p.locator('.question .piano-key:has(.piano-dot)').getAttribute('data-key'));
+    };
+    const keyAt = (p, key) => p.locator(`.question .piano-key[data-key="${key}"]`);
+
+    await page.goto(exercise('intervalle-klaviatur-spielen', '?intervalle=k3&richtung=auf'), { waitUntil: 'networkidle' });
+    let start = await startKey(page);
+    const checkButton = page.locator('.session-bar button:has-text("Prüfen")');
+    check(await checkButton.isDisabled(), 'Spielen: Prüfen erst nach dem Antippen');
+    const sampleLoaded = () =>
+      performance.getEntriesByType('resource').some((entry) => entry.name.includes('/samples/'));
+    check(!(await page.evaluate(sampleLoaded)), 'Klaviertöne kommen erst beim Antippen');
+    await keyAt(page, start + 4).click();
+    check((await keyAt(page, start + 4).getAttribute('data-state')) === 'selected', 'Antippen wählt eine Taste');
+    check(await eventually(page, sampleLoaded), 'und sie erklingt');
+    await keyAt(page, start + 3).click();
+    check(
+      (await page.locator('.question .piano-key[data-state="selected"]').count()) === 1 &&
+        (await keyAt(page, start + 3).getAttribute('data-state')) === 'selected',
+      'eine andere Taste antippen wählt um',
+    );
+    check((await page.locator('.verdict').count()) === 0, 'Antippen allein wertet noch nicht');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.verdict');
+    const rightVerdict = await page.locator('.verdict').innerText();
+    check(/Richtig: kleine Terz aufwärts/.test(rightVerdict), `die Eingabetaste prüft («${rightVerdict.replace(/\n/g, ' ')}»)`);
+    check((await keyAt(page, start + 3).getAttribute('data-state')) === 'right', 'die richtige Taste wird grün');
+    check((await page.locator('.question .piano-key:not([disabled])').count()) === 0, 'danach ist die Klaviatur eingefroren');
+    await page.locator('.session-bar button:has-text("Weiter")').click();
+    start = await startKey(page);
+    await keyAt(page, start + 4).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    const wrongVerdict = await page.locator('.verdict').innerText();
+    check(
+      /Gespielt: grosse Terz aufwärts · richtig wäre kleine Terz aufwärts/.test(wrongVerdict),
+      `falsch: die Leiste sagt, was gespielt wurde («${wrongVerdict.replace(/\n/g, ' ')}»)`,
+    );
+    check(
+      (await keyAt(page, start + 4).getAttribute('data-state')) === 'wrong' &&
+        (await keyAt(page, start + 3).getAttribute('data-state')) === 'solution',
+      'die gewählte Taste wird rot, die richtige grün umrandet',
+    );
+    await page.screenshot({ path: join(SHOTS, 'klaviatur-spielen.png'), fullPage: true });
+
+    await page.goto(exercise('intervalle-grob-klaviatur-spielen'), { waitUntil: 'networkidle' });
+    await startKey(page);
+    check(
+      (await page.locator('.question .piano-key.is-black[disabled]').count()) === 10 &&
+        (await page.locator('.question .piano-key.is-white:not([disabled])').count()) === 14,
+      'Grobbestimmung: nur die weissen Tasten lassen sich antippen',
+    );
+    await page.screenshot({ path: join(SHOTS, 'klaviatur-grob-spielen.png'), fullPage: true });
+
+    const pianoPhone = await browser.newContext({ ...devices['iPhone 13'] });
+    const pianoPhonePage = await pianoPhone.newPage();
+    for (const id of ['intervalle-klaviatur-spielen', 'intervalle-klaviatur-benennen']) {
+      await pianoPhonePage.goto(exercise(id), { waitUntil: 'networkidle' });
+      await pianoPhonePage.waitForSelector('.question .piano');
+      const pianoBox = await pianoPhonePage.locator('.question .piano').boundingBox();
+      const whiteBox = await pianoPhonePage.locator('.question .piano-key.is-white').first().boundingBox();
+      const barTop = (await pianoPhonePage.locator('.session-bar').boundingBox()).y;
+      const lastChoice = pianoPhonePage.locator('.question .choice').last();
+      const bottom = (await lastChoice.count()) ? await lastChoice.boundingBox() : pianoBox;
+      check(
+        pianoBox.x >= 15 && pianoBox.x + pianoBox.width <= pianoPhonePage.viewportSize().width - 15 &&
+          whiteBox.width >= 22 && bottom.y + bottom.height <= barTop + 1,
+        `${id}, Telefon: Klaviatur in der Spalte, weisse Tasten ${Math.round(whiteBox.width)} px breit, alles ohne Scrollen sichtbar`,
+      );
+      await pianoPhonePage.screenshot({ path: join(SHOTS, `telefon-${id}.png`) });
+    }
+    await pianoPhone.close();
+
+    const pianoLandscape = await browser.newContext({ ...devices['iPhone 13 landscape'], viewport: { width: 750, height: 340 } });
+    const pianoLandscapePage = await pianoLandscape.newPage();
+    for (const id of ['intervalle-klaviatur-benennen', 'intervalle-grob-klaviatur-benennen', 'intervalle-klaviatur-spielen']) {
+      await pianoLandscapePage.goto(exercise(id), { waitUntil: 'networkidle' });
+      await pianoLandscapePage.waitForSelector('.question .piano');
+      const barTop = (await pianoLandscapePage.locator('.session-bar').boundingBox()).y;
+      const lastChoice = pianoLandscapePage.locator('.question .choice').last();
+      const bottom = (await lastChoice.count())
+        ? await lastChoice.boundingBox()
+        : await pianoLandscapePage.locator('.question .piano').boundingBox();
+      check(bottom.y + bottom.height <= barTop + 1, `${id}, quer: alles ohne Scrollen sichtbar`);
+      await pianoLandscapePage.screenshot({ path: join(SHOTS, `telefon-quer-${id}.png`) });
+    }
+    await pianoLandscape.close();
 
     // ------------------------------------------------- Erklärung
     console.log('\nErklärung nur hinter ⓘ');

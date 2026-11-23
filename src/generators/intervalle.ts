@@ -45,7 +45,7 @@ import { multi, single, type FilterValues, type Generator, type Question } from 
 
 
 // ---------------------------------------------------------------------------
-// Intervalle fein bestimmen
+// Intervalle in Noten benennen
 // ---------------------------------------------------------------------------
 
 interface NamingFilters extends FilterValues {
@@ -62,7 +62,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
   skill: 'erkennen',
   // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
   version: 2,
-  title: 'Intervalle fein bestimmen',
+  title: 'Intervalle in Noten benennen',
   instruction: 'Bestimme das Intervall.',
 
   filters: [

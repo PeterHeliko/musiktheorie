@@ -2,7 +2,9 @@
  * Verzeichnis aller Übungen.
  *
  * Gegliedert wird nach Thema (siehe TOPICS); innerhalb eines Themas geht die
- * Reihenfolge vom Erkennen zum Selbermachen und dann zum Hören.
+ * Reihenfolge vom Erkennen zum Selbermachen und dann zum Hören — bei den
+ * Intervallen: in Noten benennen, notieren, auf der Klaviatur benennen und
+ * spielen, hören, singen (Entscheid 2026-11-23).
  *
  * Eine neue Übung hinzuzufügen heisst: eine Generator-Datei schreiben und sie
  * hier eintragen. Oberfläche, Filterformular, Bewertung, Rückmeldung, eigene
@@ -19,6 +21,12 @@ import { gehoerTonleitern } from './gehoer-tonleitern';
 import { dreiklaengeBestimmen, dreiklaengeStufen } from './dreiklaenge';
 import { intervalleBestimmen, intervalleNotieren } from './intervalle';
 import { intervalleGrobBestimmen, intervalleGrobNotieren } from './intervalle-grob';
+import {
+  intervalleGrobKlaviaturBenennen,
+  intervalleGrobKlaviaturSpielen,
+  intervalleKlaviaturBenennen,
+  intervalleKlaviaturSpielen,
+} from './intervalle-klaviatur';
 import { intervalleSingen } from './intervalle-singen';
 import { rhythmusNotenwerte, rhythmusPausen } from './rhythmus';
 import { tonartenHalbtonschritte, tonartenVorzeichen, tonartenZuordnen } from './tonarten';
@@ -34,8 +42,12 @@ export const GENERATORS: Generator<FilterValues>[] = [
   rhythmusPausen,
   intervalleGrobBestimmen,
   intervalleGrobNotieren,
+  intervalleGrobKlaviaturBenennen,
+  intervalleGrobKlaviaturSpielen,
   intervalleBestimmen,
   intervalleNotieren,
+  intervalleKlaviaturBenennen,
+  intervalleKlaviaturSpielen,
   gehoerIntervalle,
   intervalleSingen,
   tonartenZuordnen,

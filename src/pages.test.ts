@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { GENERATORS } from './generators/index';
 import { TOPICS } from './generators/types';
-import { allPages, pathOf, routeFromPath } from './pages';
+import { allPages, metaFor, pathOf, routeFromPath } from './pages';
 
 describe('Seiten', () => {
   it('verwechselt kein Thema mit einer Übung', () => {
@@ -27,6 +27,23 @@ describe('Seiten', () => {
     // Ein Thema ohne Übungen hat (noch) keine Seite.
     expect(routeFromPath('ueben/notenlesen/')).toEqual({ page: 'nicht-gefunden' });
     expect(routeFromPath('ueben/gibt-es-nicht/')).toEqual({ page: 'nicht-gefunden' });
+  });
+
+  it('vergibt jeden Titel nur einmal', () => {
+    // Grob- und Feinbestimmung teilen sich Übungstitel; Tab und Vorschau
+    // nennen deshalb die Gruppe dazu.
+    const titles = allPages().map((page) => page.title);
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(metaFor({ page: 'uebung', id: 'intervalle-grob-notieren' }).title).toBe(
+      'Intervalle notieren (Grobbestimmung)',
+    );
+    expect(metaFor({ page: 'uebung', id: 'intervalle-notieren' }).title).toBe('Intervalle notieren (Feinbestimmung)');
+    expect(metaFor({ page: 'uebung', id: 'stufen-bestimmen' }).title).toBe('Stufen bestimmen');
+  });
+
+  it('nennt in der Themenbeschreibung jeden Übungstitel einmal', () => {
+    const description = metaFor({ page: 'thema', topic: 'intervalle' }).description;
+    expect(description.match(/Intervalle notieren/g)).toHaveLength(1);
   });
 
   it('vergibt jeden Pfad nur einmal', () => {

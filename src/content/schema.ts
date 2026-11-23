@@ -106,6 +106,22 @@ export interface ScoreSpec {
 }
 
 // ---------------------------------------------------------------------------
+// Klaviatur
+// ---------------------------------------------------------------------------
+
+/**
+ * Eine Klaviatur als Bild. Tasten heissen hier MIDI-Nummern (60 = c¹): eine
+ * Taste kennt keine Schreibweise — fis und ges sind dieselbe.
+ */
+export interface KeyboardSpec {
+  /** Tiefste und höchste Taste, beide einschliesslich; beide weiss. */
+  low: number;
+  high: number;
+  /** Vorgegebene Tasten, mit einem Punkt markiert. */
+  marked?: number[];
+}
+
+// ---------------------------------------------------------------------------
 // Auswahlfelder
 // ---------------------------------------------------------------------------
 
@@ -149,6 +165,8 @@ interface TaskBase {
 export interface SelectTask extends TaskBase {
   kind: 'select';
   score?: ScoreSpec;
+  /** Klaviatur als Bild, statt oder neben dem Notenbild. Nur zum Ansehen. */
+  keyboard?: KeyboardSpec;
   /** Datei in public/audio/ ohne Endung; erzeugt einen Abspielknopf. */
   audio?: string;
   fields: SelectField[];
@@ -231,7 +249,34 @@ export interface SingTask extends TaskBase {
   points: number;
 }
 
-export type Task = SelectTask | NotationTask | TextTableTask | SingTask;
+/**
+ * Auf der Klaviatur spielen: angetippt wird eine Taste, «Prüfen» wertet sie.
+ * Die Antwort sind die gewählten Tasten (`KeyboardAnswer`).
+ */
+export interface KeyboardTask extends TaskBase {
+  kind: 'keyboard';
+  /** Umfang und vorgegebene Tasten. */
+  keyboard: KeyboardSpec;
+  /** Richtige Tasten; genau eine davon ist zu wählen. */
+  accept: number[];
+  /**
+   * Nur weisse Tasten lassen sich wählen — für Aufgaben ohne Vorzeichen
+   * (Grobbestimmung). Eine schwarze Taste hat dort keine Grösse: c–dis ist
+   * eine Sekunde, c–es eine Terz.
+   */
+  whiteOnly?: boolean;
+  /** Angetippte Tasten erklingen. */
+  sound?: boolean;
+  /**
+   * Wie die Rückmeldung eine Taste nennt: als Intervall von der Taste `from`
+   * aus — in Halbtönen gezählt («kleine Terz aufwärts», Feinbestimmung) oder
+   * in weissen Tasten («Terz aufwärts», Grobbestimmung).
+   */
+  describe: { from: number; by: 'semitones' | 'steps' };
+  points: number;
+}
+
+export type Task = SelectTask | NotationTask | TextTableTask | SingTask | KeyboardTask;
 
 // ---------------------------------------------------------------------------
 // Aufbau der Prüfung

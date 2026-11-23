@@ -21,10 +21,18 @@ import { describe, expect, it } from 'vitest';
 import { GENERATORS, generatorById } from './index';
 import { makeRng } from './rng';
 import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
-import type { NotationTask, SelectTask, SingTask, Task } from '../content/schema';
-import { INTERVAL_SIZE_OPTIONS, intervalAnswer, intervalSizeAnswer, resolveOptions } from '../content/options';
+import type { KeyboardTask, NotationTask, SelectTask, SingTask, Task } from '../content/schema';
+import {
+  INTERVAL_OPTIONS,
+  INTERVAL_SIZE_OPTIONS,
+  intervalAnswer,
+  intervalSizeAnswer,
+  resolveOptions,
+} from '../content/options';
+import { INTERVAL_KEYBOARD, isWhiteKey, keysBetween } from '../music/piano';
+import { pitchFromMidi } from '../sing/notes';
 import { VOICE_RANGES, type Voice } from '../sing/voice';
-import { fromPitch, scoreTask, type InputNote } from '../scoring';
+import { fromPitch, keyInterval, scoreTask, type InputNote } from '../scoring';
 import { LEDGER_ROOM, windowFor } from './shared';
 import {
   durationInQuarters,
@@ -66,6 +74,7 @@ function correctAnswerFor(task: Task): unknown {
     // Erst den Ausgangston nachsingen (erlaubt), dann genau den Zielton.
     return { notes: [midi(parsePitch(task.reference)), midi(parsePitch(task.target))] };
   }
+  if (task.kind === 'keyboard') return { keys: [task.accept[0]] };
   if (task.kind !== 'notation') return {};
 
   const fields = Object.fromEntries((task.fields ?? []).map((f) => [f.id, f.correct]));
@@ -116,6 +125,13 @@ function wrongAnswerFor(task: Task): unknown {
     const reference = midi(parsePitch(task.reference));
     const wrong = (target + 1 - reference) % 12 === 0 ? target + 2 : target + 1;
     return { notes: [wrong] };
+  }
+  if (task.kind === 'keyboard') {
+    // Eine Taste, die sich antippen liesse, aber nicht richtig ist.
+    const wrong = keysBetween(task.keyboard.low, task.keyboard.high).find(
+      (key) => !task.accept.includes(key) && (!task.whiteOnly || isWhiteKey(key)),
+    );
+    return { keys: [wrong] };
   }
   if (task.kind !== 'notation') return {};
   const solution = (task as NotationTask).solution;
@@ -547,8 +563,12 @@ describe('Prime', () => {
   const INTERVAL_EXERCISES = [
     'intervalle-grob-bestimmen',
     'intervalle-grob-notieren',
+    'intervalle-grob-klaviatur-benennen',
+    'intervalle-grob-klaviatur-spielen',
     'intervalle-bestimmen',
     'intervalle-notieren',
+    'intervalle-klaviatur-benennen',
+    'intervalle-klaviatur-spielen',
     'intervalle-hoeren',
     'intervalle-singen',
   ];
@@ -571,6 +591,154 @@ describe('Prime', () => {
       const questions = generate(id, { intervals: [primeValue(id)] }, 10);
       expect(questions.every((question) => asksPrime(question.task)), id).toBe(true);
     }
+  });
+});
+
+describe('Intervalle auf der Klaviatur', () => {
+  const marked = (question: Question) => {
+    const task = question.task as SelectTask | KeyboardTask;
+    return task.keyboard!.marked ?? [];
+  };
+  const keyboardTask = (question: Question) => question.task as KeyboardTask;
+  const answerOf = (question: Question) => (question.task as SelectTask).fields[0].correct;
+  const inRange = (key: number) => key >= INTERVAL_KEYBOARD.low && key <= INTERVAL_KEYBOARD.high;
+  /** Halbtöne → Antwortwert, unabhängig vom Code gezählt: k2 = 1 … r8 = 12. */
+  const BY_SEMITONES = ['r1', 'k2', 'g2', 'k3', 'g3', 'r4', 'tritonus', 'r5', 'k6', 'g6', 'k7', 'g7', 'r8'];
+
+  it('zeigt die Klaviatur von c bis h¹', () => {
+    for (const id of [
+      'intervalle-grob-klaviatur-benennen',
+      'intervalle-grob-klaviatur-spielen',
+      'intervalle-klaviatur-benennen',
+      'intervalle-klaviatur-spielen',
+    ]) {
+      for (const question of generate(id, {}, 20)) {
+        const task = question.task as SelectTask | KeyboardTask;
+        expect(task.keyboard, id).toMatchObject({ low: midi(parsePitch('c3')), high: midi(parsePitch('b4')) });
+        for (const key of marked(question)) expect(inRange(key), `${id}: ${key}`).toBe(true);
+      }
+    }
+  });
+
+  it('markiert beim groben Benennen zwei weisse Tasten in der gefragten Grösse', () => {
+    for (const question of generate('intervalle-grob-klaviatur-benennen')) {
+      const [low, high] = marked(question);
+      expect(isWhiteKey(low) && isWhiteKey(high)).toBe(true);
+      // Als Stammtöne gelesen, nach dem Theoriekern gemessen.
+      const number = intervalBetween(pitchFromMidi(low), pitchFromMidi(high)).number;
+      expect(answerOf(question)).toBe(intervalSizeAnswer(number));
+    }
+  });
+
+  it('spielt bei der Grobbestimmung nur auf weissen Tasten', () => {
+    for (const question of generate('intervalle-grob-klaviatur-spielen')) {
+      const task = keyboardTask(question);
+      expect(task.whiteOnly).toBe(true);
+      expect(task.sound).toBe(true);
+      expect([...marked(question), ...task.accept].every(isWhiteKey)).toBe(true);
+      const size = INTERVAL_SIZE_OPTIONS.findIndex((option) => option.label === task.prompt) + 1;
+      for (const key of task.accept) {
+        expect(intervalBetween(pitchFromMidi(marked(question)[0]), pitchFromMidi(key)).number).toBe(size);
+      }
+    }
+  });
+
+  it('markiert beim feinen Benennen zwei Tasten im gefragten Abstand', () => {
+    for (const question of generate('intervalle-klaviatur-benennen')) {
+      const [low, high] = marked(question);
+      expect(BY_SEMITONES[high - low]).toBe(answerOf(question));
+    }
+  });
+
+  it('nimmt mit «nur weisse» beim Benennen nur weisse Tasten', () => {
+    const questions = generate('intervalle-klaviatur-benennen', { keyColours: 'weiss' });
+    expect(questions.every((question) => marked(question).every(isWhiteKey))).toBe(true);
+    // Ohne die Einschränkung kommen auch schwarze vor.
+    const all = generate('intervalle-klaviatur-benennen');
+    expect(all.some((question) => marked(question).some((key) => !isWhiteKey(key)))).toBe(true);
+  });
+
+  it('verlangt beim feinen Spielen den Abstand des genannten Intervalls', () => {
+    for (const question of generate('intervalle-klaviatur-spielen')) {
+      const task = keyboardTask(question);
+      expect(task.sound).toBe(true);
+      const value = INTERVAL_OPTIONS.find((option) => option.label === task.prompt)!.value;
+      for (const key of task.accept) {
+        expect(inRange(key)).toBe(true);
+        expect(BY_SEMITONES[Math.abs(key - marked(question)[0])]).toBe(value);
+      }
+    }
+  });
+
+  it('beginnt mit «nur weisse» auf einer weissen Starttaste', () => {
+    for (const question of generate('intervalle-klaviatur-spielen', { keyColours: 'weiss' })) {
+      expect(isWhiteKey(marked(question)[0])).toBe(true);
+    }
+  });
+
+  it('akzeptiert bei fester Richtung nur diese, bei freier beide, soweit die Klaviatur reicht', () => {
+    for (const id of ['intervalle-grob-klaviatur-spielen', 'intervalle-klaviatur-spielen']) {
+      for (const [direction, sign] of [['up', 1], ['down', -1]] as const) {
+        for (const question of generate(id, { direction })) {
+          const task = keyboardTask(question);
+          expect(task.accept, id).toHaveLength(1);
+          expect(Math.sign(task.accept[0] - task.describe.from), `${id} ${direction}`).toBe(sign);
+          expect(question.context, id).toBeDefined();
+        }
+      }
+      const free = generate(id, { direction: 'frei' });
+      expect(free.some((question) => keyboardTask(question).accept.length === 2), id).toBe(true);
+      for (const question of free) expect(question.context, id).toBeUndefined();
+    }
+  });
+
+  it('fragt nur die angekreuzten Intervalle, und jedes davon', () => {
+    const fein = generate('intervalle-klaviatur-benennen', { intervals: ['k3', 'tritonus', 'r8'] });
+    expect(answersFor(fein, 'a')).toEqual(new Set(['k3', 'tritonus', 'r8']));
+    const grob = generate('intervalle-grob-klaviatur-benennen', { intervals: ['sekunde', 'oktave'] });
+    expect(answersFor(grob, 'a')).toEqual(new Set(['sekunde', 'oktave']));
+    const played = generate('intervalle-klaviatur-spielen', { intervals: ['g2', 'k6'] });
+    expect(new Set(played.map((question) => question.task.prompt))).toEqual(
+      new Set(['grosse Sekunde', 'kleine Sexte']),
+    );
+  });
+
+  it('bleibt beim Benennen stumm und klingt beim Spielen', () => {
+    for (const id of ['intervalle-grob-klaviatur-benennen', 'intervalle-klaviatur-benennen']) {
+      expect(generate(id, {}, 5).every((question) => !question.audio), id).toBe(true);
+    }
+  });
+
+  it('nennt in der Rückmeldung das gespielte Intervall', () => {
+    const c1 = midi(parsePitch('c4'));
+    expect(keyInterval(c1, c1 + 3, 'semitones')).toBe('kleine Terz aufwärts');
+    expect(keyInterval(c1, c1 - 6, 'semitones')).toBe('Tritonus abwärts');
+    expect(keyInterval(c1, c1, 'semitones')).toBe('reine Prime');
+    expect(keyInterval(c1, c1 + 14, 'semitones')).toBe('mehr als eine Oktave aufwärts');
+    expect(keyInterval(c1, midi(parsePitch('e4')), 'steps')).toBe('Terz aufwärts');
+    expect(keyInterval(c1, midi(parsePitch('a3')), 'steps')).toBe('Terz abwärts');
+    expect(keyInterval(c1, c1 + 1, 'steps')).toBe('eine schwarze Taste');
+  });
+
+  it('sagt bei falscher Taste, was gespielt wurde und was verlangt war', () => {
+    const [question] = generate('intervalle-klaviatur-spielen', { intervals: ['k3'], direction: 'up' }, 1);
+    const task = keyboardTask(question);
+    const result = scoreTask(task, { keys: [task.describe.from + 4] });
+    expect(result.earned).toBe(0);
+    expect(result.details[0].studentResponse).toBe('grosse Terz aufwärts');
+    expect(result.details[0].correctResponse).toBe('kleine Terz aufwärts');
+    // Sind beide Richtungen richtig, nennt die Lösung nur das Intervall.
+    const free = generate('intervalle-klaviatur-spielen', { intervals: ['k3'] }).find(
+      (entry) => keyboardTask(entry).accept.length === 2,
+    )!;
+    expect(scoreTask(free.task, { keys: [] }).details[0].correctResponse).toBe('kleine Terz');
+  });
+
+  it('wertet eine Taste nur, wenn genau eine gewählt ist', () => {
+    const [question] = generate('intervalle-klaviatur-spielen', {}, 1);
+    const task = keyboardTask(question);
+    expect(scoreTask(task, { keys: [] }).earned).toBe(0);
+    expect(scoreTask(task, { keys: [task.accept[0], task.accept[0] + 1] }).earned).toBe(0);
   });
 });
 

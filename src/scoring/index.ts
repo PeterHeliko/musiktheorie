@@ -8,8 +8,17 @@
  * lassen.
  */
 
-import { resolveOptions } from '../content/options';
-import type { NotationTask, PitchSlotSolution, SelectField, SingTask, Task, TextTableTask } from '../content/schema';
+import { INTERVAL_OPTIONS, INTERVAL_SIZE_OPTIONS, SEMITONE_ANSWERS, resolveOptions } from '../content/options';
+import type {
+  KeyboardTask,
+  NotationTask,
+  PitchSlotSolution,
+  SelectField,
+  SingTask,
+  Task,
+  TextTableTask,
+} from '../content/schema';
+import { whiteIndex } from '../music/piano';
 import { judgeSung } from '../sing/judge';
 import { nameFromMidi } from '../sing/notes';
 import {
@@ -394,6 +403,67 @@ function scoreSing(task: SingTask, answer: SingAnswer | undefined): Detail[] {
 }
 
 // ---------------------------------------------------------------------------
+// Klaviatur
+// ---------------------------------------------------------------------------
+
+/** Die gewählten Tasten (MIDI). */
+export interface KeyboardAnswer {
+  keys: number[];
+}
+
+/**
+ * Das Intervall von `from` zur Taste `key`, so benannt, wie die Aufgabe zählt:
+ * «kleine Terz aufwärts» (Halbtöne) bzw. «Terz aufwärts» (weisse Tasten).
+ *
+ * Bewusst kein Tonname: die vorgegebene Taste hat keine Schreibweise, und
+ * ein Name aus der Tonhöhe allein wäre oft falsch geschrieben (über h liegt
+ * die grosse Terz dis, nicht es).
+ */
+export function keyInterval(
+  from: number,
+  key: number,
+  by: 'semitones' | 'steps',
+  { withDirection = true }: { withDirection?: boolean } = {},
+): string {
+  let name: string | null;
+  if (by === 'semitones') {
+    const answer = SEMITONE_ANSWERS[Math.abs(key - from)];
+    name = answer ? (INTERVAL_OPTIONS.find((option) => option.value === answer)?.label ?? answer) : null;
+  } else {
+    const a = whiteIndex(from);
+    const b = whiteIndex(key);
+    // Eine schwarze Taste hat keine Grösse; anwählen lässt sie sich dort nicht.
+    if (a === null || b === null) return 'eine schwarze Taste';
+    name = INTERVAL_SIZE_OPTIONS[Math.abs(b - a)]?.label ?? null;
+  }
+  const text = name ?? 'mehr als eine Oktave';
+  if (!withDirection || key === from) return text;
+  return `${text} ${key > from ? 'aufwärts' : 'abwärts'}`;
+}
+
+function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): Detail[] {
+  const keys = answer?.keys ?? [];
+  const correct = keys.length === 1 && task.accept.includes(keys[0]);
+  const { from, by } = task.describe;
+  // Sind beide Richtungen richtig, nennt die Lösung nur das Intervall.
+  const both = task.accept.some((key) => key > from) && task.accept.some((key) => key < from);
+  return [
+    {
+      id: `${task.id}_taste`,
+      label: task.prompt ?? 'Taste',
+      earned: correct ? task.points : 0,
+      possible: task.points,
+      studentResponse: keys.length ? keys.map((key) => keyInterval(from, key, by)).join(', ') : '—',
+      correctResponse: both
+        ? keyInterval(from, task.accept[0], by, { withDirection: false })
+        : task.accept.map((key) => keyInterval(from, key, by)).join(' oder '),
+      correct,
+      interactionType: 'choice',
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Gesamtauswertung
 // ---------------------------------------------------------------------------
 
@@ -414,6 +484,8 @@ export function scoreTask(
     }
   } else if (task.kind === 'sing') {
     details = scoreSing(task, answer as SingAnswer | undefined);
+  } else if (task.kind === 'keyboard') {
+    details = scoreKeyboard(task, answer as KeyboardAnswer | undefined);
   } else {
     details = scoreTextTable(task, answer as TextTableAnswer | undefined);
   }

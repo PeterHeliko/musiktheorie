@@ -71,7 +71,7 @@ export const intervalleGrobBestimmen: Generator<NamingFilters> = {
   skill: 'erkennen',
   // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
   version: 2,
-  title: 'Intervalle grob bestimmen',
+  title: 'Intervalle in Noten benennen',
   instruction: 'Bestimme die Grösse des Intervalls.',
   hint: 'Zähle beide Töne mit: von Linie zur nächsten Linie ist eine Terz.',
 
@@ -137,7 +137,7 @@ export const intervalleGrobNotieren: Generator<WritingFilters> = {
   skill: 'notieren',
   // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
   version: 2,
-  title: 'Intervalle grob notieren',
+  title: 'Intervalle notieren',
   instruction: 'Ergänze zum vorgegebenen Ton den zweiten Ton des verlangten Intervalls.',
   hint: 'Tippe die Stelle im System an oder ziehe dorthin.',
 

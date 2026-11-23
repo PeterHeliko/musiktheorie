@@ -13,7 +13,7 @@
  */
 
 import { GENERATORS, generatorById, topicsWithGenerators } from './generators/index';
-import { TOPICS, type TopicId } from './generators/types';
+import { TOPICS, fullTitle, type TopicId } from './generators/types';
 
 export const SITE_NAME = 'Musiktheorie üben';
 
@@ -94,13 +94,14 @@ export function metaFor(route: Route): PageMeta {
       };
     case 'thema': {
       const topic = TOPICS.find((entry) => entry.id === route.topic)!;
-      const titles = GENERATORS.filter((generator) => generator.topic === route.topic).map(
-        (generator) => generator.title,
+      // Grob- und Feinbestimmung teilen sich Titel; jeder steht nur einmal da.
+      const titles = new Set(
+        GENERATORS.filter((generator) => generator.topic === route.topic).map((generator) => generator.title),
       );
       return {
         path,
         title: topic.title,
-        description: `Übungen zum Thema ${topic.title}: ${titles.join(', ')}.`,
+        description: `Übungen zum Thema ${topic.title}: ${[...titles].join(', ')}.`,
       };
     }
     case 'uebung': {
@@ -108,7 +109,7 @@ export function metaFor(route: Route): PageMeta {
       if (!generator) return metaFor({ page: 'nicht-gefunden' });
       return {
         path,
-        title: generator.title,
+        title: fullTitle(generator),
         description: `${plainText(generator.instruction)} Unbegrenzt viele Aufgaben, frei einstellbar.`,
       };
     }

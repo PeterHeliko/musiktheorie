@@ -11,13 +11,9 @@
 import { useEffect, useRef } from 'preact/hooks';
 import type { ScoreSpec } from '../content/schema';
 import { renderScore, type RenderedScore } from '../music/render';
+import { REFIT_EVENT } from './refit';
 
-/**
- * Ereignis am Fenster: der Platz um die Notenbilder hat sich geändert, ohne
- * dass das Fenster seine Grösse geändert hätte. Notenbilder mit `fit` messen
- * dann neu.
- */
-export const REFIT_EVENT = 'score-refit';
+export { REFIT_EVENT };
 
 export function Score({
   spec,

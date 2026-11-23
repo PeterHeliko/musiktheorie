@@ -208,22 +208,37 @@ export function optionsFrom(set: string, allowed: readonly string[]): SelectOpti
   return options.filter((option) => allowed.includes(option.value));
 }
 
+/**
+ * Das Intervall-Knopfraster der Feinbestimmung. `label` = das Intervall
+ * («k3», «ü4» oder schon als Antwortwert «tritonus»), `allowed` = die
+ * eingestellten Intervalle.
+ */
+export function intervalField(label: string, allowed: readonly string[]): SelectField {
+  return {
+    id: 'a',
+    options: optionsFrom('interval', allowed),
+    correct: intervalAnswer(label),
+    points: 2,
+    buttons: true,
+    buttonLayout: 'intervals',
+  };
+}
+
+/** Das Knopfraster der Grobbestimmung; `correct` und `allowed` als Antwortwerte («terz» …). */
+export function intervalSizeField(correct: string, allowed: readonly string[]): SelectField {
+  return {
+    id: 'a',
+    options: optionsFrom('intervalSize', allowed),
+    correct,
+    points: 2,
+    buttons: true,
+    buttonLayout: 'sizes',
+  };
+}
+
 /** Hörbeispiel mit Intervall-Knopfraster; `allowed` = die eingestellten Intervalle. */
 export function heardInterval(id: string, label: string, allowed: readonly string[]): SelectTask {
-  return {
-    id,
-    kind: 'select',
-    fields: [
-      {
-        id: 'a',
-        options: optionsFrom('interval', allowed),
-        correct: intervalAnswer(label),
-        points: 2,
-        buttons: true,
-        buttonLayout: 'intervals',
-      },
-    ],
-  };
+  return { id, kind: 'select', fields: [intervalField(label, allowed)] };
 }
 
 type Space = NonNullable<ScoreSpec['space']>;
@@ -323,16 +338,7 @@ export function intervalNaming(
       width: policy === 'stammton' ? 110 : 150,
       space: intervalSpace(clefs, width, policy),
     }),
-    fields: [
-      {
-        id: 'a',
-        options: optionsFrom('interval', allowed),
-        correct: intervalAnswer(label),
-        points: 2,
-        buttons: true,
-        buttonLayout: 'intervals',
-      },
-    ],
+    fields: [intervalField(label, allowed)],
   };
 }
 
@@ -357,16 +363,7 @@ export function intervalSizeNaming(
     // dem Telefon hochkant und auf dem Rechner kostet das nichts — dort ist
     // die Breite die Grenze, nicht die Höhe.
     score: twoNoteScore(keys, clef, { width: 110, space: intervalSpace(clefs, width, 'einfach') }),
-    fields: [
-      {
-        id: 'a',
-        options: optionsFrom('intervalSize', allowed),
-        correct,
-        points: 2,
-        buttons: true,
-        buttonLayout: 'sizes',
-      },
-    ],
+    fields: [intervalSizeField(correct, allowed)],
   };
 }
 

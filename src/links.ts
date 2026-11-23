@@ -45,6 +45,7 @@ export const PARAM_NAMES: Record<string, string> = {
   intervals: 'intervalle',
   inversions: 'umkehrungen',
   keys: 'tonarten',
+  keyColours: 'tasten',
   kinds: 'zeichen',
   limitPlays: 'begrenzt',
   maxAccidentals: 'max-vorzeichen',

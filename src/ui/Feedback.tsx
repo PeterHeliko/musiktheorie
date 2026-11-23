@@ -44,6 +44,9 @@ export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
   // Beim Singen sieht man die eigene Antwort nicht als Knopf oder Note —
   // deshalb steht da, was gesungen wurde.
   else if (single && task.kind === 'sing') text = `Gesungen: ${single.studentResponse} · richtig wäre ${single.correctResponse}`;
+  // Auf der Klaviatur ist die Taste zu sehen, aber nicht, welches Intervall
+  // sie bildet — das sagt die Leiste.
+  else if (single && task.kind === 'keyboard') text = `Gespielt: ${single.studentResponse} · richtig wäre ${single.correctResponse}`;
   else if (single) text = `Richtig wäre: ${single.correctResponse}`;
   else text = WORD[grade];
 

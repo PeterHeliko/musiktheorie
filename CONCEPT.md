@@ -170,17 +170,27 @@ planned yet.
 
 Split into **Grobbestimmung** (size only: Prime … Oktave, no accidentals at all) and
 **Feinbestimmung** (the full name: klein/gross/rein …). The topic page shows them as two
-groups.
+groups, in this order. Both groups use the same exercise titles; the tab and link preview
+add the group, e.g. «Intervalle notieren (Grobbestimmung)».
 
-| Übung                         | Fertigkeit | Gruppe |       |
-| ----------------------------- | ---------- | ------ | ----- |
-| Intervalle grob bestimmen     | Erkennen   | grob   | ✓     |
-| Intervalle grob notieren      | Notieren   | grob   | ✓     |
-| Intervalle fein bestimmen     | Erkennen   | fein   | ✓     |
-| Intervalle notieren           | Notieren   | fein   | ✓     |
-| Intervalle auf der Klaviatur  | Klaviatur  |        |       |
-| Intervalle hören              | Hören      | fein   | ✓     |
-| Intervalle singen             | Singen     | fein   | ✓ ★   |
+| Übung                              | Fertigkeit | Gruppe |       |
+| ---------------------------------- | ---------- | ------ | ----- |
+| Intervalle in Noten benennen       | Erkennen   | grob   | ✓     |
+| Intervalle notieren                | Notieren   | grob   | ✓     |
+| Intervalle auf Klaviatur benennen  | Klaviatur  | grob   | ✓     |
+| Intervalle auf Klaviatur spielen   | Klaviatur  | grob   | ✓     |
+| Intervalle in Noten benennen       | Erkennen   | fein   | ✓     |
+| Intervalle notieren                | Notieren   | fein   | ✓     |
+| Intervalle auf Klaviatur benennen  | Klaviatur  | fein   | ✓     |
+| Intervalle auf Klaviatur spielen   | Klaviatur  | fein   | ✓     |
+| Intervalle hörend erkennen         | Hören      | fein   | ✓     |
+| Intervalle singen                  | Singen     | fein   | ✓ ★   |
+
+On the keyboard (two octaves, c to h¹, no labels): Grobbestimmung uses white keys only, since a
+black key has no size (c–dis is a Sekunde, c–es a Terz). Feinbestimmung counts semitones;
+with no spelling, ü4 and v5 are both «Tritonus», as on the answer grid. *Benennen* is silent,
+so it trains counting, not hearing. *Spielen*: a tapped key sounds and is selected; «Prüfen»
+submits it.
 
 *Später:* über die Oktave hinaus, Komplementärintervalle.
 
@@ -408,7 +418,7 @@ Rules:
   for note names, Enter for Prüfen/Weiter.
 - **Notation input** (✓). Needs a mobile pass: larger hit areas and a layout that works on
   narrow screens. Today it is desktop-first.
-- **Klaviatur** (new, central). One component used three ways:
+- **Klaviatur** (✓ as display and input, `ui/PianoKeyboard.tsx`). One component used three ways:
   - display: show a chord or scale
   - input: click the keys
   - tool: play freely

@@ -4,13 +4,14 @@
  * Aufgaben mit Auswahlfeldern — der häufigste Typ.
  *
  * Deckt Intervallbestimmung, Dreiklangsbestimmung, Tonartenzuordnung,
- * Gehörbildung und die Stufenaufgaben ab: optional ein Notenbild, optional ein
- * Hörbeispiel, dazu ein bis vier Auswahlfelder.
+ * Gehörbildung und die Stufenaufgaben ab: optional ein Notenbild oder eine
+ * Klaviatur, optional ein Hörbeispiel, dazu ein bis vier Auswahlfelder.
  */
 
 import { resolveOptions } from '../content/options';
 import type { SelectField, SelectTask } from '../content/schema';
 import { useExam } from '../state';
+import { PianoKeyboard } from './PianoKeyboard';
 import { Score } from './Score';
 
 export function SelectTaskView({
@@ -26,7 +27,7 @@ export function SelectTaskView({
   /** Geprüft: die Knöpfe zeigen richtig und falsch. */
   revealed?: boolean;
 }) {
-  const hasVisual = Boolean(task.score);
+  const hasVisual = Boolean(task.score || task.keyboard);
   const side = task.layout === 'side';
 
   const fields = (
@@ -66,6 +67,15 @@ export function SelectTaskView({
           {hasVisual && (
             <div class="task-visual">
               {task.score && <Score spec={task.score} />}
+              {task.keyboard && (
+                <PianoKeyboard
+                  low={task.keyboard.low}
+                  high={task.keyboard.high}
+                  marked={task.keyboard.marked}
+                  fit
+                  label="Klaviatur mit markierten Tasten"
+                />
+              )}
             </div>
           )}
           {fields}

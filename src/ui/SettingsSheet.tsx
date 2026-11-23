@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { FilterValues, Generator, Personal } from '../generators/types';
+import { fullTitle, type FilterValues, type Generator, type Personal } from '../generators/types';
 import { canonicalFilters, encodeLink } from '../links';
 import { hrefFor } from '../router';
 import { ROUND_SIZES, type SessionSettings } from '../settings';
@@ -158,7 +158,7 @@ export function SettingsSheet({
           <section class="sheet-section">
             <h3>Teilen</h3>
             <ShareLinks
-              title={generator.title}
+              title={fullTitle(generator)}
               exerciseHref={exerciseHref}
               taskHref={changed ? null : taskHref}
               taskLabel={session.mode === 'runde' ? 'Diese Runde' : 'Diese Aufgabe'}
