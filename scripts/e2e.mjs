@@ -529,20 +529,26 @@ async function main() {
       const box = await p.locator('.interval-grid .choice', { hasText: new RegExp(`^${label}$`) }).boundingBox();
       return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     };
-    const prime = await centre(page, 'reine Prime');
+    // Die Prime ist nicht vorgegeben (Entscheid 2026-11-23): ihr Platz bleibt leer.
+    check(
+      (await page.locator('.interval-grid .choice', { hasText: /^reine Prime$/ }).count()) === 0,
+      'ohne Prime in der Vorgabe',
+    );
     const k2 = await centre(page, 'kleine Sekunde');
     const g2 = await centre(page, 'grosse Sekunde');
+    const k3 = await centre(page, 'kleine Terz');
+    const g3 = await centre(page, 'grosse Terz');
     const tritone = await centre(page, 'Tritonus');
     const fourth = await centre(page, 'reine Quarte');
     const fifth = await centre(page, 'reine Quinte');
     const octave = await centre(page, 'reine Oktave');
     check(
-      Math.abs(prime.y - octave.y) < 2 && Math.abs(prime.y - g2.y) < 2 && k2.y < prime.y - 10,
+      Math.abs(g2.y - octave.y) < 2 && Math.abs(g2.y - fourth.y) < 2 && k2.y < g2.y - 10,
       'quer: grosse und reine unten, kleine oben',
     );
     check(
-      k2.x > prime.x && k2.x < g2.x && tritone.x > fourth.x && tritone.x < fifth.x,
-      'quer: kleine Sekunde zwischen Prime und grosser Sekunde, Tritonus zwischen Quarte und Quinte',
+      k2.x < g2.x && k3.x > g2.x && k3.x < g3.x && tritone.x > fourth.x && tritone.x < fifth.x,
+      'quer: kleine Terz zwischen grosser Sekunde und grosser Terz, Tritonus zwischen Quarte und Quinte',
     );
     await page.screenshot({ path: join(SHOTS, 'intervalle-quer.png'), fullPage: true });
 
@@ -556,13 +562,12 @@ async function main() {
     const p4 = await centre(portraitPage, 'reine Quarte');
     const ptt = await centre(portraitPage, 'Tritonus');
     const p5 = await centre(portraitPage, 'reine Quinte');
-    const p1 = await centre(portraitPage, 'reine Prime');
     const p8 = await centre(portraitPage, 'reine Oktave');
     check(
       Math.abs(pk2.y - pg2.y) < 2 && pk3.y > pk2.y && Math.abs(p4.y - ptt.y) < 2 && Math.abs(ptt.y - p5.y) < 2,
       'hochkant: Sekunden, Terzen, Quarte/Tritonus/Quinte je in einer Zeile',
     );
-    check(Math.abs(p1.y - p8.y) < 2 && p1.y > p5.y, 'hochkant: Prime und Oktave zuletzt');
+    check(p8.y > p5.y && Math.abs(p8.x - pg2.x) < 2, 'hochkant: Oktave zuletzt, an ihrem Platz rechts');
     await portraitPage.screenshot({ path: join(SHOTS, 'telefon-intervalle-hochkant.png') });
     await portrait.close();
 
@@ -594,23 +599,23 @@ async function main() {
     await page.waitForSelector('.size-grid');
     const sizeLabels = await page.locator('.size-grid .choice').allInnerTexts();
     check(
-      sizeLabels.join('|') === 'Prime|Sekunde|Terz|Quarte|Quinte|Sexte|Septime|Oktave',
-      `Bestimmen: acht Grössen, Prime bis Oktave (${sizeLabels.join(', ')})`,
+      sizeLabels.join('|') === 'Sekunde|Terz|Quarte|Quinte|Sexte|Septime|Oktave',
+      `Bestimmen: sieben Grössen, Sekunde bis Oktave — ohne Prime (${sizeLabels.join(', ')})`,
     );
-    const widePrime = await sizeCentre(page, 'Prime');
+    const wideSecond = await sizeCentre(page, 'Sekunde');
     const wideOctave = await sizeCentre(page, 'Oktave');
-    check(Math.abs(widePrime.y - wideOctave.y) < 2, 'quer: alle Grössen in einer Reihe');
+    check(Math.abs(wideSecond.y - wideOctave.y) < 2, 'quer: alle Grössen in einer Reihe');
     await page.screenshot({ path: join(SHOTS, 'grob-bestimmen-quer.png'), fullPage: true });
 
     const sizePhone = await browser.newContext({ ...devices['iPhone 13'] });
     const sizePhonePage = await sizePhone.newPage();
     await sizePhonePage.goto(exercise('intervalle-grob-bestimmen'), { waitUntil: 'networkidle' });
     await sizePhonePage.waitForSelector('.size-grid');
-    const pPrime = await sizeCentre(sizePhonePage, 'Prime');
     const pSecond = await sizeCentre(sizePhonePage, 'Sekunde');
     const pThird = await sizeCentre(sizePhonePage, 'Terz');
+    const pFourth = await sizeCentre(sizePhonePage, 'Quarte');
     check(
-      Math.abs(pPrime.y - pSecond.y) < 2 && pThird.y > pPrime.y && Math.abs(pThird.x - pPrime.x) < 2,
+      Math.abs(pSecond.y - pThird.y) < 2 && pFourth.y > pSecond.y && Math.abs(pFourth.x - pSecond.x) < 2,
       'hochkant: zwei Grössen je Zeile',
     );
     await sizePhonePage.screenshot({ path: join(SHOTS, 'telefon-grob-bestimmen.png') });
@@ -805,7 +810,7 @@ async function main() {
     );
     await closeSettings();
     check(
-      await eventually(page, hasParam, ['intervalle', 'r1']),
+      await eventually(page, hasParam, ['intervalle', 'k2']),
       'danach steht sie in der Adresszeile',
     );
     check(
@@ -823,7 +828,7 @@ async function main() {
     await openSettings();
     check((await selectedChips()) === 1, 'ohne Link gelten die zuletzt gewählten Einstellungen');
     await closeSettings();
-    check(await eventually(page, hasParam, ['intervalle', 'r1']), 'und stehen gleich in der Adresszeile');
+    check(await eventually(page, hasParam, ['intervalle', 'k2']), 'und stehen gleich in der Adresszeile');
 
     // Ein fremder Link überschreibt die eigenen Einstellungen nicht.
     await page.goto(exercise('intervalle-hoeren', '?intervalle=k3,g3'), { waitUntil: 'networkidle' });
@@ -835,7 +840,7 @@ async function main() {
     check((await selectedChips()) === 1, 'danach gelten wieder die eigenen Einstellungen');
 
     await page.locator('.sheet button:has-text("Auf Vorgabe zurücksetzen")').click();
-    check((await selectedChips()) === 13, 'Zurücksetzen stellt alle Werte her');
+    check((await selectedChips()) === 12, 'Zurücksetzen stellt die Vorgabe her (alle ausser der Prime)');
     await closeSettings();
     check(
       await eventually(page, () => !new URL(location.href).searchParams.has('intervalle')),
@@ -1013,7 +1018,7 @@ async function main() {
     singPage.on('console', (message) => {
       if (message.type() === 'error') micProblems.push(message.text());
     });
-    await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=g3&richtung=auf&aufgabe=2&v=1`, {
+    await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=g3&richtung=auf&aufgabe=2&v=2`, {
       waitUntil: 'networkidle',
     });
     check(
@@ -1046,7 +1051,7 @@ async function main() {
     await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-richtig.png') });
 
     // Neu geladen ist das Mikrofon wieder zu. Danach, mit «Weiter», bleibt es offen.
-    await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=k3&richtung=auf&aufgabe=1&v=1`, {
+    await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=k3&richtung=auf&aufgabe=1&v=2`, {
       waitUntil: 'networkidle',
     });
     await singPage.locator('.sing-mic button').click();

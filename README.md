@@ -55,7 +55,7 @@ das; unter ⚙ → «Teilen» stehen die beiden üblichen Fälle zum Kopieren be
 ```
 /ueben/intervalle-hoeren/                                  Übung mit Vorgaben
 /ueben/intervalle-hoeren/?intervalle=k3,g3&richtung=ab     eigene Einstellungen, neue Aufgaben
-/ueben/intervalle-hoeren/?intervalle=k3,g3&aufgabe=9ix&v=1 genau diese Aufgabe
+/ueben/intervalle-hoeren/?intervalle=k3,g3&aufgabe=9ix&v=2 genau diese Aufgabe
 /ueben/stufen-bestimmen/?runde=10&aufgabe=2k9f&v=1         genau diese Runde
 ```
 

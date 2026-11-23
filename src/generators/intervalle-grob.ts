@@ -13,7 +13,12 @@
  *    zweite Ton ist zu setzen.
  */
 
-import { INTERVAL_SIZE_OPTIONS, intervalSizeAnswer, intervalSizeNumber } from '../content/options';
+import {
+  DEFAULT_INTERVAL_SIZES,
+  INTERVAL_SIZE_OPTIONS,
+  intervalSizeAnswer,
+  intervalSizeNumber,
+} from '../content/options';
 import { diatonicIndex, intervalBetween, midi, naturalAt, type Pitch } from '../music/theory';
 import type { Rng } from './rng';
 import {
@@ -30,7 +35,6 @@ import {
 } from './shared';
 import { multi, single, type FilterValues, type Generator, type Question } from './types';
 
-const ALL_SIZES = INTERVAL_SIZE_OPTIONS.map((option) => option.value);
 
 /** Nur Stammtöne. */
 const NATURAL = [0];
@@ -65,7 +69,8 @@ export const intervalleGrobBestimmen: Generator<NamingFilters> = {
   topic: 'intervalle',
   group: 'grob',
   skill: 'erkennen',
-  version: 1,
+  // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
+  version: 2,
   title: 'Intervalle grob bestimmen',
   instruction: 'Bestimme die Grösse des Intervalls.',
   hint: 'Zähle beide Töne mit: von Linie zur nächsten Linie ist eine Terz.',
@@ -77,7 +82,7 @@ export const intervalleGrobBestimmen: Generator<NamingFilters> = {
   ],
 
   defaults: {
-    intervals: ALL_SIZES,
+    intervals: DEFAULT_INTERVAL_SIZES,
     clefs: ['treble'],
     width: 'eng',
   },
@@ -130,7 +135,8 @@ export const intervalleGrobNotieren: Generator<WritingFilters> = {
   topic: 'intervalle',
   group: 'grob',
   skill: 'notieren',
-  version: 1,
+  // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
+  version: 2,
   title: 'Intervalle grob notieren',
   instruction: 'Ergänze zum vorgegebenen Ton den zweiten Ton des verlangten Intervalls.',
   hint: 'Tippe die Stelle im System an oder ziehe dorthin.',
@@ -152,7 +158,7 @@ export const intervalleGrobNotieren: Generator<WritingFilters> = {
   ],
 
   defaults: {
-    intervals: ALL_SIZES,
+    intervals: DEFAULT_INTERVAL_SIZES,
     direction: 'frei',
     clefs: ['treble'],
     width: 'eng',

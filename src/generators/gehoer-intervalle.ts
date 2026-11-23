@@ -6,7 +6,7 @@
  * gerade anfängt, kann das über den Filter «immer über c¹» abschalten.
  */
 
-import { INTERVAL_OPTIONS, intervalAnswer } from '../content/options';
+import { DEFAULT_INTERVALS, INTERVAL_OPTIONS, intervalAnswer } from '../content/options';
 import {
   intervalBetween,
   intervalLabel,
@@ -49,7 +49,8 @@ export const gehoerIntervalle: Generator<Filters> = {
   topic: 'intervalle',
   group: 'fein',
   skill: 'hoeren',
-  version: 1,
+  // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
+  version: 2,
   title: 'Intervalle hörend erkennen',
   instruction:
     'Du hörst das Intervall zuerst nacheinander, dann gleichzeitig. Wähle die richtige Bezeichnung.',
@@ -94,7 +95,7 @@ export const gehoerIntervalle: Generator<Filters> = {
   ],
 
   defaults: {
-    intervals: INTERVAL_OPTIONS.map((option) => option.value),
+    intervals: DEFAULT_INTERVALS,
     directions: ['up', 'down'],
     playback: 'beides',
     width: 'eng',

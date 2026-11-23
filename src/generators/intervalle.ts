@@ -13,7 +13,7 @@
  * nicht erwürfelt.
  */
 
-import { INTERVAL_OPTIONS, intervalAnswer } from '../content/options';
+import { DEFAULT_INTERVALS, INTERVAL_OPTIONS, intervalAnswer } from '../content/options';
 import {
   intervalBetween,
   intervalFullName,
@@ -43,7 +43,6 @@ import {
 } from './shared';
 import { multi, single, type FilterValues, type Generator, type Question } from './types';
 
-const ALL_INTERVALS = INTERVAL_OPTIONS.map((option) => option.value);
 
 // ---------------------------------------------------------------------------
 // Intervalle fein bestimmen
@@ -61,7 +60,8 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
   topic: 'intervalle',
   group: 'fein',
   skill: 'erkennen',
-  version: 1,
+  // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
+  version: 2,
   title: 'Intervalle fein bestimmen',
   instruction: 'Bestimme das Intervall.',
 
@@ -73,7 +73,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
   ],
 
   defaults: {
-    intervals: ALL_INTERVALS,
+    intervals: DEFAULT_INTERVALS,
     clefs: ['treble'],
     accidentals: 'einfach',
     width: 'eng',
@@ -126,7 +126,8 @@ export const intervalleNotieren: Generator<WritingFilters> = {
   topic: 'intervalle',
   group: 'fein',
   skill: 'notieren',
-  version: 1,
+  // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
+  version: 2,
   title: 'Intervalle notieren',
   instruction: 'Ergänze zum vorgegebenen Ton den zweiten Ton des verlangten Intervalls.',
   hint: 'Tippe die Stelle im System an oder ziehe dorthin; das Vorzeichen wählst du vorher in der Werkzeugleiste.',
@@ -149,7 +150,7 @@ export const intervalleNotieren: Generator<WritingFilters> = {
   ],
 
   defaults: {
-    intervals: ALL_INTERVALS,
+    intervals: DEFAULT_INTERVALS,
     direction: 'frei',
     clefs: ['treble'],
     accidentals: 'einfach',

@@ -543,6 +543,37 @@ describe('Filter', () => {
 // Rhythmus und Melodie gehen auf
 // ---------------------------------------------------------------------------
 
+describe('Prime', () => {
+  const INTERVAL_EXERCISES = [
+    'intervalle-grob-bestimmen',
+    'intervalle-grob-notieren',
+    'intervalle-bestimmen',
+    'intervalle-notieren',
+    'intervalle-hoeren',
+    'intervalle-singen',
+  ];
+  const primeValue = (id: string) => (id.includes('grob') ? 'prime' : 'r1');
+  /** Fragt die Aufgabe nach der Prime? Antwortwert oder, beim Notieren und Singen, der Auftrag. */
+  const asksPrime = (task: Task) =>
+    task.kind === 'select'
+      ? task.fields.some((field) => field.correct === 'r1' || field.correct === 'prime')
+      : /Prime/.test(task.prompt ?? '');
+
+  it('ist in keiner Intervallübung vorgegeben', () => {
+    for (const id of INTERVAL_EXERCISES) {
+      expect(generatorById(id)!.defaults.intervals, id).not.toContain(primeValue(id));
+      expect(generate(id).some((question) => asksPrime(question.task)), id).toBe(false);
+    }
+  });
+
+  it('bleibt wählbar', () => {
+    for (const id of INTERVAL_EXERCISES) {
+      const questions = generate(id, { intervals: [primeValue(id)] }, 10);
+      expect(questions.every((question) => asksPrime(question.task)), id).toBe(true);
+    }
+  });
+});
+
 describe('Intervalle singen', () => {
   const sing = (question: Question) => question.task as SingTask;
   const generator = generatorById('intervalle-singen')!;

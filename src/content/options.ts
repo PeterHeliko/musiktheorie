@@ -63,6 +63,17 @@ export const INTERVAL_SIZE_OPTIONS: SelectOption[] = [
   { value: 'oktave', label: 'Oktave' },
 ];
 
+/**
+ * Vorgaben der Intervallübungen: alle Intervalle ausser der Prime
+ * (Entscheid 2026-11-23). In den Einstellungen bleibt sie wählbar.
+ */
+export const DEFAULT_INTERVALS: string[] = INTERVAL_OPTIONS.map((option) => option.value).filter(
+  (value) => value !== 'r1',
+);
+export const DEFAULT_INTERVAL_SIZES: string[] = INTERVAL_SIZE_OPTIONS.map((option) => option.value).filter(
+  (value) => value !== 'prime',
+);
+
 /** Ordnungszahl (1–8) → Antwortwert der Grobbestimmung. */
 export function intervalSizeAnswer(number: number): string {
   const option = INTERVAL_SIZE_OPTIONS[number - 1];

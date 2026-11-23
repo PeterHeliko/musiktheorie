@@ -12,7 +12,7 @@
  * Intervall, nur in der eigenen Lage.
  */
 
-import { INTERVAL_OPTIONS } from '../content/options';
+import { DEFAULT_INTERVALS, INTERVAL_OPTIONS } from '../content/options';
 import type { ScoreSpec, SingTask } from '../content/schema';
 import {
   diatonicIndex,
@@ -117,7 +117,8 @@ export const intervalleSingen: Generator<Filters> = {
   topic: 'intervalle',
   group: 'fein',
   skill: 'singen',
-  version: 1,
+  // 2: Vorgabe ohne Prime — alte Aufgabenlinks ohne «intervalle=» ergäben eine andere Aufgabe.
+  version: 2,
   title: 'Intervalle singen',
   instruction:
     'Du hörst den Ausgangston. Singe den Ton im verlangten Abstand und halte ihn kurz. ' +
@@ -138,7 +139,7 @@ export const intervalleSingen: Generator<Filters> = {
   ],
 
   defaults: {
-    intervals: INTERVAL_OPTIONS.map((option) => option.value),
+    intervals: DEFAULT_INTERVALS,
     directions: ['up', 'down'],
     clefs: ['treble'],
     tolerance: '50',
