@@ -99,6 +99,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
         pair.label,
         clef,
         intervals,
+        width,
       ),
     };
   },

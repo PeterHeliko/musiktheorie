@@ -72,6 +72,18 @@ export interface ScoreSpec {
   measures: MeasureSpec[];
   /** Breite in Pixeln; wird bei Bedarf responsiv skaliert. */
   width?: number;
+  /**
+   * Anzeigegrösse gegenüber der Zeichengrösse; ohne Angabe SCORE_SCALE
+   * (render.ts). Grösser heisst: grössere Noten bei gleicher Zeichenbreite.
+   */
+  scale?: number;
+  /**
+   * Platz über der obersten und unter der untersten Notenlinie, in
+   * Zeicheneinheiten (Linienabstand 10). Ohne Angabe so viel, wie VexFlow
+   * oben vorsieht, und genug für tiefe Hilfslinien unten. Wer weiss, wie weit
+   * seine Noten reichen, spart damit leere Fläche.
+   */
+  space?: { above: number; below: number };
   /** Schlussstrich zeichnen. */
   endBar?: boolean;
   /**

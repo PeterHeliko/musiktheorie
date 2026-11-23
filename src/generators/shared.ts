@@ -228,6 +228,21 @@ export function heardInterval(id: string, label: string, allowed: readonly strin
 }
 
 /**
+ * Platz über und unter dem System beim Intervall-Notenbild, je Lage.
+ *
+ * Gemessen an den gezeichneten Pixeln über alle Töne beider Schlüssel, mit
+ * Doppelvorzeichen (Stand 2026-11: eng bis 37,5 über / 29 unter dem System,
+ * weit bis 52,5 / 39), plus etwas Luft. Fest je Lage statt je Aufgabe: sonst
+ * spränge das Knopfraster darunter von Aufgabe zu Aufgabe auf und ab.
+ * «eng» braucht unten weniger als die Vorgabe, «weit» oben mehr — dort
+ * stiessen hohe Töne mit b sonst an den Rand.
+ */
+const NAMING_SPACE: Record<string, NonNullable<ScoreSpec['space']>> = {
+  eng: { above: 40, below: 32 },
+  weit: { above: 56, below: 42 },
+};
+
+/**
  * Zwei Töne als Ganze auf einem System, darunter das Intervall-Knopfraster.
  * Untereinander statt nebeneinander: das Raster braucht quer die ganze Breite.
  */
@@ -237,11 +252,20 @@ export function intervalNaming(
   label: string,
   clef: 'treble' | 'bass',
   allowed: readonly string[],
+  width = 'eng',
 ): SelectTask {
   return {
     id,
     kind: 'select',
-    score: { clef, width: 150, measures: [{ notes: [{ keys, duration: 'w' }] }] },
+    // Grösser als die übrigen Notenbilder: zwei Töne in einem Akkord sind
+    // auf dem Telefon sonst schwer auseinanderzuhalten.
+    score: {
+      clef,
+      width: 150,
+      scale: 2,
+      space: NAMING_SPACE[width] ?? NAMING_SPACE.weit,
+      measures: [{ notes: [{ keys, duration: 'w' }] }],
+    },
     fields: [
       {
         id: 'a',
@@ -269,9 +293,13 @@ export function intervalWriting(
     mode: 'pitch',
     prompt: intervalFullName(parseIntervalLabel(label)),
     points: 2,
+    // Schmal gezeichnet und stark vergrössert: die beiden Noten brauchen kaum
+    // Abstand, aber jeder Linienabstand mehr Höhe macht das Setzen genauer.
+    // Angezeigt etwa so breit wie zuvor (260 × 1,5).
     score: {
       clef,
-      width: 260,
+      width: 200,
+      scale: 2,
       measures: [
         {
           notes: [

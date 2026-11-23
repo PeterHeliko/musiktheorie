@@ -203,6 +203,44 @@
   margin: 0 0 10px;
 }
 
+/*
+ * Nach dem Prüfen (SelectTaskView.tsx, choiceClass): die eigene Wahl grün oder
+ * rot statt blau, und bei falscher Wahl die richtige Antwort grün umrandet.
+ * Umrandet per Schatten statt dickerem Rahmen, damit der Knopf nicht wächst.
+ */
+.choice.is-selected.is-right {
+  background: var(--good);
+  border-color: var(--good);
+}
+
+.choice.is-selected.is-wrong {
+  background: var(--bad);
+  border-color: var(--bad);
+}
+
+.choice.is-solution {
+  background: var(--good-soft);
+  border-color: var(--good);
+  box-shadow: inset 0 0 0 1px var(--good);
+  color: var(--good);
+  font-weight: 600;
+}
+
+/*
+ * Noteneingabe mit nur Vorzeichen und «Zurücksetzen» (Intervall notieren):
+ * beides in einer Zeile, auch auf dem Telefon — sonst belegt der eine Knopf
+ * eine ganze eigene Zeile. Die Grundregel für schmale Bildschirme
+ * (styles-base.css) gilt weiter für die volleren Leisten des Diktats.
+ */
+.toolbar-one-row {
+  align-items: flex-end;
+}
+
+.toolbar-one-row .palette-actions {
+  margin-left: auto;
+  width: auto;
+}
+
 /* Knopfzeile in der Leiste unten (.session-bar zieht die Trennlinie). */
 .session-actions {
   display: flex;
@@ -1137,7 +1175,7 @@
 .session .question {
   text-align: center;
 }
-
+/* Erklärung: nur auf Wunsch (ⓘ), sonst ausgeblendet. */
 /* Erklärung: beim ersten Mal und auf Wunsch (ⓘ), sonst ausgeblendet. */
 .explanation {
   max-width: 36em;

@@ -446,17 +446,34 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
     }
   }
 
+  /**
+   * Wird nur ein einziger Ton gesetzt (Intervall notieren), ist klar, wem ein
+   * Vorzeichen gilt: dem schon gesetzten Ton genauso wie dem nächsten. Erst
+   * die Stelle, dann das Vorzeichen zu wählen, ist dann ebenso richtig wie
+   * umgekehrt. Bei Akkorden bleibt es beim «nächsten Ton» — welcher der
+   * gesetzten gemeint wäre, ist dort nicht zu erraten.
+   */
+  const lone = !isChord && slots.length === 1 ? slots[0] : null;
+
+  function changeAlter(next: number) {
+    setAlter(next);
+    if (!lone || readOnly) return;
+    const key = String(lone.slot);
+    const own = placed[key];
+    if (own?.length === 1 && own[0].a !== next) update({ ...placed, [key]: [{ ...own[0], a: next }] });
+  }
+
   const summary = slots
     .flatMap((slot) => (placed[String(slot.slot)] ?? []).map((n) => toGermanPitch(parsePitch(noteKey(n)))));
 
   return (
     <>
-      <div class="toolbar">
+      <div class="toolbar toolbar-one-row">
         <AccidentalPalette
           value={alter}
-          onChange={setAlter}
+          onChange={changeAlter}
           disabled={readOnly}
-          label="Vorzeichen für den nächsten Ton"
+          label={lone ? 'Vorzeichen' : 'Vorzeichen für den nächsten Ton'}
         />
         <ToolbarActions>
           <button type="button" class="tool tool-wide" onClick={() => update({})} disabled={readOnly}>

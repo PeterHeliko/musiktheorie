@@ -256,6 +256,8 @@ async function main() {
       await page.waitForSelector('.question, .notice-warning', { timeout: 10_000 });
 
       const broken = await page.locator('.notice-warning').count();
+      // Die Anweisung steht hinter ⓘ.
+      await page.locator('.session-info').click();
       const hasInstruction = (await page.locator('.question .instruction').innerText()).length > 10;
 
       // Lösbar heisst: es gibt etwas anzuklicken — Antwortknöpfe, eine
@@ -283,11 +285,11 @@ async function main() {
     const phonePage = await phone.newPage();
     for (const mode of ['intervalle-hoeren', 'dreiklaenge-bestimmen', 'melodiediktat']) {
       await phonePage.goto(exercise(mode), { waitUntil: 'networkidle' });
-      await phonePage.waitForSelector('.question .instruction');
+      await phonePage.waitForSelector('.question');
       const viewport = phonePage.viewportSize();
-      const instruction = await phonePage.locator('.question .instruction').boundingBox();
+      const question = await phonePage.locator('.question').boundingBox();
       const bar = await phonePage.locator('.session-bar').boundingBox();
-      check(instruction.y < 120, `${mode}: die Aufgabe beginnt gleich unter der Leiste (bei ${Math.round(instruction.y)} px)`);
+      check(question.y < 120, `${mode}: die Aufgabe beginnt gleich unter der Leiste (bei ${Math.round(question.y)} px)`);
       check(
         Math.abs(bar.y + bar.height - viewport.height) < 2,
         `${mode}: der Hauptknopf steht am unteren Rand`,
@@ -315,6 +317,14 @@ async function main() {
     check(
       (await page.locator('.question .choice[disabled]').count()) > 0,
       'Aufgabe ist nach dem Antworten eingefroren',
+    );
+    // Die gewählte Antwort zeigt das Urteil selbst: grün oder rot, und bei
+    // falscher Wahl ist die richtige grün umrandet.
+    const wasRight = /^✓/.test(verdict.trim());
+    check(
+      (await page.locator(`.question .choice.is-selected.${wasRight ? 'is-right' : 'is-wrong'}`).count()) === 1 &&
+        (await page.locator('.question .choice.is-solution').count()) === (wasRight ? 0 : 1),
+      `die gewählte Antwort ist ${wasRight ? 'grün' : 'rot, die richtige grün umrandet'}`,
     );
     check(
       await eventually(page, () => document.activeElement?.textContent?.trim() === 'Weiter'),
@@ -393,6 +403,13 @@ async function main() {
     check(!(await prüfen.isDisabled()), 'beim Loslassen wird die Note gesetzt');
     const placedText = await page.locator('.input-summary').innerText();
     check(/Gesetzt:/.test(placedText), `und genannt («${placedText}»)`);
+    // Nur ein Ton wird gesetzt — ein Vorzeichen gilt also auch nachträglich.
+    await page.locator('.toolbar button[aria-label^="Kreuz"]').click();
+    const sharpened = await page.locator('.input-summary').innerText();
+    check(
+      sharpened !== placedText && /is\b|is,|is$/.test(sharpened.replace(/\d/g, '')),
+      `ein Vorzeichen gilt auch für den gesetzten Ton («${sharpened}»)`,
+    );
 
     await page.locator('.toolbar button:has-text("Zurücksetzen")').click();
     await page.mouse.move(area.x + area.width * 0.5, area.y + area.height * 0.5);
@@ -503,22 +520,21 @@ async function main() {
     await narrow.close();
 
     // ------------------------------------------------- Erklärung
-    console.log('\nErklärung beim ersten Mal, danach hinter ⓘ');
+    console.log('\nErklärung nur hinter ⓘ');
     const explainContext = await browser.newContext();
     const explainPage = await explainContext.newPage();
     await explainPage.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
     await explainPage.waitForSelector('.question');
-    check((await explainPage.locator('.explanation').count()) === 1, 'beim ersten Öffnen steht die Erklärung da');
+    check((await explainPage.locator('.explanation').count()) === 0, 'auch beim ersten Öffnen ist die Erklärung verborgen');
+    await explainPage.locator('.session-info').click();
+    check((await explainPage.locator('.explanation').count()) === 1, 'ⓘ zeigt sie');
+    await explainPage.locator('.session-info').click();
+    check((await explainPage.locator('.explanation').count()) === 0, 'ⓘ verbirgt sie wieder');
+    await explainPage.locator('.session-info').click();
     await explainPage.locator('.question .choice').first().click();
     await explainPage.locator('.session-bar button:has-text("Weiter")').click();
     await explainPage.waitForSelector('.question .choice:not([disabled])');
-    check((await explainPage.locator('.explanation').count()) === 0, 'ab der zweiten Aufgabe ist sie weg');
-    await explainPage.locator('.session-info').click();
-    check((await explainPage.locator('.explanation').count()) === 1, 'ⓘ holt sie zurück');
-    await explainPage.locator('.session-info').click();
-    await explainPage.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
-    await explainPage.waitForSelector('.question');
-    check((await explainPage.locator('.explanation').count()) === 0, 'beim nächsten Besuch erscheint sie nicht mehr');
+    check((await explainPage.locator('.explanation').count()) === 0, 'mit der nächsten Aufgabe ist sie wieder weg');
     await explainPage.goto(exercise('melodiediktat'), { waitUntil: 'networkidle' });
     await explainPage.waitForSelector('.task-context');
     const dictationContext = await explainPage.locator('.task-context').innerText();

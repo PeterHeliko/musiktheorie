@@ -37,10 +37,8 @@ import type { TaskResult } from '../scoring';
 import { hrefFor, navigate, replaceQuery } from '../router';
 import {
   clearFilters,
-  hasSeenExplanation,
   loadFilters,
   loadSession,
-  markExplanationSeen,
   recordResult,
   saveFilters,
   saveSession,
@@ -105,11 +103,11 @@ export function ExercisePage({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outdated, setOutdated] = useState(start.outdated);
   /**
-   * Erklärung (Anweisung und Hinweis) zeigen? Beim allerersten Öffnen einer
-   * Übung ja; mit der nächsten Aufgabe verschwindet sie und gilt als gelesen.
-   * ⓘ holt sie jederzeit für die aktuelle Aufgabe zurück.
+   * Erklärung (Anweisung und Hinweis) zeigen? Nur auf Wunsch (ⓘ), auch beim
+   * ersten Öffnen nicht von selbst. Mit der nächsten Aufgabe verschwindet sie
+   * wieder.
    */
-  const [explain, setExplain] = useState(() => !hasSeenExplanation(generator.id));
+  const [explain, setExplain] = useState(false);
 
   const inRound = session.mode === 'runde';
 
@@ -223,10 +221,7 @@ export function ExercisePage({
 
   const next = useCallback(() => {
     setOutdated(false);
-    if (explain) {
-      setExplain(false);
-      markExplanationSeen(generator.id);
-    }
+    setExplain(false);
     if (inRound && round.length >= roundTarget) {
       setSummary(round);
       return;
@@ -238,7 +233,7 @@ export function ExercisePage({
       return;
     }
     setCurrent(build(generator, filters, randomSeed()));
-  }, [queue, inRound, round, roundTarget, generator, filters, explain]);
+  }, [queue, inRound, round, roundTarget, generator, filters]);
 
   // ---------------------------------------------------------------- Ansicht
   const topicHref = hrefFor({ page: 'thema', topic: generator.topic });
@@ -338,10 +333,7 @@ export function ExercisePage({
             class={`session-icon session-info ${explain ? 'is-active' : ''}`}
             aria-label="Erklärung"
             aria-pressed={explain}
-            onClick={() => {
-              if (explain) markExplanationSeen(generator.id);
-              setExplain(!explain);
-            }}
+            onClick={() => setExplain(!explain)}
           >
             ⓘ
           </button>

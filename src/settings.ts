@@ -36,8 +36,6 @@ interface Stored {
   filters: Record<string, FilterValues>;
   session: Record<string, SessionSettings>;
   stats: Record<string, ModeStats>;
-  /** Übungen, deren Erklärung schon einmal gezeigt wurde. */
-  seen: Record<string, true>;
 }
 
 export const ROUND_SIZES = [10, 20, 30];
@@ -45,7 +43,7 @@ export const ROUND_SIZES = [10, 20, 30];
 const DEFAULT_SESSION: SessionSettings = { mode: 'endlos', size: 10 };
 
 function empty(): Stored {
-  return { v: 1, filters: {}, session: {}, stats: {}, seen: {} };
+  return { v: 1, filters: {}, session: {}, stats: {} };
 }
 
 function load(): Stored {
@@ -59,7 +57,6 @@ function load(): Stored {
       filters: parsed.filters ?? {},
       session: parsed.session ?? {},
       stats: parsed.stats ?? {},
-      seen: parsed.seen ?? {},
     };
   } catch {
     // Kaputter oder fremder Inhalt darf die Seite nicht blockieren.
@@ -121,21 +118,5 @@ export function recordResult(id: string, correct: boolean): void {
 export function clearStats(): void {
   const state = load();
   state.stats = {};
-  save(state);
-}
-
-/**
- * Die Erklärung einer Übung erscheint beim ersten Mal von selbst und danach
- * nur noch auf Wunsch (ⓘ). Wer sie gelesen hat, braucht sie nicht bei jeder
- * Aufgabe wieder.
- */
-export function hasSeenExplanation(id: string): boolean {
-  return load().seen[id] === true;
-}
-
-export function markExplanationSeen(id: string): void {
-  const state = load();
-  if (state.seen[id]) return;
-  state.seen[id] = true;
   save(state);
 }

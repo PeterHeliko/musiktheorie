@@ -75,7 +75,7 @@ export function QuestionView({
   notice?: ComponentChildren;
   /**
    * Anweisung und Hinweis zeigen? Sie gelten für alle Aufgaben der Übung und
-   * erscheinen deshalb nur beim ersten Mal und auf Wunsch (ⓘ).
+   * erscheinen deshalb nur auf Wunsch (ⓘ).
    */
   showExplanation: boolean;
 }) {
@@ -174,7 +174,7 @@ export function QuestionView({
             <AnswerProvider store={store} readOnly={result !== null} onChange={answered}>
               {question.task.kind === 'select' ? (
                 <ol class="task-list">
-                  <SelectTaskView task={question.task} mutedFields={muted} />
+                  <SelectTaskView task={question.task} mutedFields={muted} revealed={result !== null} />
                 </ol>
               ) : question.task.kind === 'notation' ? (
                 <div class="question-notation">

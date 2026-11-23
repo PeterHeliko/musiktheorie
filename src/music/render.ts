@@ -268,15 +268,19 @@ function computeLayout(spec: ScoreSpec, width: number): LayoutMetrics {
   const measureWidth = usable / Math.max(1, spec.measures.length);
 
   const offset = staveLineOffset();
-  const staveTop = 0;
+  const space = spec.space ?? { above: offset, below: SPACE_BELOW };
+  // Die oberste Linie soll bei `space.above` liegen; VexFlow setzt sie
+  // `offset` unter die y-Angabe des Systems. Bei wenig Platz oben wird diese
+  // Angabe also negativ — das ist gewollt.
+  const staveTop = space.above - offset;
 
-  // Oberste Linie des oberen Systems liegt bei `offset`, die unterste bei
-  // `offset + STAFF_HEIGHT`. Das untere System soll mit seiner obersten Linie
-  // GRAND_GAP darunter beginnen — und bringt seinen eigenen Versatz mit.
-  const bassTop = STAFF_HEIGHT + GRAND_GAP;
+  // Oberste Linie des oberen Systems liegt bei `staveTop + offset`, die
+  // unterste STAFF_HEIGHT tiefer. Das untere System soll mit seiner obersten
+  // Linie GRAND_GAP darunter beginnen — und bringt seinen eigenen Versatz mit.
+  const bassTop = staveTop + STAFF_HEIGHT + GRAND_GAP;
 
-  const lowestLine = spec.clef === 'grand' ? bassTop + offset + STAFF_HEIGHT : offset + STAFF_HEIGHT;
-  const height = lowestLine + SPACE_BELOW;
+  const lowestLine = (spec.clef === 'grand' ? bassTop : staveTop) + offset + STAFF_HEIGHT;
+  const height = lowestLine + space.below;
 
   return { prefix, measureWidth, staveTop, bassTop, height, left };
 }
@@ -391,7 +395,7 @@ export function renderScore(container: HTMLDivElement, spec: ScoreSpec): Rendere
   svg.removeAttribute('width');
   svg.removeAttribute('height');
   svg.style.width = '100%';
-  svg.style.maxWidth = `${Math.round(width * SCORE_SCALE)}px`;
+  svg.style.maxWidth = `${Math.round(width * (spec.scale ?? SCORE_SCALE))}px`;
   svg.style.height = 'auto';
 
   return { svg, width, height: layout.height, staves, bassStaves, notes };

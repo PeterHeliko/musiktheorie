@@ -17,11 +17,14 @@ export function SelectTaskView({
   task,
   index,
   mutedFields,
+  revealed = false,
 }: {
   task: SelectTask;
   index?: number;
   /** Felder, die durch eine andere Antwort gegenstandslos geworden sind. */
   mutedFields?: string[];
+  /** Geprüft: die Knöpfe zeigen richtig und falsch. */
+  revealed?: boolean;
 }) {
   const hasVisual = Boolean(task.score);
   const side = task.layout === 'side';
@@ -39,6 +42,7 @@ export function SelectTaskView({
           taskId={task.id}
           field={field}
           muted={mutedFields?.includes(field.id)}
+          revealed={revealed}
         />
       ))}
     </div>
@@ -71,12 +75,37 @@ export function SelectTaskView({
   );
 }
 
-function Field({ taskId, field, muted }: { taskId: string; field: SelectField; muted?: boolean }) {
+/**
+ * Klassen eines Antwortknopfs. Vor dem Prüfen ist die Wahl blau — da ist noch
+ * nichts entschieden. Danach zeigt der Knopf selbst, wie es war: die eigene
+ * Wahl grün oder rot, und war sie falsch (oder fehlt sie), steht die richtige
+ * Antwort grün umrandet daneben.
+ */
+function choiceClass(value: string, current: string, field: SelectField, reveal: boolean): string {
+  const selected = current === value;
+  if (!reveal) return selected ? 'choice is-selected' : 'choice';
+  if (value === field.correct) return selected ? 'choice is-selected is-right' : 'choice is-solution';
+  return selected ? 'choice is-selected is-wrong' : 'choice';
+}
+
+function Field({
+  taskId,
+  field,
+  muted,
+  revealed,
+}: {
+  taskId: string;
+  field: SelectField;
+  muted?: boolean;
+  revealed?: boolean;
+}) {
   const { answer, setField, readOnly } = useExam();
   const locked = readOnly || Boolean(muted);
   const current = answer<Record<string, string>>(taskId)?.[field.id] ?? '';
   const options = resolveOptions(field);
   const inputId = `${taskId}-${field.id}`;
+  // Ein erlassenes Feld wurde nicht bewertet — es zeigt also auch kein Urteil.
+  const reveal = Boolean(revealed) && !muted;
 
   if (field.buttons && field.buttonLayout === 'intervals') {
     return (
@@ -94,7 +123,7 @@ function Field({ taskId, field, muted }: { taskId: string; field: SelectField; m
               type="button"
               role="radio"
               aria-checked={current === option.value}
-              class={`choice ${current === option.value ? 'is-selected' : ''}`}
+              class={choiceClass(option.value, current, field, reveal)}
               style={{ gridArea: INTERVAL_AREA[option.value] }}
               onClick={() => setField(taskId, field.id, current === option.value ? '' : option.value)}
               disabled={locked}
@@ -118,7 +147,7 @@ function Field({ taskId, field, muted }: { taskId: string; field: SelectField; m
               type="button"
               role="radio"
               aria-checked={current === option.value}
-              class={`choice ${current === option.value ? 'is-selected' : ''}`}
+              class={choiceClass(option.value, current, field, reveal)}
               onClick={() => setField(taskId, field.id, current === option.value ? '' : option.value)}
               disabled={locked}
             >
