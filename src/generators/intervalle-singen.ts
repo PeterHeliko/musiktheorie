@@ -15,22 +15,32 @@
 import { INTERVAL_OPTIONS } from '../content/options';
 import type { ScoreSpec, SingTask } from '../content/schema';
 import {
+  diatonicIndex,
   intervalBetween,
   intervalFullName,
   intervalLabel,
   midi,
   parseIntervalLabel,
+  parsePitch,
   transposeByInterval,
   type Interval,
   type Pitch,
 } from '../music/theory';
-import { DEFAULT_VOICE, VOICE_RANGES, type Voice } from '../sing/voice';
+import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
 import type { Rng } from './rng';
-import { DIRECTION_OPTIONS, candidatePitches, insist, intervalLabelsFor, pitchKey, taskId } from './shared';
+import {
+  CLEF_OPTIONS,
+  DIRECTION_OPTIONS,
+  candidatePitches,
+  insist,
+  intervalLabelsFor,
+  pitchKey,
+  taskId,
+} from './shared';
 import { multi, single, type FilterValues, type Generator, type Personal, type Question } from './types';
 
 export const TOLERANCE_OPTIONS = [
-  { value: '50', label: '±50 Cent (nächster Halbton)' },
+  { value: '50', label: '±50 Cent' },
   { value: '30', label: '±30 Cent' },
   { value: '15', label: '±15 Cent' },
 ];
@@ -38,6 +48,7 @@ export const TOLERANCE_OPTIONS = [
 interface Filters extends FilterValues {
   intervals: string[];
   directions: string[];
+  clefs: string[];
   tolerance: string;
 }
 
@@ -61,26 +72,44 @@ function tryTranspose(from: Pitch, interval: Interval, direction: 'up' | 'down')
 }
 
 /**
- * Platz über und unter dem System, je Stimmlage: so viel, wie ihr äusserster
- * Ton samt Vorzeichen braucht (gemessen wie INTERVAL_REACH in shared.ts),
- * plus 1 Luft. Fest je Stimmlage, damit das System nicht von Aufgabe zu
- * Aufgabe springt.
+ * Wie weit ein Ton samt Vorzeichen über und unter die Mitte seines
+ * Notenkopfs reicht, in Zeicheneinheiten (Linienabstand 10). Daraus ergeben
+ * sich die gemessenen Werte von INTERVAL_REACH in shared.ts.
  */
-const REFERENCE_SPACE: Record<Voice, { above: number; below: number }> = {
-  hoch: { above: 24, below: 30 },
-  mittel: { above: 24, below: 40 },
-  tief: { above: 34, below: 15 },
+const HEAD = 5;
+const SHARP = 13;
+const FLAT_ABOVE = 18;
+
+/** Der Schlüssel allein, über und unter dem System (Bravura; Violin gemessen). */
+const CLEF_REACH = { treble: { above: 14, below: 16 }, bass: { above: 1, below: 0 } };
+
+/** Oberste und unterste Notenlinie je Schlüssel. */
+const STAFF_LINES = {
+  treble: { top: diatonicIndex(parsePitch('f5')), bottom: diatonicIndex(parsePitch('e4')) },
+  bass: { top: diatonicIndex(parsePitch('a3')), bottom: diatonicIndex(parsePitch('g2')) },
 };
 
+/**
+ * Platz über und unter dem System: so viel, wie der äusserste mögliche
+ * Ausgangston der Stimmlage in diesem Schlüssel braucht, plus 1 Luft. Fest je
+ * Einstellung, damit das System nicht von Aufgabe zu Aufgabe springt.
+ */
+function referenceSpace(clef: 'treble' | 'bass', starts: Pitch[]): { above: number; below: number } {
+  const { top, bottom } = STAFF_LINES[clef];
+  let { above, below } = CLEF_REACH[clef];
+  for (const pitch of starts) {
+    const position = diatonicIndex(pitch);
+    const up = pitch.alter < 0 ? FLAT_ABOVE : pitch.alter > 0 ? SHARP : HEAD;
+    const down = pitch.alter > 0 ? SHARP : HEAD;
+    above = Math.max(above, (position - top) * 5 + up);
+    below = Math.max(below, (bottom - position) * 5 + down);
+  }
+  return { above: above + 1, below: below + 1 };
+}
+
 /** Ein Ton als Ganze, ohne Taktangabe — der Ausgangston im System. */
-function referenceScore(key: string, voice: Voice): ScoreSpec {
-  return {
-    clef: VOICE_RANGES[voice].clef,
-    width: 110,
-    scale: 1.6,
-    space: REFERENCE_SPACE[voice],
-    measures: [{ notes: [{ keys: [key], duration: 'w' }] }],
-  };
+function referenceScore(key: string, clef: 'treble' | 'bass', space: ScoreSpec['space']): ScoreSpec {
+  return { clef, width: 110, scale: 1.6, space, measures: [{ notes: [{ keys: [key], duration: 'w' }] }] };
 }
 
 export const intervalleSingen: Generator<Filters> = {
@@ -98,6 +127,7 @@ export const intervalleSingen: Generator<Filters> = {
   filters: [
     { kind: 'multi', key: 'intervals', label: 'Abgefragte Intervalle', options: INTERVAL_OPTIONS },
     { kind: 'multi', key: 'directions', label: 'Richtung', options: DIRECTION_OPTIONS },
+    { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
     {
       kind: 'single',
       key: 'tolerance',
@@ -110,12 +140,14 @@ export const intervalleSingen: Generator<Filters> = {
   defaults: {
     intervals: INTERVAL_OPTIONS.map((option) => option.value),
     directions: ['up', 'down'],
+    clefs: ['treble'],
     tolerance: '50',
   },
 
   generate(values, rng: Rng, personal?: Personal): Question {
     const intervals = multi(values, 'intervals', this.defaults.intervals);
     const directions = multi(values, 'directions', this.defaults.directions);
+    const clefs = multi(values, 'clefs', this.defaults.clefs);
     const tolerance = Number(single(values, 'tolerance', '50'));
     const voice = personal?.voice ?? DEFAULT_VOICE;
     const range = VOICE_RANGES[voice];
@@ -126,8 +158,8 @@ export const intervalleSingen: Generator<Filters> = {
     const direction = interval.number === 1 ? 'up' : (rng.pick(directions) as 'up' | 'down');
 
     const inRange = (pitch: Pitch) => midi(pitch) >= range.low && midi(pitch) <= range.high;
-    const starts = candidatePitches(range, [-1, 0, 1])
-      .filter(isPlainStart)
+    const plainStarts = candidatePitches(range, [-1, 0, 1]).filter(isPlainStart);
+    const starts = plainStarts
       .map((start) => ({ start, target: tryTranspose(start, interval, direction) }))
       .filter(
         (pair): pair is { start: Pitch; target: Pitch } =>
@@ -144,14 +176,19 @@ export const intervalleSingen: Generator<Filters> = {
       `${pitchKey(start)}–${pitchKey(target)} ist kein ${label} ${direction}`,
     );
 
+    const id = taskId('is', rng);
+    // Der Schlüssel zuletzt: so bleiben Intervall und Ausgangston bei
+    // gleichem Startwert dieselben wie vor der Einstellung «Schlüssel».
+    const clef = rng.pick(clefs) as 'treble' | 'bass';
+
     const task: SingTask = {
-      id: taskId('is', rng),
+      id,
       kind: 'sing',
       prompt:
         interval.number === 1
           ? intervalFullName(interval)
           : `${intervalFullName(interval)} ${direction === 'up' ? 'aufwärts' : 'abwärts'}`,
-      score: referenceScore(pitchKey(start), voice),
+      score: referenceScore(pitchKey(start), clef, referenceSpace(clef, plainStarts)),
       reference: pitchKey(start),
       target: pitchKey(target),
       tolerance,

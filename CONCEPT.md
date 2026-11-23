@@ -282,7 +282,7 @@ microphone ─▶ pitch detector ─▶ smoothing ─▶ note segments ─▶ co
 - Comparison checks each segment against the target notes.
 
 **Notenweise** (default). The exercise waits for each target note. A note counts once it is
-held within tolerance for ~0.4 s. Rhythm is not judged. This is forgiving, and right for
+held within tolerance for ~0.8 s. Rhythm is not judged. This is forgiving, and right for
 single notes, intervals, chords and scales.
 
 **Im Tempo** (melodies, later). After a count-in, the learner sings along to a click. Each

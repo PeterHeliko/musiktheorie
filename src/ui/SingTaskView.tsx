@@ -163,7 +163,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
       ? 'Hör zu …'
       : phase === 'listening'
         ? heardReference
-          ? 'Ausgangston erkannt – jetzt das Intervall.'
+          ? 'Ausgangston erkannt.'
           : 'Jetzt singen.'
         : '';
 

@@ -145,9 +145,6 @@ export function SettingsSheet({
                     key: 'voice',
                     label: 'Stimmlage',
                     options: VOICE_OPTIONS,
-                    hint:
-                      'Wo du bequem singst; eine Oktave höher oder tiefer zählt auch. Gilt nur auf ' +
-                      'diesem Gerät und steht nicht im Link.',
                   },
                 ]}
                 values={{ voice: draftPersonal.voice }}

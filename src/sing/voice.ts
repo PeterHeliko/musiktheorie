@@ -17,13 +17,13 @@ export type Voice = 'hoch' | 'mittel' | 'tief';
 
 export const DEFAULT_VOICE: Voice = 'mittel';
 
-export const VOICE_RANGES: Record<Voice, { low: number; high: number; clef: 'treble' | 'bass' }> = {
+export const VOICE_RANGES: Record<Voice, { low: number; high: number }> = {
   // c¹–g²
-  hoch: { low: 60, high: 79, clef: 'treble' },
+  hoch: { low: 60, high: 79 },
   // g–d²
-  mittel: { low: 55, high: 74, clef: 'treble' },
+  mittel: { low: 55, high: 74 },
   // G–d¹
-  tief: { low: 43, high: 62, clef: 'bass' },
+  tief: { low: 43, high: 62 },
 };
 
 export const VOICE_OPTIONS: SelectOption[] = [

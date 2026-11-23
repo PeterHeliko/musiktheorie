@@ -30,7 +30,7 @@ const silence = (ms: number) => Array.from({ length: frames(ms) }, () => null);
 
 describe('HoldDetector', () => {
   it('meldet einen ruhig gehaltenen Ton einmal, nach HOLD_MS', () => {
-    const found = holds(steady(64.1, 1500));
+    const found = holds(steady(64.1, HOLD_MS * 3));
     expect(found).toHaveLength(1);
     expect(found[0].midi).toBeCloseTo(64.1, 6);
     expect(found[0].end).toBeGreaterThanOrEqual(HOLD_MS);
@@ -42,28 +42,32 @@ describe('HoldDetector', () => {
   });
 
   it('lässt Vibrato gelten und mittelt es', () => {
-    const vibrato = Array.from({ length: frames(800) }, (_, i) => 67 + 0.4 * Math.sin((i * FRAME * 2 * Math.PI * 5.5) / 1000));
+    const vibrato = Array.from(
+      { length: frames(HOLD_MS * 1.5) },
+      (_, i) => 67 + 0.4 * Math.sin((i * FRAME * 2 * Math.PI * 5.5) / 1000),
+    );
     const found = holds(vibrato);
     expect(found).toHaveLength(1);
     expect(found[0].midi).toBeCloseTo(67, 1);
   });
 
   it('übergeht das Gleiten zwischen zwei Tönen', () => {
-    const found = holds([...steady(60, 600), ...glide(60, 64, 300), ...steady(64, 600)]);
+    const found = holds([...steady(60, HOLD_MS + 200), ...glide(60, 64, 300), ...steady(64, HOLD_MS + 200)]);
     expect(found.map((held) => Math.round(held.midi))).toEqual([60, 64]);
   });
 
   it('meldet denselben Ton nach einer Atempause erneut', () => {
-    const found = holds([...steady(60, 600), ...silence(200), ...steady(60, 600)]);
+    const found = holds([...steady(60, HOLD_MS + 200), ...silence(200), ...steady(60, HOLD_MS + 200)]);
     expect(found).toHaveLength(2);
   });
 
   it('fasst einen Ton nicht über eine lange Lücke zusammen', () => {
-    // Je eine Hälfte vor und nach einer Lücke reicht nicht.
+    // Je zwei Drittel vor und nach einer Lücke reichen nicht.
     const detector = new HoldDetector();
+    const part = (HOLD_MS * 2) / 3;
     let found: HeldNote | null = null;
-    for (let t = 0; t < 250; t += FRAME) found ??= detector.push(t, 62);
-    for (let t = 600; t < 850; t += FRAME) found ??= detector.push(t, 62);
+    for (let t = 0; t < part; t += FRAME) found ??= detector.push(t, 62);
+    for (let t = part + 300; t < 2 * part + 300; t += FRAME) found ??= detector.push(t, 62);
     expect(found).toBeNull();
   });
 });

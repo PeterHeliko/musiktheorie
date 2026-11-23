@@ -565,11 +565,38 @@ describe('Intervalle singen', () => {
     }
   });
 
-  it('zeigt den Ausgangston im Schlüssel der Stimmlage', () => {
-    expect(sing(withVoice('tief', {}, 1)[0]).score.clef).toBe('bass');
-    expect(sing(withVoice('hoch', {}, 1)[0]).score.clef).toBe('treble');
+  it('zeigt den Ausgangston in den angekreuzten Schlüsseln, unabhängig von der Stimmlage', () => {
+    for (const voice of ['hoch', 'tief'] as const) {
+      const used = new Set(withVoice(voice, { clefs: ['treble', 'bass'] }).map((q) => sing(q).score.clef));
+      expect([...used].sort(), voice).toEqual(['bass', 'treble']);
+      for (const question of withVoice(voice, { clefs: ['bass'] }, 20)) {
+        expect(sing(question).score.clef).toBe('bass');
+      }
+    }
     const shown = sing(withVoice('mittel', {}, 1)[0]);
+    expect(shown.score.clef).toBe('treble');
     expect(shown.score.measures[0].notes[0].keys).toEqual([shown.reference]);
+  });
+
+  it('hält den Platz um das System je Einstellung fest', () => {
+    for (const voice of ['hoch', 'mittel', 'tief'] as const) {
+      for (const clef of ['treble', 'bass']) {
+        const spaces = new Set(withVoice(voice, { clefs: [clef] }, 60).map((q) => JSON.stringify(sing(q).score.space)));
+        expect(spaces.size, `${voice}/${clef}`).toBe(1);
+      }
+    }
+    // Tiefe Lage im Violinschlüssel braucht unten viel mehr Platz als im Bassschlüssel.
+    const below = (clef: string) => sing(withVoice('tief', { clefs: [clef] }, 1)[0]).score.space!.below;
+    expect(below('treble')).toBeGreaterThan(below('bass') + 40);
+  });
+
+  it('fragt mit und ohne Schlüssel-Einstellung dieselbe Aufgabe', () => {
+    // Der Schlüssel wird zuletzt gewürfelt: alte Aufgabenlinks bleiben gültig.
+    const plain = withVoice('mittel', {}, 30);
+    withVoice('mittel', { clefs: ['treble', 'bass'] }, 30).forEach((question, i) => {
+      expect(sing(question).reference).toBe(sing(plain[i]).reference);
+      expect(sing(question).target).toBe(sing(plain[i]).target);
+    });
   });
 
   it('verlangt das genannte Intervall in der genannten Richtung', () => {

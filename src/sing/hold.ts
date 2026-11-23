@@ -14,7 +14,7 @@
  */
 
 /** So lange muss ein Ton ruhig stehen (ms). */
-export const HOLD_MS = 400;
+export const HOLD_MS = 800;
 
 /** Höchste Abweichung vom Mittelwert innerhalb eines gehaltenen Tons (Halbtöne). */
 const STEADY = 0.5;
