@@ -143,16 +143,27 @@ adds one new task kind (§6); the pattern stays the same.
 ✓ exists in `training` · ★ not offered by musicca (singing). Rows under «Später» are not
 planned yet.
 
-### Notenlesen
+### Töne
 
-| Übung                                                                           | Fertigkeit |     |
-| ------------------------------------------------------------------------------- | ---------- | --- |
-| Noten benennen: Violin- und Bassschlüssel; Stammtöne → Vorzeichen → Hilfslinien | Erkennen   |     |
-| Noten notieren (Name gegeben → setzen)                                          | Notieren   |     |
-| Note auf der Klaviatur finden / Taste benennen                                  | Klaviatur  |     |
-| Oktavbezeichnungen (grosse, kleine, ein-/zweigestrichene Oktave)                | Erkennen   |     |
-| Tonhöhen vergleichen (höher / tiefer / gleich)                                  | Hören      |     |
-| Ton nachsingen                                                                  | Singen     | ★   |
+The first topic: before counting intervals, you need to know the notes.
+
+| Übung                                                                   | Fertigkeit |     |
+| ----------------------------------------------------------------------- | ---------- | --- |
+| Töne auf Klaviatur benennen                                             | Klaviatur  | ✓   |
+| Töne auf Klaviatur spielen                                              | Klaviatur  | ✓   |
+| Noten benennen (Violin- und Bassschlüssel, im System / mit Hilfslinien) | Erkennen   | ✓   |
+| Noten schreiben (Name gegeben → setzen)                                 | Notieren   | ✓   |
+| Oktavbezeichnungen (grosse, kleine, ein-/zweigestrichene Oktave)        | Erkennen   |     |
+| Tonhöhen vergleichen (höher / tiefer / gleich)                          | Hören      |     |
+| Ton nachsingen                                                          | Singen     | ★   |
+
+Only the name counts, never the octave: «fis», not «fis¹». Playing or writing accepts the note
+in any octave the keyboard (c to h¹, as for Intervalle) or the staff allows. Octave names get
+their own exercise. Names are lowercase. Answers are one grid: a column per letter, ♭ names
+above, ♯ names below; without accidentals only c–h. On the keyboard a black key has two names
+and both are right; ces, fes, eis and his don't appear there (those keys are h, e, f, c). In
+the score the spelling is the question: fes is fes. The default is ♭ ♯ with black keys; no
+double accidentals. Naming keys is silent, as for Intervalle.
 
 *Später:* Alt- und Tenorschlüssel, Doppelvorzeichen, enharmonische Verwechslung.
 
@@ -570,11 +581,12 @@ New:
 ### Phase 1 — musicca's shape (first public release)
 
 - Klaviatur component (display + input).
-- Noten benennen (treble + bass clef), Noten notieren, Oktavbezeichnungen.
+- Noten benennen, Noten schreiben and the Töne keyboard exercises (done 2026-11-24);
+  Oktavbezeichnungen.
 - Klaviatur exercises for notes, intervals and triads.
 - Tonleiter notieren, Dreiklang notieren.
 - Keyboard shortcuts; mobile pass on the notation input.
-- Lernpfad with the first three Kurse: Notenlesen, Intervalle, Tonarten & Tonleitern.
+- Lernpfad with the first three Kurse: Töne, Intervalle, Tonarten & Tonleitern.
 - Fortschritt, export/import, offline.
 - **Done when** a beginner can go from the first note to naming intervals on a phone.
 

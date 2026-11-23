@@ -81,15 +81,15 @@ export function metaFor(route: Route): PageMeta {
         path,
         title: SITE_NAME,
         description:
-          'Musiktheorie im Browser üben: Intervalle, Tonarten, Dreiklänge, Rhythmus und ' +
-          'Gehörbildung. Unbegrenzt viele Aufgaben, frei einstellbar, ohne Konto.',
+          'Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, ' +
+          'Rhythmus und Gehörbildung. Unbegrenzt viele Aufgaben, frei einstellbar, ohne Konto.',
       };
     case 'ueben':
       return {
         path,
         title: 'Übungen',
         description:
-          'Alle Übungen nach Thema — Rhythmus, Intervalle, Tonleitern und Tonarten, ' +
+          'Alle Übungen nach Thema — Töne, Rhythmus, Intervalle, Tonleitern und Tonarten, ' +
           'Dreiklänge, Melodie. Jede Aufgabe wird neu gewürfelt.',
       };
     case 'thema': {

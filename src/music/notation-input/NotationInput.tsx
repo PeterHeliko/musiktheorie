@@ -303,6 +303,11 @@ function usePointerPlacement(
   };
 }
 
+/** Ton auf der mittleren Notenlinie: h¹ im Violin-, d im Bassschlüssel. */
+function middleLine(clef: ScoreSpec['clef']): Pitch {
+  return clef === 'bass' ? { step: 'd', alter: 0, octave: 3 } : { step: 'b', alter: 0, octave: 4 };
+}
+
 function noteFrom(diatonic: number, alter: number, choice: DurationChoice, rest = false): InputNote {
   const { step, octave } = diatonicToStep(diatonic);
   return {
@@ -460,8 +465,10 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
       const own = placed[String(index)] ?? [];
       if (!slot) return note;
 
+      // Nach dem Prüfen keine Vorschau mehr: die Maus steht meist noch da,
+      // wo zuletzt gesetzt wurde, und zeichnete sonst einen zweiten Kopf.
       const previewKey =
-        hover && target?.slot === index
+        !readOnly && hover && target?.slot === index
           ? noteKey(noteFrom(hover.diatonic, alter, { duration: 'w', dotted: false }))
           : null;
 
@@ -559,9 +566,11 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
    * nicht klar, welcher Ton sich bewegen soll.
    *
    *  - Tonname (c d e f g a h, b): setzt diesen Ton in die nächste Lage zum
-   *    gesetzten Ton, sonst zum vorgegebenen.
+   *    gesetzten Ton, sonst zum vorgegebenen. Aus, wo der Name die Frage ist
+   *    (`noNameKeys`).
    *  - ↑/↓: ein Halbton (`semitoneStep`); ohne Vorzeichen eine Stufe. Ist noch
-   *    nichts gesetzt, geht es vom vorgegebenen Ton aus.
+   *    nichts gesetzt, geht es vom vorgegebenen Ton aus, ohne ihn von der
+   *    Mittellinie.
    *  - Umschalt + ↑/↓: eine Oktave.
    *  - ⌫ oder Entf: den gesetzten Ton wegnehmen.
    */
@@ -569,11 +578,11 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
     if (solution.type !== 'pitch' || !lone || readOnly || !shortcutAllowed(event)) return;
     const key = String(lone.slot);
     const own = placed[key]?.[0];
-    const from: Pitch | null = own ? { step: own.s, alter: own.a, octave: own.o } : given;
+    // Ohne vorgegebenen Ton beginnen die Pfeile auf der Mittellinie.
+    const from: Pitch = own ? { step: own.s, alter: own.a, octave: own.o } : (given ?? middleLine(task.score.clef));
 
     let next: Pitch;
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-      if (!from) return;
       const direction = event.key === 'ArrowUp' ? 1 : -1;
       next = event.shiftKey
         ? { ...from, octave: from.octave + direction }
@@ -586,8 +595,8 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
       update({});
       return;
     } else {
-      const letter = KEY_LETTERS.get(event.key.toLowerCase());
-      if (!letter || !from || (task.noAccidentals && letter.alter !== 0)) return;
+      const letter = task.noNameKeys ? undefined : KEY_LETTERS.get(event.key.toLowerCase());
+      if (!letter || (!own && !given) || (task.noAccidentals && letter.alter !== 0)) return;
       next = nearestWithStep(letter.step, letter.alter, from);
     }
 

@@ -10,6 +10,8 @@
 
 import { resolveOptions } from '../content/options';
 import type { SelectField, SelectTask } from '../content/schema';
+import { STEPS, germanNoteName } from '../music/theory';
+import { acceptedValues } from '../scoring';
 import { useExam } from '../state';
 import { PianoKeyboard } from './PianoKeyboard';
 import { Score } from './Score';
@@ -89,12 +91,14 @@ export function SelectTaskView({
  * Klassen eines Antwortknopfs. Vor dem Prüfen ist die Wahl blau — da ist noch
  * nichts entschieden. Danach zeigt der Knopf selbst, wie es war: die eigene
  * Wahl grün oder rot, und war sie falsch (oder fehlt sie), steht die richtige
- * Antwort grün umrandet daneben.
+ * Antwort grün umrandet daneben. Gibt es zwei richtige (cis und des für eine
+ * schwarze Taste), ist die andere immer umrandet: so steht da, dass beide
+ * Namen dieselbe Taste meinen.
  */
 function choiceClass(value: string, current: string, field: SelectField, reveal: boolean): string {
   const selected = current === value;
   if (!reveal) return selected ? 'choice is-selected' : 'choice';
-  if (value === field.correct) return selected ? 'choice is-selected is-right' : 'choice is-solution';
+  if (acceptedValues(field).includes(value)) return selected ? 'choice is-selected is-right' : 'choice is-solution';
   return selected ? 'choice is-selected is-wrong' : 'choice';
 }
 
@@ -141,6 +145,34 @@ function Field({
               {option.label}
             </button>
           ))}
+        </div>
+      </fieldset>
+    );
+  }
+
+  if (field.buttons && field.buttonLayout === 'notes') {
+    const rows = noteRows(options.map((option) => option.value));
+    return (
+      <fieldset class={`field field-buttons ${muted ? 'is-muted' : ''}`} disabled={locked}>
+        {field.label && <legend>{field.label}</legend>}
+        <div class="button-grid note-grid" role="radiogroup" aria-label={field.label ?? 'Antwort'}>
+          {options.map((option) => {
+            const cell = NOTE_CELL[option.value];
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={current === option.value}
+                class={choiceClass(option.value, current, field, reveal)}
+                style={cell ? { gridColumn: cell.column, gridRow: rows.indexOf(cell.alter) + 1 } : undefined}
+                onClick={() => setField(taskId, field.id, current === option.value ? '' : option.value)}
+                disabled={locked}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
       </fieldset>
     );
@@ -256,4 +288,26 @@ function intervalAreas(values: string[]): Record<string, string> {
       .map((cells) => `"${cells.join(' ')}"`)
       .join(' ');
   return { '--portrait': layout(PORTRAIT), '--landscape': layout(LANDSCAPE) };
+}
+
+// ---------------------------------------------------------------------------
+// Tonnamen-Raster
+// ---------------------------------------------------------------------------
+
+/**
+ * Platz jedes Tonnamens (klein geschrieben, wie in src/generators/toene.ts):
+ * die Spalte ist der Stammton (c … h), die Zeile das Vorzeichen — oben ♭, in
+ * der Mitte keins, unten ♯. So steht des über d und cis unter c, und jeder
+ * Name immer an derselben Stelle.
+ */
+const NOTE_CELL: Record<string, { column: number; alter: number }> = Object.fromEntries(
+  STEPS.flatMap((step, index) =>
+    [-1, 0, 1].map((alter) => [germanNoteName(step, alter).toLowerCase(), { column: index + 1, alter }]),
+  ),
+);
+
+/** Die Vorzeichen-Zeilen, die vorkommen, von oben nach unten. Leere fallen weg. */
+function noteRows(values: string[]): number[] {
+  const present = new Set(values.map((value) => NOTE_CELL[value]?.alter));
+  return [-1, 0, 1].filter((alter) => present.has(alter));
 }

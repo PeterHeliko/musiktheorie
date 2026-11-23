@@ -54,7 +54,7 @@ const DIRECTION_FILTER = {
   ],
 };
 
-const KEY_COLOUR_OPTIONS: SelectOption[] = [
+export const KEY_COLOUR_OPTIONS: SelectOption[] = [
   { value: 'weiss', label: 'nur weisse' },
   { value: 'alle', label: 'weisse und schwarze' },
 ];

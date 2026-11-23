@@ -24,8 +24,8 @@ describe('Seiten', () => {
   it('kennt Themen- und Übungsseiten', () => {
     expect(routeFromPath('ueben/intervalle/')).toEqual({ page: 'thema', topic: 'intervalle' });
     expect(routeFromPath('ueben/intervalle-hoeren')).toEqual({ page: 'uebung', id: 'intervalle-hoeren' });
-    // Ein Thema ohne Übungen hat (noch) keine Seite.
-    expect(routeFromPath('ueben/notenlesen/')).toEqual({ page: 'nicht-gefunden' });
+    expect(routeFromPath('ueben/toene/')).toEqual({ page: 'thema', topic: 'toene' });
+    expect(routeFromPath('ueben/noten-benennen/')).toEqual({ page: 'uebung', id: 'noten-benennen' });
     expect(routeFromPath('ueben/gibt-es-nicht/')).toEqual({ page: 'nicht-gefunden' });
   });
 

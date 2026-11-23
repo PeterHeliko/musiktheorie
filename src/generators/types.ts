@@ -126,7 +126,7 @@ export type FilterValues = Record<string, string | string[] | boolean | number>;
  * Reihenfolge = Reihenfolge auf der Übersicht.
  */
 export const TOPICS = [
-  { id: 'notenlesen', title: 'Notenlesen' },
+  { id: 'toene', title: 'Töne' },
   { id: 'rhythmus', title: 'Rhythmus' },
   { id: 'intervalle', title: 'Intervalle' },
   { id: 'tonleitern', title: 'Tonleitern und Tonarten' },

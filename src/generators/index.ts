@@ -30,6 +30,7 @@ import {
 import { intervalleSingen } from './intervalle-singen';
 import { rhythmusNotenwerte, rhythmusPausen } from './rhythmus';
 import { tonartenHalbtonschritte, tonartenVorzeichen, tonartenZuordnen } from './tonarten';
+import { notenBenennen, notenSchreiben, toeneKlaviaturBenennen, toeneKlaviaturSpielen } from './toene';
 import { TOPICS, TOPIC_GROUPS, type FilterValues, type Generator, type Question, type TopicId } from './types';
 
 /**
@@ -38,6 +39,10 @@ import { TOPICS, TOPIC_GROUPS, type FilterValues, type Generator, type Question,
  * bivariant, deshalb genügt hier `FilterValues`.
  */
 export const GENERATORS: Generator<FilterValues>[] = [
+  toeneKlaviaturBenennen,
+  toeneKlaviaturSpielen,
+  notenBenennen,
+  notenSchreiben,
   rhythmusNotenwerte,
   rhythmusPausen,
   intervalleGrobBestimmen,
@@ -62,7 +67,7 @@ export const GENERATORS: Generator<FilterValues>[] = [
 
 /**
  * Themen in ihrer Reihenfolge, mit ihren Übungen. Themen ohne Übung fallen
- * weg — «Notenlesen» etwa erscheint erst, wenn es dafür Generatoren gibt.
+ * weg — ein neues Thema erscheint erst, wenn es dafür Generatoren gibt.
  */
 export function topicsWithGenerators(): {
   id: TopicId;

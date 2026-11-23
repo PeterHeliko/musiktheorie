@@ -1297,6 +1297,27 @@
   -webkit-hyphens: auto;
 }
 
+/* Tonnamen: eine Spalte je Stammton, Zeilen nach Vorzeichen (SelectTaskView.tsx).
+   Auf dem Rechner nicht über die ganze Breite gezogen — sieben Knöpfe so
+   breit wie die des Grössen-Rasters. */
+.note-grid {
+  display: grid;
+  gap: 8px 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+@container (min-width: 600px) {
+  .note-grid {
+    grid-template-columns: repeat(7, calc((100% - 7 * 6px) / 8));
+    justify-content: center;
+  }
+}
+
+.note-grid .choice {
+  min-width: 0;
+  padding: 6px 2px;
+}
+
 /* --------------------------------------------------------------- Klaviatur */
 
 /* PianoKeyboard.tsx: Tasten absolut gesetzt, in Prozent der Breite. Die Höhe

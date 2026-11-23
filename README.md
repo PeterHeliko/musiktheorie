@@ -1,6 +1,7 @@
 # Musiktheorie üben
 
-Musiktheorie im Browser üben: Intervalle, Tonarten, Dreiklänge, Rhythmus und Gehörbildung.
+Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Rhythmus und
+Gehörbildung.
 Jede Aufgabe wird neu gewürfelt, jede Übung hat Einstellungen für genau das, woran man
 gerade arbeitet — und jede Übung, jede Aufgabe und jede Runde lässt sich als Link teilen.
 

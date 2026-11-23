@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GENERATORS, generatorById } from './index';
+import { GENERATORS, generatorById, topicsWithGenerators } from './index';
 import { makeRng } from './rng';
 import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
 import type { KeyboardTask, NotationTask, SelectTask, SingTask, Task } from '../content/schema';
@@ -600,6 +600,8 @@ describe('Intervalle auf der Klaviatur', () => {
     return task.keyboard!.marked ?? [];
   };
   const keyboardTask = (question: Question) => question.task as KeyboardTask;
+  /** Die Taste, von der aus die Rückmeldung das Intervall nennt. */
+  const fromOf = (task: KeyboardTask) => (task.describe as { from: number }).from;
   const answerOf = (question: Question) => (question.task as SelectTask).fields[0].correct;
   const inRange = (key: number) => key >= INTERVAL_KEYBOARD.low && key <= INTERVAL_KEYBOARD.high;
   /** Halbtöne → Antwortwert, unabhängig vom Code gezählt: k2 = 1 … r8 = 12. */
@@ -682,7 +684,7 @@ describe('Intervalle auf der Klaviatur', () => {
         for (const question of generate(id, { direction })) {
           const task = keyboardTask(question);
           expect(task.accept, id).toHaveLength(1);
-          expect(Math.sign(task.accept[0] - task.describe.from), `${id} ${direction}`).toBe(sign);
+          expect(Math.sign(task.accept[0] - fromOf(task)), `${id} ${direction}`).toBe(sign);
           expect(question.context, id).toBeDefined();
         }
       }
@@ -723,7 +725,7 @@ describe('Intervalle auf der Klaviatur', () => {
   it('sagt bei falscher Taste, was gespielt wurde und was verlangt war', () => {
     const [question] = generate('intervalle-klaviatur-spielen', { intervals: ['k3'], direction: 'up' }, 1);
     const task = keyboardTask(question);
-    const result = scoreTask(task, { keys: [task.describe.from + 4] });
+    const result = scoreTask(task, { keys: [fromOf(task) + 4] });
     expect(result.earned).toBe(0);
     expect(result.details[0].studentResponse).toBe('grosse Terz aufwärts');
     expect(result.details[0].correctResponse).toBe('kleine Terz aufwärts');
@@ -739,6 +741,194 @@ describe('Intervalle auf der Klaviatur', () => {
     const task = keyboardTask(question);
     expect(scoreTask(task, { keys: [] }).earned).toBe(0);
     expect(scoreTask(task, { keys: [task.accept[0], task.accept[0] + 1] }).earned).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Töne
+// ---------------------------------------------------------------------------
+
+describe('Töne', () => {
+  /**
+   * Namen je Halbton über c, von Hand geschrieben statt aus dem Code: eine
+   * schwarze Taste hat zwei, eine weisse einen.
+   */
+  const KEY_NAMES_BY_CLASS = [
+    ['c'], ['cis', 'des'], ['d'], ['dis', 'es'], ['e'], ['f'],
+    ['fis', 'ges'], ['g'], ['gis', 'as'], ['a'], ['ais', 'b'], ['h'],
+  ];
+  const keyNamesOf = (key: number) => KEY_NAMES_BY_CLASS[key % 12];
+  const WHITE_NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'h'];
+
+  /** Deutscher Name einer notierten Tonhöhe, eigens nachgebaut. */
+  function spelled(key: string): string {
+    const pitch = parsePitch(key);
+    const base = pitch.step === 'b' ? 'h' : pitch.step;
+    if (pitch.alter === 0) return base;
+    if (pitch.alter === 1) return `${base}is`;
+    expect(pitch.alter, key).toBe(-1);
+    return ({ e: 'es', a: 'as', h: 'b' } as Record<string, string>)[base] ?? `${base}es`;
+  }
+
+  const field = (question: Question) => (question.task as SelectTask).fields[0];
+  const accepted = (question: Question) => [field(question).correct, ...(field(question).alsoCorrect ?? [])];
+  const optionValues = (question: Question) => resolveOptions(field(question)).map((option) => option.value);
+
+  it('steht als erstes Thema da, mit den Übungen in dieser Reihenfolge', () => {
+    const [first] = topicsWithGenerators();
+    expect(first.id).toBe('toene');
+    expect(first.title).toBe('Töne');
+    expect(first.generators.map((generator) => generator.title)).toEqual([
+      'Töne auf Klaviatur benennen',
+      'Töne auf Klaviatur spielen',
+      'Noten benennen',
+      'Noten schreiben',
+    ]);
+  });
+
+  it('nennt beim Benennen auf der Klaviatur jeden Namen der markierten Taste, und nur diese', () => {
+    let black = 0;
+    for (const question of generate('toene-klaviatur-benennen')) {
+      const task = question.task as SelectTask;
+      expect(task.keyboard).toMatchObject(INTERVAL_KEYBOARD);
+      const [key] = task.keyboard!.marked!;
+      expect(task.keyboard!.marked).toHaveLength(1);
+      expect(accepted(question)).toEqual(keyNamesOf(key));
+      if (!isWhiteKey(key)) black++;
+      // Auf der Klaviatur gibt es kein ces, fes, eis oder his.
+      expect(optionValues(question).some((value) => ['ces', 'fes', 'eis', 'his'].includes(value))).toBe(false);
+      expect(field(question).buttonLayout).toBe('notes');
+      expect(question.audio).toBeUndefined();
+    }
+    expect(black).toBeGreaterThan(0);
+  });
+
+  it('wertet bei einer schwarzen Taste beide Namen als richtig', () => {
+    const question = generate('toene-klaviatur-benennen').find(
+      (entry) => !isWhiteKey((entry.task as SelectTask).keyboard!.marked![0]),
+    )!;
+    const [sharp, flat] = accepted(question);
+    for (const name of [sharp, flat]) {
+      const result = scoreTask(question.task, { a: name });
+      expect(result.earned, name).toBe(result.possible);
+    }
+    expect(scoreTask(question.task, {}).details[0].correctResponse).toBe(`${sharp} oder ${flat}`);
+  });
+
+  it('nimmt mit «nur weisse» nur weisse Tasten und bietet nur c bis h an', () => {
+    for (const question of generate('toene-klaviatur-benennen', { keyColours: 'weiss' })) {
+      expect(isWhiteKey((question.task as SelectTask).keyboard!.marked![0])).toBe(true);
+      expect(optionValues(question)).toEqual(WHITE_NAMES);
+    }
+  });
+
+  it('akzeptiert beim Spielen den genannten Ton in jeder Oktave der Klaviatur', () => {
+    const prompts = new Set<string>();
+    for (const question of generate('toene-klaviatur-spielen')) {
+      const task = question.task as KeyboardTask;
+      prompts.add(task.prompt!);
+      expect(task.sound).toBe(true);
+      expect(task.keyboard.marked ?? []).toEqual([]);
+      const wanted = keysBetween(INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high).filter((key) =>
+        keyNamesOf(key).includes(task.prompt!),
+      );
+      expect(task.accept).toEqual(wanted);
+      expect(wanted).toHaveLength(2);
+    }
+    expect(prompts).toEqual(new Set(KEY_NAMES_BY_CLASS.flat()));
+  });
+
+  it('spielt ohne Vorzeichen nur Stammtöne, auf weissen Tasten', () => {
+    const prompts = new Set<string>();
+    for (const question of generate('toene-klaviatur-spielen', { accidentals: 'stammton' })) {
+      const task = question.task as KeyboardTask;
+      prompts.add(task.prompt!);
+      expect(task.whiteOnly).toBe(true);
+    }
+    expect(prompts).toEqual(new Set(WHITE_NAMES));
+  });
+
+  it('nennt beim Spielen in der Rückmeldung die gespielte Taste', () => {
+    const question = generate('toene-klaviatur-spielen', { accidentals: 'stammton' }).find(
+      (entry) => entry.task.prompt === 'c',
+    )!;
+    const fis = midi(parsePitch('f#3'));
+    const result = scoreTask(question.task, { keys: [fis] });
+    expect(result.earned).toBe(0);
+    expect(result.details[0].studentResponse).toBe('fis/ges');
+    expect(result.details[0].correctResponse).toBe('c');
+  });
+
+  it('fragt beim Notenbenennen den Namen der notierten Note', () => {
+    let withAccidental = 0;
+    for (const question of generate('noten-benennen')) {
+      const keys = (question.task as SelectTask).score!.measures[0].notes[0].keys!;
+      expect(keys).toHaveLength(1);
+      expect(accepted(question)).toEqual([spelled(keys[0])]);
+      if (parsePitch(keys[0]).alter !== 0) withAccidental++;
+      // Mit ♭ ♯ alle 21 Namen, im Raster an ihrem Platz.
+      expect(optionValues(question)).toHaveLength(21);
+      expect(field(question).buttonLayout).toBe('notes');
+    }
+    expect(withAccidental).toBeGreaterThan(0);
+  });
+
+  it('bleibt beim Notenbenennen ohne Vorzeichen bei Stammtönen und im Schlüssel', () => {
+    for (const question of generate('noten-benennen', { accidentals: 'stammton', clefs: ['bass'] })) {
+      const score = (question.task as SelectTask).score!;
+      const pitch = parsePitch(score.measures[0].notes[0].keys![0]);
+      expect(pitch.alter).toBe(0);
+      expect(score.clef).toBe('bass');
+      const window = windowFor('bass', 'eng');
+      expect(midi(pitch)).toBeGreaterThanOrEqual(window.low);
+      expect(midi(pitch)).toBeLessThanOrEqual(window.high);
+      expect(optionValues(question)).toEqual(WHITE_NAMES);
+    }
+  });
+
+  it('nimmt beim Notenschreiben den genannten Ton in jeder setzbaren Oktave', () => {
+    /** So weit lässt das Eingabe-Widget setzen: sechs Stufen über und unter das System. */
+    const reach = { treble: ['f3', 'e6'], bass: ['a1', 'g4'] } as const;
+    for (const clef of ['treble', 'bass'] as const) {
+      for (const question of generate('noten-schreiben', { clefs: [clef] })) {
+        const task = question.task as NotationTask;
+        expect(task.score.clef).toBe(clef);
+        expect(task.noNameKeys).toBe(true);
+        const slot = (task.solution as { slots: { accept: string[] }[] }).slots[0];
+        expect(slot.accept.length).toBeGreaterThanOrEqual(2);
+        for (const key of slot.accept) expect(spelled(key), key).toBe(task.prompt);
+        // Jede Oktave, die sich setzen lässt — keine fehlt.
+        const [low, high] = reach[clef].map((key) => midi({ ...parsePitch(key), alter: 0 }));
+        const octaves = slot.accept.map((key) => parsePitch(key).octave);
+        const step = parsePitch(slot.accept[0]).step;
+        for (let octave = 0; octave <= 8; octave++) {
+          const natural = midi({ step, alter: 0, octave });
+          expect(octaves.includes(octave), `${task.prompt} in Oktave ${octave}`).toBe(natural >= low && natural <= high);
+        }
+      }
+    }
+  });
+
+  it('wertet beim Notenschreiben jede Oktave als richtig, einen anderen Namen als falsch', () => {
+    for (const question of generate('noten-schreiben', {}, 30)) {
+      const task = question.task as NotationTask;
+      const slot = (task.solution as { slots: { accept: string[] }[] }).slots[0];
+      for (const key of slot.accept) {
+        const result = scoreTask(task, { n: { 0: [fromPitch(parsePitch(key), 'w')] } });
+        expect(result.earned, key).toBe(result.possible);
+      }
+      const other = parsePitch(slot.accept[0]);
+      const wrong = fromPitch({ ...other, alter: other.alter === 0 ? 1 : 0 }, 'w');
+      expect(scoreTask(task, { n: { 0: [wrong] } }).earned).toBe(0);
+    }
+  });
+
+  it('schreibt ohne Vorzeichen nur Stammtöne, ohne Vorzeichen-Werkzeug', () => {
+    for (const question of generate('noten-schreiben', { accidentals: 'stammton' })) {
+      const task = question.task as NotationTask;
+      expect(task.noAccidentals).toBe(true);
+      expect(WHITE_NAMES).toContain(task.prompt);
+    }
   });
 });
 

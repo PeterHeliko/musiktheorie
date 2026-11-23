@@ -138,6 +138,11 @@ export interface SelectField {
   optionSet?: string;
   options?: SelectOption[];
   correct: string;
+  /**
+   * Weitere Werte, die ebenso richtig sind. Für eine schwarze Taste: sie
+   * heisst cis oder des, beides stimmt. Die Rückmeldung nennt `correct` zuerst.
+   */
+  alsoCorrect?: string[];
   points: number;
   /** Als Knopfraster statt als Auswahlliste darstellen (kurze Antworten). */
   buttons?: boolean;
@@ -147,8 +152,10 @@ export interface SelectField {
    * Reihen wie eine Klaviatur (kleine zwischen den grossen).
    * «sizes»: die Intervallgrössen der Grobbestimmung — hochkant zwei je
    * Zeile, quer alle in einer Reihe.
+   * «notes»: Tonnamen, eine Spalte je Stammton (c … h), darüber die mit ♭,
+   * darunter die mit ♯. Fehlende Namen lassen ihren Platz frei.
    */
-  buttonLayout?: 'intervals' | 'sizes';
+  buttonLayout?: 'intervals' | 'sizes' | 'notes';
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +203,11 @@ export interface NotationTask extends TaskBase {
    * Aufgaben, in denen Vorzeichen gar nicht vorkommen (Grobbestimmung).
    */
   noAccidentals?: boolean;
+  /**
+   * Tonnamen auf der Tastatur setzen keinen Ton. Wo der Name die Frage ist
+   * («Setze fis»), würde die Taste F die Aufgabe lösen. Die Pfeile bleiben.
+   */
+  noNameKeys?: boolean;
 }
 
 export type NotationSolution =
@@ -270,9 +282,10 @@ export interface KeyboardTask extends TaskBase {
   /**
    * Wie die Rückmeldung eine Taste nennt: als Intervall von der Taste `from`
    * aus — in Halbtönen gezählt («kleine Terz aufwärts», Feinbestimmung) oder
-   * in weissen Tasten («Terz aufwärts», Grobbestimmung).
+   * in weissen Tasten («Terz aufwärts», Grobbestimmung) — oder mit ihrem
+   * Tonnamen («fis/ges»).
    */
-  describe: { from: number; by: 'semitones' | 'steps' };
+  describe: { from: number; by: 'semitones' | 'steps' } | { by: 'name' };
   points: number;
 }
 

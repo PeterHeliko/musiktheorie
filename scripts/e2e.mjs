@@ -31,6 +31,10 @@ const slow = process.argv.includes('--slow');
 
 /** Alle Übungen mit Titel im Tab (samt Gruppe) — muss zu src/generators/ passen. */
 const MODES = {
+  'toene-klaviatur-benennen': 'Töne auf Klaviatur benennen',
+  'toene-klaviatur-spielen': 'Töne auf Klaviatur spielen',
+  'noten-benennen': 'Noten benennen',
+  'noten-schreiben': 'Noten schreiben',
   'notenwerte-zuordnen': 'Notenwerte und Pausenzeichen zuordnen',
   'pausen-ergaenzen': 'Fehlende Pausen ergänzen',
   'intervalle-grob-bestimmen': 'Intervalle in Noten benennen (Grobbestimmung)',
@@ -55,7 +59,7 @@ const MODES = {
 const MODE_IDS = Object.keys(MODES);
 
 /** Themen mit Übungen — muss zu src/generators/types.ts (TOPICS) passen. */
-const TOPICS = ['rhythmus', 'intervalle', 'tonleitern', 'dreiklaenge', 'melodie'];
+const TOPICS = ['toene', 'rhythmus', 'intervalle', 'tonleitern', 'dreiklaenge', 'melodie'];
 
 let failures = 0;
 

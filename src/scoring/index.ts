@@ -18,7 +18,7 @@ import type {
   Task,
   TextTableTask,
 } from '../content/schema';
-import { whiteIndex } from '../music/piano';
+import { keyNames, whiteIndex } from '../music/piano';
 import { judgeSung } from '../sing/judge';
 import { nameFromMidi } from '../sing/notes';
 import {
@@ -128,6 +128,11 @@ function labelFor(field: SelectField, value: string): string {
   return option ? option.label : value;
 }
 
+/** Alle Werte, die in diesem Feld richtig sind — `correct` zuerst. */
+export function acceptedValues(field: SelectField): string[] {
+  return [field.correct, ...(field.alsoCorrect ?? [])];
+}
+
 function scoreSelectFields(
   taskId: string,
   fields: SelectField[],
@@ -135,14 +140,16 @@ function scoreSelectFields(
 ): Detail[] {
   return fields.map((field) => {
     const given = answer?.[field.id] ?? '';
-    const correct = given === field.correct;
+    const correct = acceptedValues(field).includes(given);
     return {
       id: `${taskId}_${field.id}`,
       label: field.label ?? 'Antwort',
       earned: correct ? field.points : 0,
       possible: field.points,
       studentResponse: labelFor(field, given),
-      correctResponse: labelFor(field, field.correct),
+      correctResponse: acceptedValues(field)
+        .map((value) => labelFor(field, value))
+        .join(' oder '),
       correct,
       interactionType: 'choice' as const,
     };
@@ -444,6 +451,21 @@ export function keyInterval(
 function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): Detail[] {
   const keys = answer?.keys ?? [];
   const correct = keys.length === 1 && task.accept.includes(keys[0]);
+  if (task.describe.by === 'name') {
+    // Verlangt war ein Ton; welche Oktave, ist gleich.
+    return [
+      {
+        id: `${task.id}_taste`,
+        label: task.prompt ?? 'Taste',
+        earned: correct ? task.points : 0,
+        possible: task.points,
+        studentResponse: keys.length ? keys.map((key) => keyNames(key).join('/')).join(', ') : '—',
+        correctResponse: task.prompt ?? keyNames(task.accept[0]).join('/'),
+        correct,
+        interactionType: 'choice',
+      },
+    ];
+  }
   const { from, by } = task.describe;
   // Sind beide Richtungen richtig, nennt die Lösung nur das Intervall.
   const both = task.accept.some((key) => key > from) && task.accept.some((key) => key < from);

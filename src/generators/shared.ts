@@ -289,15 +289,16 @@ export function intervalSpace(clefs: readonly string[], width: string, policy: A
 const INTERVAL_MAX_SCALE = 4;
 
 /**
- * Zwei Töne als Ganze auf einem System — das Notenbild der Intervall-
- * bestimmung. So gross, wie der Bildschirm zulässt: zwei Töne in einem Akkord
- * sind auf dem Telefon sonst schwer auseinanderzuhalten.
+ * Töne als eine Ganze auf einem System — das Notenbild der Intervall-
+ * bestimmung (zwei Töne) und des Notenbenennens (einer). So gross, wie der
+ * Bildschirm zulässt: zwei Töne in einem Akkord sind auf dem Telefon sonst
+ * schwer auseinanderzuhalten.
  *
  * `width` ist die Zeichenbreite. Ohne Vorzeichen genügt 110; mit stehen links
  * vor den Noten bis zu zwei Doppelvorzeichen, dafür 150.
  */
-function twoNoteScore(
-  keys: [string, string],
+export function wholeNoteScore(
+  keys: string[],
   clef: 'treble' | 'bass',
   { width, space }: { width: number; space: Space },
 ): ScoreSpec {
@@ -334,7 +335,7 @@ export function intervalNaming(
   return {
     id,
     kind: 'select',
-    score: twoNoteScore(keys, clef, {
+    score: wholeNoteScore(keys, clef, {
       width: policy === 'stammton' ? 110 : 150,
       space: intervalSpace(clefs, width, policy),
     }),
@@ -362,7 +363,7 @@ export function intervalSizeNaming(
     // die beiden Übungen sollen gleich aussehen (Entscheid 2026-11-23). Auf
     // dem Telefon hochkant und auf dem Rechner kostet das nichts — dort ist
     // die Breite die Grenze, nicht die Höhe.
-    score: twoNoteScore(keys, clef, { width: 110, space: intervalSpace(clefs, width, 'einfach') }),
+    score: wholeNoteScore(keys, clef, { width: 110, space: intervalSpace(clefs, width, 'einfach') }),
     fields: [intervalSizeField(correct, allowed)],
   };
 }

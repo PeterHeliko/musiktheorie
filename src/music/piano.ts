@@ -6,6 +6,8 @@
  * Gezeichnet wird sie von `ui/PianoKeyboard.tsx`.
  */
 
+import { STEPS, germanNoteName, midi } from './theory';
+
 /** Die Klaviatur der Intervallübungen: zwei Oktaven, c bis h¹. */
 export const INTERVAL_KEYBOARD = { low: 48, high: 71 } as const;
 
@@ -38,4 +40,28 @@ export function whiteKeyAt(index: number): number {
 /** Alle Tasten von `low` bis `high`, beide einschliesslich. */
 export function keysBetween(low: number, high: number): number[] {
   return Array.from({ length: high - low + 1 }, (_, i) => low + i);
+}
+
+/**
+ * Die Namen einer Taste, klein geschrieben und aus dem Theoriekern: eine
+ * weisse heisst wie ihr Stammton (e — nicht fes), eine schwarze nach beiden
+ * Nachbarn, das Kreuz zuerst (cis, des). Ces, fes, eis und his sind
+ * Schreibweisen im Notenbild; auf der Klaviatur heissen diese Tasten h, e, f
+ * und c.
+ */
+export function keyNames(key: number): string[] {
+  const alters = isWhiteKey(key) ? [0] : [1, -1];
+  return alters.flatMap((alter) =>
+    STEPS.filter((step) => pitchClass(midi({ step, alter, octave: 4 })) === pitchClass(key)).map((step) =>
+      germanNoteName(step, alter).toLowerCase(),
+    ),
+  );
+}
+
+/** Alle Tonnamen der Klaviatur: sieben weisse, zehn für die fünf schwarzen. */
+export const KEY_NAMES: string[] = [...new Set(keysBetween(60, 71).flatMap(keyNames))];
+
+/** Die Tasten zwischen `low` und `high`, die so heissen. */
+export function keysNamed(name: string, low: number, high: number): number[] {
+  return keysBetween(low, high).filter((key) => keyNames(key).includes(name));
 }
