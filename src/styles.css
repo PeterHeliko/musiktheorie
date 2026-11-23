@@ -1340,12 +1340,6 @@
   cursor: pointer;
 }
 
-/* Grobbestimmung: schwarze Tasten zählen nicht. */
-.piano-key.is-black.is-inert {
-  background: var(--line-strong);
-  border-color: var(--line-strong);
-}
-
 @media (hover: hover) {
   .piano-key.is-white:not([data-state]):not(:disabled):hover {
     background: var(--accent-soft);
@@ -1359,21 +1353,25 @@
   background: var(--accent-soft);
 }
 
-/* Gewählt blau, nach dem Prüfen grün oder rot, die richtige grün umrandet —
-   wie die Antwortknöpfe (.choice). */
-.piano-key[data-state='selected'] {
+/* Vorgegeben blau wie die vorgegebenen Noten, gewählt hellblau wie die
+   Vorschau beim Notieren (render.ts). Nach dem Prüfen grün oder rot, die
+   richtige grün umrandet — wie die Antwortknöpfe (.choice). Gefüllt wird nur
+   die Fläche: die Fuge bleibt, sonst flössen zwei markierte Nachbartasten
+   zu einer zusammen. */
+.piano-key[data-state='given'] {
   background: var(--accent);
-  border-color: var(--accent);
+}
+
+.piano-key[data-state='selected'] {
+  background: #5aa9dd;
 }
 
 .piano-key[data-state='right'] {
   background: var(--good);
-  border-color: var(--good);
 }
 
 .piano-key[data-state='wrong'] {
   background: var(--bad);
-  border-color: var(--bad);
 }
 
 .piano-key[data-state='solution'] {
@@ -1383,26 +1381,6 @@
 
 .piano-key.is-black[data-state='solution'] {
   border-color: var(--good);
-}
-
-/* Vorgegebene Taste: ein Punkt, mit weissem Rand auch auf gefärbten Tasten
-   zu sehen. */
-.piano-dot {
-  position: absolute;
-  left: 50%;
-  bottom: 7%;
-  width: 60%;
-  max-width: 22px;
-  aspect-ratio: 1;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--surface);
-}
-
-.piano-key.is-black .piano-dot {
-  width: 70%;
-  bottom: 9%;
 }
 
 .keyboard-task {

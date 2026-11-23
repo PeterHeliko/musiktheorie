@@ -102,6 +102,8 @@ export class SamplePlayer {
   private readonly loading = new Map<string, Promise<AudioBuffer | null>>();
   /** Was gerade läuft — damit «Nächste» die Wiedergabe abbrechen kann. */
   private playing: { sources: AudioBufferSourceNode[]; done: () => void } | null = null;
+  /** Angeschlagene Einzeltöne (`strike`), solange sie klingen. */
+  private readonly struck = new Set<AudioBufferSourceNode>();
 
   /**
    * Der AudioContext entsteht erst beim ersten Bedarf und darf zu diesem
@@ -264,6 +266,33 @@ export class SamplePlayer {
   }
 
   /**
+   * Ein einzelner Ton, sofort — für die Klaviatur. Anders als `play()` ohne
+   * Vorlauf und, wenn das Sample schon geladen ist, ohne auf irgendetwas zu
+   * warten: zwischen Antippen und Klang soll nichts liegen. Ein zuvor
+   * angeschlagener Ton klingt darunter weiter aus, wie am Klavier.
+   *
+   * Ist das Sample noch nicht da, erklingt der Ton, sobald es geladen ist.
+   */
+  strike(pitch: Pitch, { seconds = 1, release = 0.8 }: { seconds?: number; release?: number } = {}): void {
+    let context: AudioContext;
+    try {
+      context = this.ctx();
+    } catch {
+      return;
+    }
+    if (context.state !== 'running') void context.resume();
+    const { name, rate } = sampleFor(pitch);
+    const sound = () => {
+      const source = this.schedule(name, rate, context.currentTime, seconds, release, []);
+      if (!source) return;
+      this.struck.add(source);
+      source.onended = () => this.struck.delete(source);
+    };
+    if (this.buffers.has(name)) sound();
+    else void this.load(name).then((buffer) => buffer && sound());
+  }
+
+  /**
    * Ein Ton: Sample → Hüllkurve → Ausgang. Die Hüllkurve dämpft am notierten
    * Ende; ohne sie klängen alle Töne bis zum Ende des Samples weiter.
    */
@@ -275,9 +304,9 @@ export class SamplePlayer {
     /** Ausklingzeit des Schlusstons; null = gewöhnlicher Ton. */
     ringOut: number | null,
     sources: AudioBufferSourceNode[],
-  ): void {
+  ): AudioBufferSourceNode | null {
     const buffer = this.buffers.get(name);
-    if (!buffer) return;
+    if (!buffer) return null;
 
     const context = this.ctx();
     const source = context.createBufferSource();
@@ -301,10 +330,19 @@ export class SamplePlayer {
     source.start(at);
     source.stop(dampenAt + release);
     sources.push(source);
+    return source;
   }
 
-  /** Bricht ab, was gerade läuft oder geplant ist. */
+  /** Bricht ab, was gerade läuft oder geplant ist, auch angeschlagene Töne. */
   stop(): void {
+    for (const source of this.struck) {
+      try {
+        source.stop();
+      } catch {
+        // Schon verklungen.
+      }
+    }
+    this.struck.clear();
     const current = this.playing;
     if (!current) return;
     this.playing = null;

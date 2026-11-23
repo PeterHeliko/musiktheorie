@@ -5,9 +5,10 @@
  * erklingen kann, muss der Audiokontext vorher in einer Nutzeraktion gestartet
  * worden sein — auf iOS zwingend in der Aktion selbst, nicht später. Die
  * passenden Aktionen sind:
- *  - der Klick auf den Link zu einer Hör- oder Singaufgabe (die erste Aufgabe
- *    soll schon klingen), und
- *  - jeder Klick innerhalb einer Übung mit Hörbeispiel («Weiter», «Fertig» …).
+ *  - der Klick auf den Link zu einer Hör-, Sing- oder Klaviaturaufgabe (die
+ *    erste Aufgabe bzw. Taste soll schon klingen), und
+ *  - jeder Klick innerhalb einer Übung mit Hörbeispiel oder spielbarer
+ *    Klaviatur («Weiter», eine Taste …).
  *
  * Auf allen anderen Seiten bleibt der Audiokontext unberührt.
  */
@@ -22,14 +23,17 @@ function leadsToListening(anchor: HTMLAnchorElement): boolean {
   if (url.origin !== globalThis.location.origin || !url.pathname.startsWith(BASE)) return false;
   const route = routeFromPath(url.pathname.slice(BASE.length));
   const skill = route.page === 'uebung' ? generatorById(route.id)?.skill : undefined;
-  return skill === 'hoeren' || skill === 'singen';
+  // Klaviatur: beim Spielen klingen die Tasten. Auf iOS gibt das erste
+  // Antippen einer Taste den Ton erst beim Loslassen frei (pointerdown zählt
+  // dort nicht als Nutzeraktion) — deshalb schon hier.
+  return skill === 'hoeren' || skill === 'singen' || skill === 'klaviatur';
 }
 
 export function installAudioUnlock(): void {
   const handler = (event: Event) => {
     const target = event.target as Element | null;
     const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
-    const inListening = document.querySelector('.session .audio-player') !== null;
+    const inListening = document.querySelector('.session .audio-player, .session .piano.is-interactive') !== null;
     if (inListening || (anchor && leadsToListening(anchor))) player.unlock();
   };
   // Capture: vor dem Seitenwechsel des Routers, solange die Aktion noch läuft.

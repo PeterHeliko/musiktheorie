@@ -6,17 +6,18 @@
  * Was sie zeigt, steht ganz in den Eigenschaften; sie selbst merkt sich
  * nichts. So kann jede Aufgabe entscheiden, was eine Taste bedeutet.
  *
- *  - Vorgegebene Tasten (`marked`) tragen einen blauen Punkt, wie die
- *    vorgegebenen Noten im Notenbild blau sind. Ein Punkt statt einer
- *    Füllung, damit eine vorgegebene Taste zugleich gewählt sein kann (Prime).
- *  - Die gewählte Taste ist blau gefüllt, wie ein gewählter Antwortknopf;
- *    nach dem Prüfen grün oder rot, und die richtige grün umrandet
- *    (`states`).
+ *  - Markiert wird immer mit einer Füllung (Entscheid 2026-11-23):
+ *    vorgegebene Tasten (`marked`) blau wie die vorgegebenen Noten im
+ *    Notenbild, die gewählte hellblau wie die Vorschau beim Notieren, nach
+ *    dem Prüfen grün oder rot, und die richtige grün umrandet (`states`).
+ *    Eine Färbung aus `states` geht der Vorgabe vor.
  *  - Beschriftet ist keine Taste (Entscheid 2026-11-23): die Klaviatur
  *    abzulesen ist Teil der Übung.
  *
  * Ohne `onPress` ist sie ein Bild. Mit `onPress` ist jede Taste ein Knopf —
- * antippen, mit Tab erreichen, mit Eingabe auslösen.
+ * antippen, mit Tab erreichen, mit Eingabe auslösen. Ausgelöst wird beim
+ * Niederdrücken, nicht beim Loslassen: wie am Klavier klingt die Taste, sobald
+ * der Finger sie trifft.
  */
 
 import { useEffect, useRef } from 'preact/hooks';
@@ -53,11 +54,11 @@ export function PianoKeyboard({
   /** Tiefste und höchste Taste (MIDI), beide weiss. */
   low: number;
   high: number;
-  /** Vorgegebene Tasten: ein Punkt. */
+  /** Vorgegebene Tasten, blau gefüllt. */
   marked?: readonly number[];
   /** Färbung einzelner Tasten. */
   states?: Readonly<Record<number, KeyState>>;
-  /** Welche Tasten sich antippen lassen; ohne Angabe alle. */
+  /** Welche Tasten sich antippen lassen; ohne Angabe alle. Die übrigen sehen gleich aus. */
   pressable?: (key: number) => boolean;
   /** Ohne: die Klaviatur ist nur ein Bild. */
   onPress?: (key: number) => void;
@@ -109,22 +110,13 @@ export function PianoKeyboard({
 
   const render = (key: number) => {
     const white = isWhiteKey(key);
-    const state = states[key];
-    // Gehört die Taste gar nicht zur Aufgabe (schwarz in der Grobbestimmung),
-    // ist sie blasser — sonst sähe sie aus, als klemme sie.
-    const inert = interactive && pressable !== undefined && !pressable(key);
-    const classes = ['piano-key', white ? 'is-white' : 'is-black', inert ? 'is-inert' : '', key === high ? 'is-last' : '']
-      .filter(Boolean)
-      .join(' ');
-    const dot = marks.has(key) ? <span class="piano-dot" aria-hidden="true" /> : null;
+    const state: KeyState | 'given' | undefined = states[key] ?? (marks.has(key) ? 'given' : undefined);
+    const classes = `piano-key ${white ? 'is-white' : 'is-black'}${key === high ? ' is-last' : ''}`;
 
     if (!interactive) {
-      return (
-        <span key={key} class={classes} style={place(key)} data-key={key} data-state={state}>
-          {dot}
-        </span>
-      );
+      return <span key={key} class={classes} style={place(key)} data-key={key} data-state={state} />;
     }
+    const usable = !disabled && (pressable?.(key) ?? true);
     return (
       <button
         key={key}
@@ -134,13 +126,20 @@ export function PianoKeyboard({
         data-key={key}
         data-state={state}
         role="radio"
-        aria-checked={state !== undefined && state !== 'solution'}
+        aria-checked={state === 'selected' || state === 'right' || state === 'wrong'}
         aria-label={`${nameFromMidi(key)}${marks.has(key) ? ', vorgegeben' : ''}`}
-        disabled={disabled || inert}
-        onClick={() => onPress!(key)}
-      >
-        {dot}
-      </button>
+        disabled={!usable}
+        onPointerDown={(event) => {
+          // Nur die Haupttaste der Maus; Finger und Stift immer.
+          if (usable && event.button === 0) onPress!(key);
+        }}
+        // Mit Eingabe- oder Leertaste ausgelöst, kommt kein pointerdown —
+        // dann zählt der Klick (detail 0). Ein Klick mit Maus oder Finger ist
+        // beim Niederdrücken schon erledigt.
+        onClick={(event) => {
+          if (usable && event.detail === 0) onPress!(key);
+        }}
+      />
     );
   };
 

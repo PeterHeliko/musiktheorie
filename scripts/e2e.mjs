@@ -690,9 +690,14 @@ async function main() {
     const lowest = await page.locator('.question .piano .piano-key').first().getAttribute('data-key');
     check(lowest === '48', `sie beginnt auf c (Taste ${lowest})`);
     check(
-      (await keyCount(page, '.piano-dot')) === 2 && (await keyCount(page, 'button')) === 0,
+      (await keyCount(page, '[data-state="given"]')) === 2 && (await keyCount(page, 'button')) === 0,
       'Benennen: zwei Tasten markiert, die Klaviatur ist nur ein Bild',
     );
+    const givenColour = await page
+      .locator('.question .piano [data-state="given"]')
+      .first()
+      .evaluate((key) => getComputedStyle(key).backgroundColor);
+    check(givenColour === 'rgb(29, 111, 165)', `markiert wird mit blauer Füllung (${givenColour})`);
     await page.locator('.question .choice').first().click();
     await page.waitForSelector('.verdict');
     check(true, 'Benennen: ein Klick auf eine Antwort genügt');
@@ -700,21 +705,47 @@ async function main() {
 
     /** Startet eine Spielaufgabe und gibt die markierte Taste zurück. */
     const startKey = async (p) => {
-      await p.waitForSelector('.question .piano .piano-dot');
-      return Number(await p.locator('.question .piano-key:has(.piano-dot)').getAttribute('data-key'));
+      await p.waitForSelector('.question .piano [data-state="given"]');
+      return Number(await p.locator('.question .piano-key[data-state="given"]').getAttribute('data-key'));
     };
     const keyAt = (p, key) => p.locator(`.question .piano-key[data-key="${key}"]`);
 
-    await page.goto(exercise('intervalle-klaviatur-spielen', '?intervalle=k3&richtung=auf'), { waitUntil: 'networkidle' });
+    // Jeder angeschlagene Ton (ausser dem stillen Freischalt-Ton): wann er
+    // geplant ist, gemessen an der Uhr des Audiokontexts.
+    await page.addInitScript(() => {
+      const original = AudioBufferSourceNode.prototype.start;
+      window.__tones = [];
+      AudioBufferSourceNode.prototype.start = function (when = 0, ...rest) {
+        if ((this.buffer?.length ?? 0) > 1) window.__tones.push({ lead: when - this.context.currentTime });
+        return original.call(this, when, ...rest);
+      };
+    });
+    // Feste Aufgabe: c¹, kleine Terz aufwärts → es¹. Mit zufälliger Starttaste
+    // lägen die Nachbartasten, die hier gedrückt werden, mal ausserhalb.
+    const fixedTask = exercise('intervalle-klaviatur-spielen', '?intervalle=k3&richtung=auf&aufgabe=i&v=1');
+    await page.goto(fixedTask, { waitUntil: 'networkidle' });
     let start = await startKey(page);
+    check(start === 60, `die Aufgabe aus dem Link beginnt auf c¹ (Taste ${start})`);
     const checkButton = page.locator('.session-bar button:has-text("Prüfen")');
     check(await checkButton.isDisabled(), 'Spielen: Prüfen erst nach dem Antippen');
-    const sampleLoaded = () =>
-      performance.getEntriesByType('resource').some((entry) => entry.name.includes('/samples/'));
-    check(!(await page.evaluate(sampleLoaded)), 'Klaviertöne kommen erst beim Antippen');
-    await keyAt(page, start + 4).click();
-    check((await keyAt(page, start + 4).getAttribute('data-state')) === 'selected', 'Antippen wählt eine Taste');
-    check(await eventually(page, sampleLoaded), 'und sie erklingt');
+    const samplesLoaded = await page.evaluate(
+      () => performance.getEntriesByType('resource').filter((entry) => entry.name.includes('/samples/')).length,
+    );
+    check(samplesLoaded >= 24, `die Töne der Klaviatur sind vor dem ersten Antippen geladen (${samplesLoaded})`);
+    const pressBox = await keyAt(page, start + 4).boundingBox();
+    await page.mouse.move(pressBox.x + pressBox.width / 2, pressBox.y + pressBox.height * 0.8);
+    await page.mouse.down();
+    const tonesWhileDown = await page.evaluate(() => window.__tones);
+    check(
+      (await keyAt(page, start + 4).getAttribute('data-state')) === 'selected',
+      'Niederdrücken wählt die Taste, ohne Loslassen',
+    );
+    check(
+      tonesWhileDown.length === 1 && tonesWhileDown[0].lead <= 0.005,
+      `und sie klingt sofort, ohne Vorlauf (${tonesWhileDown.map((tone) => `${Math.round(tone.lead * 1000)} ms`).join(', ')})`,
+    );
+    await page.mouse.up();
+    check((await page.evaluate(() => window.__tones.length)) === 1, 'das Loslassen schlägt sie nicht noch einmal an');
     await keyAt(page, start + 3).click();
     check(
       (await page.locator('.question .piano-key[data-state="selected"]').count()) === 1 &&
@@ -722,13 +753,23 @@ async function main() {
       'eine andere Taste antippen wählt um',
     );
     check((await page.locator('.verdict').count()) === 0, 'Antippen allein wertet noch nicht');
+    // Mit der Tastatur: Tab auf eine Taste, Eingabe spielt sie.
+    await keyAt(page, start + 2).focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Enter');
+    check(
+      (await keyAt(page, start + 2).getAttribute('data-state')) === 'selected' && (await page.locator('.verdict').count()) === 0,
+      'mit Tab erreicht, spielt die Eingabetaste die Taste',
+    );
+    await keyAt(page, start + 3).click();
     await page.keyboard.press('Enter');
     await page.waitForSelector('.verdict');
     const rightVerdict = await page.locator('.verdict').innerText();
     check(/Richtig: kleine Terz aufwärts/.test(rightVerdict), `die Eingabetaste prüft («${rightVerdict.replace(/\n/g, ' ')}»)`);
     check((await keyAt(page, start + 3).getAttribute('data-state')) === 'right', 'die richtige Taste wird grün');
     check((await page.locator('.question .piano-key:not([disabled])').count()) === 0, 'danach ist die Klaviatur eingefroren');
-    await page.locator('.session-bar button:has-text("Weiter")').click();
+    await page.goto(fixedTask, { waitUntil: 'networkidle' });
     start = await startKey(page);
     await keyAt(page, start + 4).click();
     await checkButton.click();
@@ -752,6 +793,11 @@ async function main() {
         (await page.locator('.question .piano-key.is-white:not([disabled])').count()) === 14,
       'Grobbestimmung: nur die weissen Tasten lassen sich antippen',
     );
+    const blackColour = await page
+      .locator('.question .piano-key.is-black')
+      .first()
+      .evaluate((key) => getComputedStyle(key).backgroundColor);
+    check(blackColour === 'rgb(26, 29, 36)', `die schwarzen Tasten bleiben schwarz (${blackColour})`);
     await page.screenshot({ path: join(SHOTS, 'klaviatur-grob-spielen.png'), fullPage: true });
 
     const pianoPhone = await browser.newContext({ ...devices['iPhone 13'] });

@@ -121,8 +121,11 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 - **Spielen** (`KeyboardTask`): Antippen wählt eine Taste und lässt sie klingen, «Prüfen»
   gibt sie ab. Die Rückmeldung nennt das gespielte Intervall, nicht den Tonnamen — die
   vorgegebene Taste hat keine Schreibweise.
-- Vorgegebene Tasten tragen einen blauen Punkt, die gewählte ist blau gefüllt, nach dem
-  Prüfen grün oder rot wie die Antwortknöpfe.
+- Markiert wird mit Füllung: vorgegebene Tasten blau, die gewählte hellblau, nach dem
+  Prüfen grün oder rot wie die Antwortknöpfe. Nicht spielbare Tasten (schwarz in der
+  Grobbestimmung) sehen aus wie alle anderen.
+- Eine Taste klingt beim Niederdrücken, ohne Vorlauf (`player.strike`); die Töne der
+  Klaviatur werden beim Öffnen der Aufgabe geladen.
 - In der Übung füllt sie den Platz, den die Antworten übrig lassen, wie ein Notenbild mit
   `fit`.
 

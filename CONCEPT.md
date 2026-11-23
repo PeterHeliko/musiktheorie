@@ -190,7 +190,7 @@ On the keyboard (two octaves, c to h¹, no labels): Grobbestimmung uses white ke
 black key has no size (c–dis is a Sekunde, c–es a Terz). Feinbestimmung counts semitones;
 with no spelling, ü4 and v5 are both «Tritonus», as on the answer grid. *Benennen* is silent,
 so it trains counting, not hearing. *Spielen*: a tapped key sounds and is selected; «Prüfen»
-submits it.
+submits it. Marks are fills: given keys blue, the tapped key light blue.
 
 *Später:* über die Oktave hinaus, Komplementärintervalle.
 
