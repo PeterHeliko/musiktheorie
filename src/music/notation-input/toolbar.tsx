@@ -32,6 +32,9 @@ const GLYPH = {
   rest8th: '\uE4E6',
   rest16th: '\uE4E7',
   augmentationDot: '\uE1E7',
+  accidentalFlat: '\uE260',
+  accidentalNatural: '\uE261',
+  accidentalSharp: '\uE262',
 } as const;
 
 export interface DurationChoice {
@@ -124,11 +127,16 @@ export function DurationPalette({
  * Renderer zeichnet dafür nichts. Deshalb trägt der mittlere Knopf einen
  * Strich und die Beschriftung «ohne»; ein ♮ hätte suggeriert, dass vor jeder
  * Note ein Auflösungszeichen steht.
+ *
+ * Die schlanke Fassung (`bare`, Intervall notieren) zeigt dagegen nur die drei
+ * Zeichen ♭ ♮ ♯ in Bravura. Dort steht das Intervall ohne Tonartvorzeichen,
+ * «ohne Vorzeichen» ist also gleichbedeutend mit dem Stammton — und als
+ * Dreiergruppe liest sich ♭ ♮ ♯ auf einen Blick.
  */
-const ACCIDENTALS: { alter: number; symbol: string; label: string; text: string }[] = [
-  { alter: -1, symbol: '♭', label: 'b — Ton erniedrigen', text: 'b' },
-  { alter: 0, symbol: '–', label: 'ohne Vorzeichen', text: 'ohne' },
-  { alter: 1, symbol: '♯', label: 'Kreuz — Ton erhöhen', text: 'Kreuz' },
+const ACCIDENTALS: { alter: number; symbol: string; glyph: string; label: string; text: string }[] = [
+  { alter: -1, symbol: '♭', glyph: GLYPH.accidentalFlat, label: 'b — Ton erniedrigen', text: 'b' },
+  { alter: 0, symbol: '–', glyph: GLYPH.accidentalNatural, label: 'ohne Vorzeichen', text: 'ohne' },
+  { alter: 1, symbol: '♯', glyph: GLYPH.accidentalSharp, label: 'Kreuz — Ton erhöhen', text: 'Kreuz' },
 ];
 
 export function AccidentalPalette({
@@ -136,33 +144,44 @@ export function AccidentalPalette({
   onChange,
   disabled,
   label = 'Vorzeichen',
+  bare = false,
 }: {
   value: number;
   onChange: (alter: number) => void;
   disabled?: boolean;
   label?: string;
+  /** Nur die Zeichen ♭ ♮ ♯, ohne Überschrift und Wörter. */
+  bare?: boolean;
 }) {
   return (
     <div class="palette">
-      <span class="palette-label">{label}</span>
-      <div class="palette-buttons">
+      {!bare && <span class="palette-label">{label}</span>}
+      <div class="palette-buttons" role={bare ? 'group' : undefined} aria-label={bare ? label : undefined}>
         {ACCIDENTALS.map((accidental) => {
           const active = value === accidental.alter;
           return (
             <button
               key={accidental.alter}
               type="button"
-              class={`tool ${active ? 'is-active' : ''}`}
-              title={accidental.label}
+              class={`tool ${active ? 'is-active' : ''} ${bare ? 'tool-glyph' : ''}`}
+              title={bare ? undefined : accidental.label}
               aria-label={accidental.label}
               aria-pressed={active}
               disabled={disabled}
               onClick={() => onChange(accidental.alter)}
             >
-              <span class="tool-symbol" aria-hidden="true">
-                {accidental.symbol}
-              </span>
-              <span class="tool-text">{accidental.text}</span>
+              {bare ? (
+                <span class={`tool-symbol tool-symbol-accidental is-alter${accidental.alter}`} aria-hidden="true">
+                  {accidental.glyph}
+                </span>
+              ) : (
+                <>
+                  <span class="tool-symbol" aria-hidden="true">
+                    {accidental.symbol}
+                  </span>
+                  <span class="tool-text">{accidental.text}</span>
+                </>
+              )}
             </button>
           );
         })}

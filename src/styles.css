@@ -241,6 +241,41 @@
   width: auto;
 }
 
+/*
+ * Schlanke Eingabe (Intervall notieren): keine Box um die Leiste, kein
+ * gestrichelter Rahmen um das Notenbild. Die drei Vorzeichenknöpfe tragen nur
+ * ihr Zeichen (toolbar.tsx, `bare`).
+ */
+.toolbar-bare {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  align-items: center;
+}
+.score-click-area-bare {
+  border: 0;
+  padding: 0;
+}
+
+/*
+ * Vorzeichen aus Bravura. Wie bei den Notenzeichen (styles-base.css) liegt
+ * die Grundlinie dank `line-height: 0` in der Kastenmitte; ♮ und ♯ sind um
+ * die Grundlinie gebaut, das ♭ ragt weiter nach oben als nach unten
+ * (SMuFL-Rahmen: +0,44 / −0,18 em) und wird um die halbe Differenz gesenkt.
+ */
+.tool-symbol-accidental {
+  font-family: Bravura, serif;
+  font-size: 2rem;
+  line-height: 0;
+  height: 2.3rem;
+  align-items: center;
+  justify-content: center;
+}
+.tool-symbol-accidental.is-alter-1 {
+  transform: translateY(0.13em);
+}
+
 /* Knopfzeile in der Leiste unten (.session-bar zieht die Trennlinie). */
 .session-actions {
   display: flex;

@@ -468,7 +468,7 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
 
   return (
     <>
-      <div class="toolbar toolbar-one-row">
+      <div class="toolbar toolbar-one-row toolbar-bare">
         {/* Ohne Vorzeichen bleibt `alter` bei 0: gesetzt werden nur Stammtöne. */}
         {!task.noAccidentals && (
           <AccidentalPalette
@@ -476,6 +476,7 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
             onChange={changeAlter}
             disabled={readOnly}
             label={lone ? 'Vorzeichen' : 'Vorzeichen für den nächsten Ton'}
+            bare
           />
         )}
         <ToolbarActions>
@@ -485,7 +486,7 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         </ToolbarActions>
       </div>
 
-      <div class="score-click-area" ref={area} {...pointer}>
+      <div class="score-click-area score-click-area-bare" ref={area} {...pointer}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
