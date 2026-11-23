@@ -12,8 +12,9 @@
  *     nachgesungene Ausgangston wird übergangen, der erste andere Ton ist die
  *     Antwort. Dann bleibt die Kurve stehen, der gewertete Teil wird grün oder
  *     rot, der Zielton erscheint, und die Übung wertet — ohne «Prüfen».
- *     «Ohne Fehlerurteil»: ein falscher Ton wird nur in der Kurve rot, und
- *     es geht weiter, bis der richtige kommt.
+ *     «Ohne Fehlerurteil»: der Zielbereich steht von Anfang an in der Kurve,
+ *     ein falscher Ton wird dort nur rot, und es geht weiter, bis der richtige
+ *     kommt.
  *
  * Das Mikrofon bleibt über die Aufgaben hinweg offen; geschlossen wird es
  * beim Verlassen der Übung (ExercisePage).
@@ -71,8 +72,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const [phase, setPhaseState] = useState<Phase>('waiting');
   const [playing, setPlaying] = useState(false);
   const [playFailed, setPlayFailed] = useState(false);
-  /** Was der letzte gehaltene Ton war, solange noch zugehört wird. */
-  const [lastHeld, setLastHeld] = useState<'reference' | 'miss' | null>(null);
+  const [heardReference, setHeardReference] = useState(false);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   // Die Messschleife liest die Phase bei jedem Bild — als Ref, nicht als Zustand.
@@ -154,8 +154,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
       referencePitch: reference,
       targetPitch: target,
       untilRight: task.untilRight === true,
-      onReference: () => setLastHeld('reference'),
-      onMiss: () => setLastHeld('miss'),
+      onReference: () => setHeardReference(true),
       onAnswer: (notes) => {
         setPhase('done');
         setAnswer(task.id, { notes });
@@ -167,11 +166,9 @@ export function SingTaskView({ task }: { task: SingTask }) {
     phase === 'playing'
       ? 'Hör zu …'
       : phase === 'listening'
-        ? lastHeld === 'miss'
-          ? 'Noch nicht – versuch es nochmal.'
-          : lastHeld === 'reference'
-            ? 'Ausgangston erkannt.'
-            : 'Jetzt singen.'
+        ? heardReference
+          ? 'Ausgangston erkannt.'
+          : 'Jetzt singen.'
         : '';
 
   return (
@@ -253,7 +250,6 @@ function listen(
     targetPitch,
     untilRight,
     onReference,
-    onMiss,
     onAnswer,
   }: {
     canvas: { current: HTMLCanvasElement | null };
@@ -261,10 +257,9 @@ function listen(
     goal: SingGoal;
     referencePitch: Pitch;
     targetPitch: Pitch;
-    /** «Ohne Fehlerurteil»: ein falscher Ton beendet nichts. */
+    /** «Ohne Fehlerurteil»: Zielbereich von Anfang an, ein falscher Ton beendet nichts. */
     untilRight: boolean;
     onReference: () => void;
-    onMiss: () => void;
     onAnswer: (notes: number[]) => void;
   },
 ): () => void {
@@ -276,10 +271,22 @@ function listen(
   const detector = new HoldDetector();
   const history: CurvePoint[] = [];
   const held: number[] = [];
-  let centre = goal.reference;
-  let lines: CurveLine[] = [
-    { midi: goal.reference, kind: 'reference', label: (at) => nameInOctave(referencePitch, at) },
-  ];
+  const targetLine: CurveLine = {
+    midi: goal.target,
+    kind: 'target',
+    band: goal.tolerance,
+    label: (at) => nameInOctave(targetPitch, at),
+  };
+  const referenceLine: CurveLine = {
+    midi: goal.reference,
+    kind: 'reference',
+    label: (at) => nameInOctave(referencePitch, at),
+  };
+  // Gewöhnlich erscheint der Zielton erst mit dem Urteil — sonst stünde die
+  // Antwort schon da. «Ohne Fehlerurteil» zeigt ihn gleich, und das Bild
+  // beginnt so, dass Ausgangs- und Zielton zu sehen sind.
+  let lines: CurveLine[] = untilRight ? [referenceLine, targetLine] : [referenceLine];
+  let centre = untilRight ? (goal.reference + goal.target) / 2 : goal.reference;
   let lastNow = performance.now();
   let handle = 0;
   let stopped = false;
@@ -329,20 +336,11 @@ function listen(
           // Nur ein Versuch: weiter zuhören. Auch auf demselben Ton, damit
           // sich ein knapp verfehlter nachstimmen lässt.
           detector.again();
-          onMiss();
           render();
           handle = requestAnimationFrame(tick);
           return;
         }
-        lines = [
-          ...lines,
-          {
-            midi: goal.target,
-            kind: 'target',
-            band: goal.tolerance,
-            label: (at) => nameInOctave(targetPitch, at),
-          },
-        ];
+        lines = [referenceLine, targetLine];
         // Zielton und gesungener Ton gemeinsam ins Bild, in der gesungenen Oktave.
         const shownTarget = goal.target + 12 * Math.round((note.midi - goal.target) / 12);
         centre = (note.midi + shownTarget) / 2;

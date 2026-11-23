@@ -205,8 +205,8 @@ export const intervalleSingen: Generator<Filters> = {
       // Gehört zur Erklärung hinter ⓘ, wie die übrige Anweisung.
       instruction: untilRight
         ? 'Du hörst den Ausgangston. Singe den Ton im verlangten Abstand und halte ihn kurz. ' +
-          'Falsche Töne zählen nicht: sing weiter, bis du ihn triffst. Den Ausgangston darfst du ' +
-          'vorher nachsingen; die Oktave ist egal.'
+          'Der Zielbereich ist eingezeichnet; falsche Töne zählen nicht: sing weiter, bis du ihn ' +
+          'triffst. Den Ausgangston darfst du vorher nachsingen; die Oktave ist egal.'
         : undefined,
     };
   },

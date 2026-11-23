@@ -1076,26 +1076,33 @@ async function main() {
       { waitUntil: 'networkidle' },
     );
     await singPage.locator('.sing-mic button').click();
-    let missed = true;
-    try {
-      await singPage.waitForFunction(
-        () => document.querySelector('.sing-status')?.textContent?.includes('Noch nicht'),
-        null,
-        { timeout: 12_000 },
-      );
-    } catch {
-      missed = false;
+    await singPage.waitForSelector('.sing-curve canvas');
+    await singPage.waitForTimeout(300);
+    /** Pixel der Kurve in einer Farbe: «green» (#00d903) oder «red». */
+    const curvePixels = (colour) =>
+      singPage.locator('.sing-curve canvas').evaluate((canvas, wanted) => {
+        const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+        let count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
+          if (wanted === 'green' ? g > 150 && r < 80 && b < 80 : r > 140 && g < 80 && b < 80) count++;
+        }
+        return count;
+      }, colour);
+    const greenAtStart = await curvePixels('green');
+    check(greenAtStart > 50, `Ohne Fehlerurteil: der Zielton steht von Anfang an da (${greenAtStart} Pixel)`);
+    let redPixels = 0;
+    for (let waited = 0; waited < 12_000 && redPixels <= 50; waited += 500) {
+      await singPage.waitForTimeout(500);
+      redPixels = await curvePixels('red');
     }
-    check(missed, 'Ohne Fehlerurteil: ein falscher Ton heisst «Noch nicht»');
+    check(redPixels > 50, `der falsche Versuch ist in der Kurve rot (${redPixels} Pixel)`);
     await singPage.waitForTimeout(2500);
     check((await singPage.locator('.verdict').count()) === 0, 'und beendet die Aufgabe nicht');
-    const redPixels = await singPage.locator('.sing-curve canvas').evaluate((canvas) => {
-      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-      let red = 0;
-      for (let i = 0; i < data.length; i += 4) if (data[i] > 140 && data[i + 1] < 80 && data[i + 2] < 80) red++;
-      return red;
-    });
-    check(redPixels > 50, `der falsche Versuch ist in der Kurve rot (${redPixels} Pixel)`);
+    check(
+      !(await singPage.locator('.sing-status').innerText()).includes('Noch nicht'),
+      'ohne Meldung «Noch nicht»',
+    );
     await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-ohne-fehlerurteil.png') });
 
     await singPage.locator('.session-icon[aria-label="Übung schliessen"]').click();

@@ -132,8 +132,8 @@ Intervall. Erst wenn der Ton verklungen ist, hört die Seite zu; die Linie zeigt
 singt.
 
 - **Der erste gehaltene Ton entscheidet** (0,8 s ruhig, `src/sing/hold.ts`); kein «Prüfen».
-  Mit «Ohne Fehlerurteil» erst der erste richtige: falsche Töne werden in der Kurve rot,
-  und man singt weiter, bis man trifft.
+  Mit «Ohne Fehlerurteil» erst der erste richtige: der Zielbereich steht von Anfang an in
+  der Kurve, falsche Töne werden dort rot, und man singt weiter, bis man trifft.
 - **Den Ausgangston darf man vorher nachsingen** — er zählt nie als Antwort.
 - **Die Oktave ist egal**, die Richtung wird deshalb nicht geprüft. Bei der Oktave zählt
   der Abstand zum gespielten oder zum selbst nachgesungenen Ausgangston.
