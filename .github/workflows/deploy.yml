@@ -1,7 +1,11 @@
 # Bei jedem Push auf main: prüfen, bauen, auf GitHub Pages veröffentlichen.
 #
-# Veröffentlicht wird nur, was alle Prüfungen besteht — Unit-Tests, Build und
-# die Browserprüfung gegen die gebaute Seite unter /musiktheorie/.
+# Veröffentlicht wird, was Unit-Tests und Build besteht. Die Browserprüfung
+# (npm run e2e) läuft hier vorerst NICHT — während der Entwicklung soll ein
+# Push schnell online sein. Vor dem Push lokal `npm run verify` laufen lassen.
+# Zurückholen: die beiden Schritte «Browser für die Browserprüfung»
+# (npx playwright install --with-deps chromium) und «npm run e2e» nach dem
+# Build wieder einfügen.
 #
 # Einmalig im Repository einstellen: Settings → Pages → Source: «GitHub Actions».
 
@@ -36,10 +40,6 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-
-      - name: Browser für die Browserprüfung
-        run: npx playwright install --with-deps chromium
-      - run: npm run e2e
 
       - uses: actions/upload-pages-artifact@v4
         with:

@@ -35,8 +35,9 @@ Seite trotzdem bauen.
 
 ## Veröffentlichen
 
-Jeder Push auf `main` läuft durch `.github/workflows/deploy.yml`: Tests, Build,
-Browserprüfung — und nur wenn alles besteht, geht die Seite online.
+Jeder Push auf `main` läuft durch `.github/workflows/deploy.yml`: Tests und Build — wenn
+beides besteht, geht die Seite online. Die Browserprüfung läuft dort vorerst nicht (schneller
+während der Entwicklung); vor dem Push deshalb lokal `npm run verify`.
 
 Einmalig im Repository: **Settings → Pages → Source: «GitHub Actions»**.
 
