@@ -3,7 +3,9 @@
  *
  * Gilt für «Intervalle singen» und folgt drei Entscheiden (2026-11-23):
  *
- *  - Der erste gehaltene Ton entscheidet; es gibt kein «Prüfen».
+ *  - Der erste gehaltene Ton entscheidet; es gibt kein «Prüfen». Mit der
+ *    Einstellung «Ohne Fehlerurteil» (`untilRight`) entscheidet erst der
+ *    erste richtige: falsche Versuche zählen nicht, man singt weiter.
  *  - Den vorgespielten Ausgangston darf man vorher nachsingen. Er zählt nie
  *    als Antwort und nie gegen einen — auch mehrmals und in jeder Oktave.
  *  - Die Oktave ist egal: der richtige Ton eine Oktave tiefer oder höher als
@@ -61,11 +63,8 @@ export function rolesOf(goal: SingGoal, notes: readonly number[]): HeldRole[] {
   });
 }
 
-export interface SungVerdict {
-  /** Stelle der entscheidenden Antwort in der Liste; -1 = noch keine. */
-  index: number;
-  /** Der entscheidende Ton (MIDI mit Nachkommastellen), oder null. */
-  note: number | null;
+/** Wie ein einzelner gesungener Ton als Antwort dasteht. */
+export interface NoteVerdict {
   correct: boolean;
   /** Der richtige Ton, unabhängig von der Genauigkeit. */
   rightNote: boolean;
@@ -78,20 +77,41 @@ export interface SungVerdict {
   octaveShift: number;
 }
 
-export function judgeSung(goal: SingGoal, notes: readonly number[]): SungVerdict {
-  const index = rolesOf(goal, notes).indexOf('answer');
-  if (index < 0) return { index, note: null, correct: false, rightNote: false, cents: null, octaveShift: 0 };
+export interface SungVerdict extends NoteVerdict {
+  /** Stelle der entscheidenden Antwort in der Liste; -1 = noch keine. */
+  index: number;
+  /** Der entscheidende Ton (MIDI mit Nachkommastellen), oder null. */
+  note: number | null;
+}
 
-  const note = notes[index];
+/** Ein gesungener Ton als Antwort — ob er der Ausgangston war, sagt `rolesOf()`. */
+export function judgeNote(goal: SingGoal, note: number): NoteVerdict {
   const rightNote = pitchClass(note) === pitchClass(goal.target);
   const octaveShift = Math.round((note - goal.target) / 12);
   const cents = rightNote ? Math.round((note - (goal.target + 12 * octaveShift)) * 100) : null;
   return {
-    index,
-    note,
     correct: rightNote && Math.abs(cents!) <= goal.tolerance,
     rightNote,
     cents,
     octaveShift: rightNote ? octaveShift : 0,
   };
+}
+
+/**
+ * Das Urteil über die gesungenen Töne. Gewöhnlich entscheidet die erste
+ * Antwort; mit `untilRight` die erste richtige — ohne sie gibt es dann noch
+ * kein Urteil.
+ */
+export function judgeSung(
+  goal: SingGoal,
+  notes: readonly number[],
+  { untilRight = false }: { untilRight?: boolean } = {},
+): SungVerdict {
+  const roles = rolesOf(goal, notes);
+  for (let index = 0; index < notes.length; index++) {
+    if (roles[index] !== 'answer') continue;
+    const verdict = judgeNote(goal, notes[index]);
+    if (verdict.correct || !untilRight) return { index, note: notes[index], ...verdict };
+  }
+  return { index: -1, note: null, correct: false, rightNote: false, cents: null, octaveShift: 0 };
 }

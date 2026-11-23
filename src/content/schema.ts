@@ -223,6 +223,11 @@ export interface SingTask extends TaskBase {
   target: string;
   /** So weit darf der gesungene Ton danebenliegen (Cent). */
   tolerance: number;
+  /**
+   * «Ohne Fehlerurteil»: falsche Töne beenden die Aufgabe nicht, gesungen
+   * wird bis zum richtigen (sing/judge.ts).
+   */
+  untilRight?: boolean;
   points: number;
 }
 

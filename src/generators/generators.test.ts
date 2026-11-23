@@ -659,6 +659,19 @@ describe('Intervalle singen', () => {
     }
   });
 
+  it('wertet «Ohne Fehlerurteil» erst den richtigen Ton', () => {
+    expect(generate('intervalle-singen', {}, 5).every((question) => !sing(question).untilRight)).toBe(true);
+    for (const question of generate('intervalle-singen', { untilRight: true }, 20)) {
+      const task = sing(question);
+      expect(task.untilRight).toBe(true);
+      const target = midi(parsePitch(task.target));
+      const reference = midi(parsePitch(task.reference));
+      const wrong = (target + 1 - reference) % 12 === 0 ? target + 2 : target + 1;
+      expect(scoreTask(task, { notes: [wrong, target] }).earned, task.prompt).toBe(task.points);
+      expect(scoreTask(task, { notes: [wrong] }).earned, task.prompt).toBe(0);
+    }
+  });
+
   it('übernimmt die Genauigkeit', () => {
     for (const question of generate('intervalle-singen', { tolerance: '15' }, 10)) {
       expect(sing(question).tolerance).toBe(15);

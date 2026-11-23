@@ -61,6 +61,18 @@ describe('HoldDetector', () => {
     expect(found).toHaveLength(2);
   });
 
+  it('meldet denselben Ton erneut, wenn er nicht zählen soll', () => {
+    const detector = new HoldDetector();
+    let count = 0;
+    for (let t = 0; t < HOLD_MS * 3.5; t += FRAME) {
+      if (detector.push(t, 64.4)) {
+        count++;
+        detector.again();
+      }
+    }
+    expect(count).toBe(3);
+  });
+
   it('fasst einen Ton nicht über eine lange Lücke zusammen', () => {
     // Je zwei Drittel vor und nach einer Lücke reichen nicht.
     const detector = new HoldDetector();
@@ -108,6 +120,23 @@ describe('judgeSung', () => {
 
   it('hat noch kein Urteil, solange nur der Ausgangston kam', () => {
     expect(judgeSung(third, [60, 72])).toMatchObject({ index: -1, correct: false, note: null });
+  });
+
+  describe('Ohne Fehlerurteil', () => {
+    const options = { untilRight: true };
+
+    it('übergeht falsche Töne bis zum richtigen', () => {
+      expect(judgeSung(third, [60, 65, 62, 64], options)).toMatchObject({ index: 3, correct: true });
+    });
+
+    it('hat ohne richtigen Ton kein Urteil', () => {
+      expect(judgeSung(third, [65, 62], options)).toMatchObject({ index: -1, correct: false });
+    });
+
+    it('lässt einen knapp verfehlten Ton nachstimmen', () => {
+      const strict = { ...third, tolerance: 30 };
+      expect(judgeSung(strict, [63.6, 63.85], options)).toMatchObject({ index: 1, correct: true, cents: -15 });
+    });
   });
 
   describe('Prime', () => {

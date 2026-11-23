@@ -366,6 +366,7 @@ function scoreSing(task: SingTask, answer: SingAnswer | undefined): Detail[] {
   const verdict = judgeSung(
     { reference: midi(parsePitch(task.reference)), target: midi(target), tolerance: task.tolerance },
     answer?.notes ?? [],
+    { untilRight: task.untilRight },
   );
 
   let sung = '—';

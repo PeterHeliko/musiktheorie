@@ -1069,6 +1069,35 @@ async function main() {
       (await singPage.locator('.sing-mic').count()) === 0,
       'die nächste Aufgabe braucht keinen Mikrofonknopf mehr',
     );
+
+    // «Ohne Fehlerurteil»: das falsche g beendet die Aufgabe nicht.
+    await singPage.goto(
+      `${BASE}ueben/intervalle-singen/?intervalle=k3&richtung=auf&ohne-fehlerurteil=ja&aufgabe=1&v=2`,
+      { waitUntil: 'networkidle' },
+    );
+    await singPage.locator('.sing-mic button').click();
+    let missed = true;
+    try {
+      await singPage.waitForFunction(
+        () => document.querySelector('.sing-status')?.textContent?.includes('Noch nicht'),
+        null,
+        { timeout: 12_000 },
+      );
+    } catch {
+      missed = false;
+    }
+    check(missed, 'Ohne Fehlerurteil: ein falscher Ton heisst «Noch nicht»');
+    await singPage.waitForTimeout(2500);
+    check((await singPage.locator('.verdict').count()) === 0, 'und beendet die Aufgabe nicht');
+    const redPixels = await singPage.locator('.sing-curve canvas').evaluate((canvas) => {
+      const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+      let red = 0;
+      for (let i = 0; i < data.length; i += 4) if (data[i] > 140 && data[i + 1] < 80 && data[i + 2] < 80) red++;
+      return red;
+    });
+    check(redPixels > 50, `der falsche Versuch ist in der Kurve rot (${redPixels} Pixel)`);
+    await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-ohne-fehlerurteil.png') });
+
     await singPage.locator('.session-icon[aria-label="Übung schliessen"]').click();
     await singPage.waitForSelector('.list-page, .topic-page, .start-page', { timeout: 5000 }).catch(() => {});
     check(micProblems.length === 0, `keine Konsolenfehler${micProblems.length ? `: ${micProblems.join('; ')}` : ''}`);

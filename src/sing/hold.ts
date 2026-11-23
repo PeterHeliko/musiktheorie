@@ -75,6 +75,17 @@ export class HoldDetector {
     return { midi: mean, start: this.frames[0].time, end: time };
   }
 
+  /**
+   * Der gemeldete Ton zählt nicht: auf demselben Ton beginnt ein neues
+   * Fenster. So lässt sich ein knapp verfehlter Ton nachstimmen, ohne
+   * abzusetzen.
+   */
+  again(): void {
+    this.frames = [];
+    this.since = null;
+    this.locked = null;
+  }
+
   reset(): void {
     this.frames = [];
     this.since = null;

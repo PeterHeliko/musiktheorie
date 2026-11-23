@@ -37,7 +37,7 @@ import {
   pitchKey,
   taskId,
 } from './shared';
-import { multi, single, type FilterValues, type Generator, type Personal, type Question } from './types';
+import { multi, single, toggle, type FilterValues, type Generator, type Personal, type Question } from './types';
 
 export const TOLERANCE_OPTIONS = [
   { value: '50', label: '±50 Cent' },
@@ -50,6 +50,7 @@ interface Filters extends FilterValues {
   directions: string[];
   clefs: string[];
   tolerance: string;
+  untilRight: boolean;
 }
 
 /**
@@ -136,6 +137,7 @@ export const intervalleSingen: Generator<Filters> = {
       options: TOLERANCE_OPTIONS,
       hint: 'So weit darf der gesungene Ton danebenliegen.',
     },
+    { kind: 'toggle', key: 'untilRight', label: 'Ohne Fehlerurteil' },
   ],
 
   defaults: {
@@ -143,6 +145,7 @@ export const intervalleSingen: Generator<Filters> = {
     directions: ['up', 'down'],
     clefs: ['treble'],
     tolerance: '50',
+    untilRight: false,
   },
 
   generate(values, rng: Rng, personal?: Personal): Question {
@@ -150,6 +153,7 @@ export const intervalleSingen: Generator<Filters> = {
     const directions = multi(values, 'directions', this.defaults.directions);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
     const tolerance = Number(single(values, 'tolerance', '50'));
+    const untilRight = toggle(values, 'untilRight', false);
     const voice = personal?.voice ?? DEFAULT_VOICE;
     const range = VOICE_RANGES[voice];
 
@@ -193,8 +197,17 @@ export const intervalleSingen: Generator<Filters> = {
       reference: pitchKey(start),
       target: pitchKey(target),
       tolerance,
+      ...(untilRight ? { untilRight: true } : {}),
       points: 2,
     };
-    return { task };
+    return {
+      task,
+      // Gehört zur Erklärung hinter ⓘ, wie die übrige Anweisung.
+      instruction: untilRight
+        ? 'Du hörst den Ausgangston. Singe den Ton im verlangten Abstand und halte ihn kurz. ' +
+          'Falsche Töne zählen nicht: sing weiter, bis du ihn triffst. Den Ausgangston darfst du ' +
+          'vorher nachsingen; die Oktave ist egal.'
+        : undefined,
+    };
   },
 };

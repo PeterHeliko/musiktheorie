@@ -12,6 +12,8 @@
  *     nachgesungene Ausgangston wird übergangen, der erste andere Ton ist die
  *     Antwort. Dann bleibt die Kurve stehen, der gewertete Teil wird grün oder
  *     rot, der Zielton erscheint, und die Übung wertet — ohne «Prüfen».
+ *     «Ohne Fehlerurteil»: ein falscher Ton wird nur in der Kurve rot, und
+ *     es geht weiter, bis der richtige kommt.
  *
  * Das Mikrofon bleibt über die Aufgaben hinweg offen; geschlossen wird es
  * beim Verlassen der Übung (ExercisePage).
@@ -24,7 +26,7 @@ import type { SingTask } from '../content/schema';
 import { midi, parsePitch, toGermanPitch, type Pitch } from '../music/theory';
 import { drawCurve, type CurveLine, type CurvePoint } from '../sing/curve';
 import { HoldDetector } from '../sing/hold';
-import { judgeSung, rolesOf, type SingGoal } from '../sing/judge';
+import { judgeNote, rolesOf, type SingGoal } from '../sing/judge';
 import { NoiseGate, rms } from '../sing/level';
 import {
   ANALYSIS_WINDOW,
@@ -69,7 +71,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const [phase, setPhaseState] = useState<Phase>('waiting');
   const [playing, setPlaying] = useState(false);
   const [playFailed, setPlayFailed] = useState(false);
-  const [heardReference, setHeardReference] = useState(false);
+  /** Was der letzte gehaltene Ton war, solange noch zugehört wird. */
+  const [lastHeld, setLastHeld] = useState<'reference' | 'miss' | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
   // Die Messschleife liest die Phase bei jedem Bild — als Ref, nicht als Zustand.
@@ -150,7 +153,9 @@ export function SingTaskView({ task }: { task: SingTask }) {
       goal,
       referencePitch: reference,
       targetPitch: target,
-      onReference: () => setHeardReference(true),
+      untilRight: task.untilRight === true,
+      onReference: () => setLastHeld('reference'),
+      onMiss: () => setLastHeld('miss'),
       onAnswer: (notes) => {
         setPhase('done');
         setAnswer(task.id, { notes });
@@ -162,9 +167,11 @@ export function SingTaskView({ task }: { task: SingTask }) {
     phase === 'playing'
       ? 'Hör zu …'
       : phase === 'listening'
-        ? heardReference
-          ? 'Ausgangston erkannt.'
-          : 'Jetzt singen.'
+        ? lastHeld === 'miss'
+          ? 'Noch nicht – versuch es nochmal.'
+          : lastHeld === 'reference'
+            ? 'Ausgangston erkannt.'
+            : 'Jetzt singen.'
         : '';
 
   return (
@@ -244,7 +251,9 @@ function listen(
     goal,
     referencePitch,
     targetPitch,
+    untilRight,
     onReference,
+    onMiss,
     onAnswer,
   }: {
     canvas: { current: HTMLCanvasElement | null };
@@ -252,7 +261,10 @@ function listen(
     goal: SingGoal;
     referencePitch: Pitch;
     targetPitch: Pitch;
+    /** «Ohne Fehlerurteil»: ein falscher Ton beendet nichts. */
+    untilRight: boolean;
     onReference: () => void;
+    onMiss: () => void;
     onAnswer: (notes: number[]) => void;
   },
 ): () => void {
@@ -307,11 +319,20 @@ function listen(
       held.push(note.midi);
       const roles = rolesOf(goal, held);
       if (roles[roles.length - 1] === 'answer') {
-        const verdict = judgeSung(goal, held);
+        const verdict = judgeNote(goal, note.midi);
         for (const point of history) {
           if (point.midi !== null && point.time >= note.start && point.time <= note.end) {
             point.mark = verdict.correct ? 'right' : 'wrong';
           }
+        }
+        if (untilRight && !verdict.correct) {
+          // Nur ein Versuch: weiter zuhören. Auch auf demselben Ton, damit
+          // sich ein knapp verfehlter nachstimmen lässt.
+          detector.again();
+          onMiss();
+          render();
+          handle = requestAnimationFrame(tick);
+          return;
         }
         lines = [
           ...lines,
