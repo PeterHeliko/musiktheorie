@@ -1,0 +1,30 @@
+{
+  "name": "musiktheorie",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Musiktheorie üben — Übungsseite für GitHub Pages",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && vite-node scripts/write-pages.ts",
+    "preview": "node scripts/serve.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "samples": "vite-node scripts/generate-samples.ts",
+    "e2e": "node scripts/e2e.mjs",
+    "verify": "npm test && npm run build && npm run e2e"
+  },
+  "dependencies": {
+    "preact": "^10.29.8",
+    "vexflow": "5.0.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.2",
+    "@types/node": "^26.1.2",
+    "playwright": "^1.62.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.0",
+    "vite-node": "^3.2.4",
+    "vitest": "^3.2.4"
+  }
+}

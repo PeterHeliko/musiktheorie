@@ -1,0 +1,10 @@
+node_modules/
+dist/
+
+# Arbeitsordner von scripts/generate-samples.ts; die fertigen MP3 in
+# public/samples/ gehören dagegen ins Repository, damit die Seite ohne
+# MuseScore gebaut werden kann.
+.sample-build/
+
+# Bildschirmfotos der Browserprüfung
+.e2e-screenshots/

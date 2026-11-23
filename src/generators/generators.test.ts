@@ -1,0 +1,723 @@
+/**
+ * Prüft die Generatoren gegen den Theoriekern.
+ *
+ * Anders als bei einem festen Aufgabensatz kann hier niemand die Lösungen
+ * einmal durchsehen: sie entstehen bei jedem Aufruf neu. Eine Übungsseite,
+ * die falsche Lösungen behauptet, ist schlimmer als gar keine — man übt sich
+ * den Fehler ein und merkt es erst, wenn es zählt.
+ *
+ * Vier Fragen an jeden Generator:
+ *
+ *  1. Stimmt die behauptete Lösung? (rechnet der Generator selbst nach, per
+ *     `insist()` — hier zählt, dass er dabei nicht wirft)
+ *  2. Bewertet `scoreTask()` die Musterlösung als vollständig richtig, und
+ *     eine falsche Antwort als falsch?
+ *  3. Wirken die Filter? Jeder eingeschaltete Wert muss vorkommen, jeder
+ *     ausgeschaltete nie.
+ *  4. Gehen die Takte auf, und bleiben Melodien im gewählten Rahmen?
+ */
+
+import { describe, expect, it } from 'vitest';
+import { GENERATORS, generatorById } from './index';
+import { makeRng } from './rng';
+import type { FilterValues, Question } from './types';
+import type { NotationTask, SelectTask, Task } from '../content/schema';
+import { fromPitch, scoreTask, type InputNote } from '../scoring';
+import {
+  durationInQuarters,
+  keySignatureSteps,
+  measureCapacity,
+  midi,
+  parsePitch,
+  type Duration,
+} from '../music/theory';
+
+/** So viele Aufgaben je Durchgang — genug, dass seltene Fälle vorkommen. */
+const RUNS = 200;
+
+/** Erzeugt `count` Aufgaben mit den gegebenen Filtern. */
+function generate(id: string, filters: FilterValues = {}, count = RUNS): Question[] {
+  const generator = generatorById(id);
+  if (!generator) throw new Error(`Unbekannter Generator: ${id}`);
+  const merged = { ...generator.defaults, ...filters };
+  return Array.from({ length: count }, (_, i) => generator.generate(merged, makeRng(i * 2654435761)));
+}
+
+// ---------------------------------------------------------------------------
+// Musterlösung bauen
+// ---------------------------------------------------------------------------
+
+/**
+ * Die Antwort, die jemand ohne Fehler gäbe. Absichtlich aus der
+ * Aufgabe abgeleitet und nicht vom Generator mitgeliefert: so prüft der Test
+ * den Weg, den auch die Oberfläche geht.
+ */
+function correctAnswerFor(task: Task): unknown {
+  if (task.kind === 'select') {
+    return Object.fromEntries(task.fields.map((field) => [field.id, field.correct]));
+  }
+  if (task.kind !== 'notation') return {};
+
+  const fields = Object.fromEntries((task.fields ?? []).map((f) => [f.id, f.correct]));
+  return { n: notationAnswerFor(task), ...(task.fields?.length ? { f: fields } : {}) };
+}
+
+function notationAnswerFor(task: NotationTask): unknown {
+  const solution = task.solution;
+  switch (solution.type) {
+    case 'pitch':
+      return Object.fromEntries(
+        solution.slots.map((slot) => [
+          String(slot.slot),
+          slot.chord
+            ? slot.accept.map((key) => fromPitch(parsePitch(key), 'w'))
+            : [fromPitch(parsePitch(slot.accept[0]), 'w')],
+        ]),
+      );
+    case 'slot':
+      return Object.fromEntries(
+        solution.slots.map((slot) => [
+          String(slot.measure),
+          { d: slot.duration, ...(slot.dotted ? { dot: true } : {}) },
+        ]),
+      );
+    case 'keysig': {
+      const { steps, sign } = keySignatureSteps(solution.accidentals);
+      return { sign, placed: steps.map((s) => ({ s, o: 4 })) };
+    }
+    case 'mark':
+      return solution.gaps;
+    case 'melody':
+      return solution.measures.map((bar) =>
+        bar.map((note) => fromPitch(parsePitch(note.keys![0]), note.duration, note.dotted)),
+      );
+  }
+}
+
+/** Eine garantiert falsche Antwort — für die Gegenprobe. */
+function wrongAnswerFor(task: Task): unknown {
+  if (task.kind === 'select') {
+    return Object.fromEntries(task.fields.map((field) => [field.id, `${field.correct}-falsch`]));
+  }
+  if (task.kind !== 'notation') return {};
+  const solution = (task as NotationTask).solution;
+  if (solution.type === 'mark') {
+    // Eine Lücke, die garantiert nicht dabei ist.
+    return { n: [99] };
+  }
+  return { n: undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Allgemeines
+// ---------------------------------------------------------------------------
+
+describe('Verzeichnis', () => {
+  it('vergibt eindeutige Kennungen', () => {
+    const ids = GENERATORS.map((g) => g.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('nennt für jeden Filter einen Vorgabewert', () => {
+    for (const generator of GENERATORS) {
+      for (const filter of generator.filters) {
+        expect(
+          generator.defaults[filter.key],
+          `${generator.id}: Filter «${filter.key}» ohne Vorgabe`,
+        ).toBeDefined();
+      }
+    }
+  });
+
+  it('kommt mit leeren Filterwerten zurecht', () => {
+    // Der gespeicherte Zustand kann veraltet sein — dann muss die Vorgabe
+    // greifen, statt dass die Seite mit einer Ausnahme stehen bleibt.
+    for (const generator of GENERATORS) {
+      const run = () => generator.generate({} as never, makeRng(1));
+      expect(run, generator.id).not.toThrow();
+    }
+  });
+});
+
+describe.each(GENERATORS.map((g) => g.id))('%s', (id) => {
+  const questions = generate(id);
+
+  it('erzeugt Aufgaben ohne Ausnahme', () => {
+    expect(questions).toHaveLength(RUNS);
+  });
+
+  it('bewertet die Musterlösung als vollständig richtig', () => {
+    for (const question of questions) {
+      const result = scoreTask(question.task, correctAnswerFor(question.task));
+      expect(result.possible, `${id}: Aufgabe ohne Punkte`).toBeGreaterThan(0);
+      expect(
+        result.earned,
+        `${id}: Musterlösung gibt ${result.earned} von ${result.possible} Punkten — ` +
+          result.details.map((d) => `${d.label}: «${d.studentResponse}» statt «${d.correctResponse}»`).join('; '),
+      ).toBeCloseTo(result.possible, 6);
+    }
+  });
+
+  it('bewertet eine falsche Antwort als falsch', () => {
+    for (const question of questions) {
+      const result = scoreTask(question.task, wrongAnswerFor(question.task));
+      expect(result.earned, `${id}: falsche Antwort bekommt Punkte`).toBe(0);
+    }
+  });
+
+  it('vergibt eindeutige Aufgabenkennungen je Frage', () => {
+    // Die Kennung ist der Schlüssel im Antwortspeicher. Zwei Aufgaben mit
+    // derselben Kennung würden einander die Antwort überschreiben.
+    for (const question of questions) {
+      expect(question.task.id).toMatch(/^[a-z]+-[0-9a-z]+$/);
+    }
+  });
+
+  it('nennt zu jedem Hörbeispiel eine Wiedergabe', () => {
+    for (const question of questions) {
+      if (!question.audio) continue;
+      expect(question.audio.id).toBe(question.task.id);
+      if (question.audio.kind === 'melody') expect(question.melody?.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Filter wirken wirklich
+// ---------------------------------------------------------------------------
+
+/** Sammelt die Antwortwerte eines Auswahlfelds über viele Aufgaben. */
+function answersFor(questions: Question[], fieldId: string): Set<string> {
+  const seen = new Set<string>();
+  for (const question of questions) {
+    const task = question.task as SelectTask;
+    const field = task.fields?.find((f) => f.id === fieldId);
+    if (field) seen.add(field.correct);
+  }
+  return seen;
+}
+
+describe('Filter', () => {
+  it('beschränkt die Gehör-Intervalle auf die angekreuzten', () => {
+    const wanted = ['k3', 'g3'];
+    const seen = answersFor(generate('intervalle-hoeren', { intervals: wanted }), 'a');
+    expect([...seen].sort()).toEqual([...wanted].sort());
+  });
+
+  it('lässt jedes angekreuzte Gehör-Intervall auch vorkommen', () => {
+    const wanted = ['k2', 'r5', 'tritonus', 'r8'];
+    const seen = answersFor(generate('intervalle-hoeren', { intervals: wanted }), 'a');
+    expect([...seen].sort()).toEqual([...wanted].sort());
+  });
+
+  it('beschränkt die Tonleiterarten', () => {
+    const seen = answersFor(
+      generate('tonleitern-hoeren', { scaleTypes: ['dur', 'moll-harmonisch'] }),
+      'a',
+    );
+    expect([...seen].sort()).toEqual(['dur', 'moll-harmonisch']);
+  });
+
+  it('beschränkt die Dreiklangsgeschlechter beim Hören', () => {
+    const seen = answersFor(generate('dreiklaenge-hoeren', { qualities: ['vermindert'] }), 'a');
+    expect([...seen]).toEqual(['vermindert']);
+  });
+
+  it('spielt Umkehrungen nur, wenn sie erlaubt sind', () => {
+    const questions = generate('dreiklaenge-hoeren', {
+      inversions: ['grundstellung', 'sextakkord'],
+    });
+    const seen = new Set(
+      questions.map((q) => (q.audio?.kind === 'chord' ? q.audio.inversion : undefined)),
+    );
+    expect([...seen].sort()).toEqual(['grundstellung', 'sextakkord']);
+  });
+
+  it('fragt die Umkehrung auch dann, wenn übermässige Dreiklänge dabei sind', () => {
+    // Der Filter bleibt offen: bei Dur, moll und vermindert ist die Umkehrung
+    // hörbar. Nur die einzelne Aufgabe entscheidet später, ob sie zählt.
+    const questions = generate('dreiklaenge-hoeren', {
+      qualities: ['dur', 'uebermaessig'],
+      inversions: ['grundstellung', 'sextakkord', 'quartsextakkord'],
+      askInversion: true,
+    });
+    for (const question of questions) {
+      expect((question.task as SelectTask).fields.map((f) => f.id)).toEqual(['a', 'inv']);
+    }
+  });
+
+  it('erlässt die Umkehrung, wer «übermässig» antwortet', () => {
+    const [question] = generate(
+      'dreiklaenge-hoeren',
+      { qualities: ['dur', 'uebermaessig'], inversions: ['grundstellung', 'sextakkord'], askInversion: true },
+      1,
+    );
+    const waiver = question.waiver!;
+    expect(waiver.field).toBe('a');
+    expect(waiver.values).toEqual(['uebermaessig']);
+    expect(waiver.waives).toEqual(['inv']);
+
+    // Die Sperre hängt an der GEGEBENEN Antwort. Sie an der richtigen
+    // aufzuhängen würde verraten, wonach gefragt wird.
+    const task = question.task as SelectTask;
+    const quality = task.fields.find((f) => f.id === 'a')!.correct;
+    expect(waiver.values.includes(quality)).toBe(quality === 'uebermaessig');
+  });
+
+  it('wertet ohne Umkehrung als vollständig richtig, wenn sie erlassen ist', () => {
+    // Die Bewertung sieht die Aufgabe ohne das erlassene Feld — so wie es die
+    // Oberfläche macht, wenn «übermässig» gewählt wurde.
+    const questions = generate(
+      'dreiklaenge-hoeren',
+      { qualities: ['uebermaessig'], inversions: ['grundstellung', 'sextakkord'], askInversion: true },
+      5,
+    );
+    for (const question of questions) {
+      const task = question.task as SelectTask;
+      const withoutInversion: SelectTask = {
+        ...task,
+        fields: task.fields.filter((field) => field.id !== 'inv'),
+      };
+      const result = scoreTask(withoutInversion, { a: 'uebermaessig' });
+      expect(result.earned).toBeCloseTo(result.possible, 6);
+      expect(result.details.map((d) => d.id)).not.toContain(`${task.id}_inv`);
+    }
+  });
+
+  it('sperrt die Umkehrungsfrage nur, wenn NUR übermässige erlaubt sind', () => {
+    const filter = generatorById('dreiklaenge-hoeren')!.filters.find(
+      (entry) => entry.key === 'askInversion',
+    )!;
+    expect(filter.disabledBy).toBeTypeOf('function');
+    expect(filter.disabledBy!({ qualities: ['dur', 'moll'] })).toBeNull();
+    expect(filter.disabledBy!({ qualities: ['vermindert'] })).toBeNull();
+    expect(filter.disabledBy!({ qualities: ['dur', 'uebermaessig'] })).toBeNull();
+    expect(filter.disabledBy!({ qualities: ['uebermaessig'] })).toMatch(/übermässig/);
+  });
+
+  it('spielt übermässige Dreiklänge weiterhin in allen Umkehrungen', () => {
+    // Erlassen ist nur die FRAGE. Als Klangbild bleibt die Umkehrung erlaubt —
+    // sie verändert die Lage, und das Geschlecht ist hörbar.
+    const questions = generate('dreiklaenge-hoeren', {
+      qualities: ['uebermaessig'],
+      inversions: ['grundstellung', 'sextakkord', 'quartsextakkord'],
+    });
+    const seen = new Set(
+      questions.map((q) => (q.audio?.kind === 'chord' ? q.audio.inversion : undefined)),
+    );
+    expect([...seen].sort()).toEqual(['grundstellung', 'quartsextakkord', 'sextakkord']);
+  });
+
+  it('beschränkt die notierten Intervalle', () => {
+    const wanted = ['k6', 'g7'];
+    const seen = answersFor(generate('intervalle-bestimmen', { intervals: wanted }), 'a');
+    expect([...seen].sort()).toEqual([...wanted].sort());
+  });
+
+  it('hält Aufgaben mit «nur Stammtöne» ohne Vorzeichen', () => {
+    const questions = generate('intervalle-bestimmen', { accidentals: 'stammton' });
+    for (const question of questions) {
+      const keys = (question.task as SelectTask).score!.measures[0].notes[0].keys!;
+      for (const key of keys) {
+        expect(parsePitch(key).alter, `${key} trägt ein Vorzeichen`).toBe(0);
+      }
+    }
+  });
+
+  it('hält Aufgaben im Bassschlüssel im Bassbereich', () => {
+    const questions = generate('intervalle-bestimmen', { clefs: ['bass'], width: 'eng' });
+    for (const question of questions) {
+      const score = (question.task as SelectTask).score!;
+      expect(score.clef).toBe('bass');
+      for (const key of score.measures[0].notes[0].keys!) {
+        expect(midi(parsePitch(key))).toBeLessThanOrEqual(62);
+        expect(midi(parsePitch(key))).toBeGreaterThanOrEqual(43);
+      }
+    }
+  });
+
+  it('akzeptiert bei fester Richtung nur diese eine Lösung', () => {
+    for (const direction of ['up', 'down'] as const) {
+      const questions = generate('intervalle-notieren', { direction, intervals: ['g3', 'r5'] });
+      for (const question of questions) {
+        const task = question.task as NotationTask;
+        const solution = task.solution;
+        expect(solution.type).toBe('pitch');
+        if (solution.type !== 'pitch') continue;
+        expect(solution.slots[0].accept).toHaveLength(1);
+
+        const start = parsePitch(task.score.measures[0].notes[0].keys![0]);
+        const target = parsePitch(solution.slots[0].accept[0]);
+        if (direction === 'up') expect(midi(target)).toBeGreaterThan(midi(start));
+        else expect(midi(target)).toBeLessThan(midi(start));
+      }
+    }
+  });
+
+  it('begrenzt die Vorzeichen der Tonartaufgaben', () => {
+    const questions = generate('vorzeichen-setzen', { maxAccidentals: 2 });
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      expect(solution.type).toBe('keysig');
+      if (solution.type === 'keysig') expect(Math.abs(solution.accidentals)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('stellt nur die gefragten Felder der Dreiklangsbestimmung', () => {
+    const questions = generate('dreiklaenge-bestimmen', { ask: ['inv'] });
+    for (const question of questions) {
+      const fields = (question.task as SelectTask).fields;
+      expect(fields.map((f) => f.id)).toEqual(['inv']);
+    }
+  });
+
+  it('zeigt im Klaviersystem alle erlaubten Umkehrungen und Lagen', () => {
+    const questions = generate('dreiklaenge-bestimmen', {
+      ask: ['inv', 'pos'],
+      system: 'grand',
+    });
+    expect([...answersFor(questions, 'inv')].sort()).toEqual([
+      'grundstellung',
+      'quartsextakkord',
+      'sextakkord',
+    ]);
+    expect([...answersFor(questions, 'pos')].sort()).toEqual([
+      'oktavlage',
+      'quintlage',
+      'terzlage',
+    ]);
+  });
+
+  it('beschränkt die Stufenaufgabe auf die angekreuzten Stufen', () => {
+    const questions = generate('stufen-bestimmen', { degrees: ['5'], keys: ['C-Dur'] });
+    for (const question of questions) {
+      const fields = (question.task as SelectTask).fields;
+      // Die V. Stufe von C-Dur ist G-Dur.
+      expect(fields.find((f) => f.id === 'root')!.correct).toBe('G');
+      expect(fields.find((f) => f.id === 'gender')!.correct).toBe('dur');
+    }
+  });
+
+  it('kennt auch die verminderte VII. Stufe', () => {
+    const questions = generate('stufen-bestimmen', { degrees: ['7'], keys: ['C-Dur'] }, 20);
+    for (const question of questions) {
+      const fields = (question.task as SelectTask).fields;
+      expect(fields.find((f) => f.id === 'root')!.correct).toBe('H');
+      expect(fields.find((f) => f.id === 'gender')!.correct).toBe('vermindert');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rhythmus und Melodie gehen auf
+// ---------------------------------------------------------------------------
+
+describe('Takte gehen auf', () => {
+  it.each(['4/4', '3/4', '2/4'])('füllt bei %s jeden Takt der Pausenaufgabe', (timeSignature) => {
+    const questions = generate('pausen-ergaenzen', { timeSignature });
+    const capacity = measureCapacity(timeSignature);
+
+    for (const question of questions) {
+      const task = question.task as NotationTask;
+      const solution = task.solution;
+      expect(solution.type).toBe('slot');
+      if (solution.type !== 'slot') continue;
+
+      task.score.measures.forEach((bar, index) => {
+        const slot = solution.slots.find((s) => s.measure === index)!;
+        expect(slot, `Takt ${index + 1} ohne Lücke`).toBeDefined();
+
+        const sum = bar.notes.reduce(
+          (total, note) =>
+            total +
+            (note.placeholder
+              ? durationInQuarters(slot.duration, slot.dotted)
+              : durationInQuarters(note.duration, note.dotted)),
+          0,
+        );
+        expect(sum, `Takt ${index + 1} bei ${timeSignature}`).toBeCloseTo(capacity, 6);
+      });
+
+      // Genau eine Lücke je Takt — sonst stimmt die Anweisung nicht.
+      for (const bar of task.score.measures) {
+        expect(bar.notes.filter((n) => n.placeholder)).toHaveLength(1);
+      }
+    }
+  });
+
+  it('sucht nur die angekreuzten Pausenwerte', () => {
+    const questions = generate('pausen-ergaenzen', {
+      durations: ['h', 'q', '8'],
+      gaps: ['h'],
+    });
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'slot') continue;
+      for (const slot of solution.slots) {
+        expect(slot.duration).toBe('h');
+        expect(slot.dotted).toBeFalsy();
+      }
+    }
+  });
+});
+
+describe('Melodiediktat', () => {
+  it.each(['4/4', '3/4', '2/4', '6/8'])('füllt bei %s jeden Takt', (timeSignature) => {
+    const questions = generate('melodiediktat', { timeSignature }, 60);
+    const capacity = measureCapacity(timeSignature);
+
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      expect(solution.type).toBe('melody');
+      if (solution.type !== 'melody') continue;
+
+      solution.measures.forEach((bar, index) => {
+        const sum = bar.reduce(
+          (total, note) => total + durationInQuarters(note.duration, note.dotted),
+          0,
+        );
+        expect(sum, `Takt ${index + 1} bei ${timeSignature}`).toBeCloseTo(capacity, 6);
+      });
+    }
+  });
+
+  it('hält die verlangte Anzahl Takte ein', () => {
+    for (const bars of [2, 4, 8]) {
+      const questions = generate('melodiediktat', { bars }, 30);
+      for (const question of questions) {
+        const solution = (question.task as NotationTask).solution;
+        if (solution.type !== 'melody') continue;
+        expect(solution.measures).toHaveLength(bars);
+        expect((question.task as NotationTask).score.measures).toHaveLength(bars);
+      }
+    }
+  });
+
+  it('endet auf dem Grundton', () => {
+    const questions = generate('melodiediktat', { keys: ['C-Dur'], scale: 'dur' }, 60);
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'melody') continue;
+      const flat = solution.measures.flat();
+      const last = flat[flat.length - 1];
+      expect(midi(parsePitch(last.keys![0])) % 12).toBe(0);
+    }
+  });
+
+  it('verwendet nur die erlaubten Notenwerte', () => {
+    const allowed: Duration[] = ['h', 'q'];
+    const questions = generate('melodiediktat', { durations: ['h', 'q'] }, 60);
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'melody') continue;
+      for (const note of solution.measures.flat()) {
+        expect(allowed).toContain(note.duration);
+        expect(note.dotted).toBeFalsy();
+      }
+    }
+  });
+
+  it('hält den gewählten Sprungrahmen ein', () => {
+    // «nur Sekundschritte»: zwischen zwei Tönen liegt nie mehr als ein
+    // Ganzton — abgesehen von der übermässigen Sekunde in harmonisch Moll.
+    const questions = generate('melodiediktat', { maxLeap: '1', scale: 'dur' }, 60);
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'melody') continue;
+      const pitches = solution.measures.flat().map((note) => midi(parsePitch(note.keys![0])));
+      for (let i = 1; i < pitches.length; i++) {
+        expect(Math.abs(pitches[i] - pitches[i - 1]), 'Sprung trotz «nur Sekundschritte»').toBeLessThanOrEqual(2);
+      }
+    }
+  });
+
+  it('bleibt im gewählten Tonumfang', () => {
+    // «Quinte» heisst: zwischen tiefstem und höchstem Ton liegen höchstens
+    // sieben Halbtöne. Ein zu weiter Umfang macht das Diktat unnötig schwer
+    // und sprengt das Notensystem.
+    const limits: Record<string, number> = { '4': 7, '7': 12, '9': 16 };
+    for (const [span, semitones] of Object.entries(limits)) {
+      const questions = generate('melodiediktat', { span, keys: ['C-Dur'] }, 40);
+      for (const question of questions) {
+        const solution = (question.task as NotationTask).solution;
+        if (solution.type !== 'melody') continue;
+        const pitches = solution.measures.flat().map((note) => midi(parsePitch(note.keys![0])));
+        const reach = Math.max(...pitches) - Math.min(...pitches);
+        expect(reach, `Umfang «${span}» ergibt ${reach} Halbtöne`).toBeLessThanOrEqual(semitones);
+      }
+    }
+  });
+
+  it.each(['2', '4'])('hält auch den Sprungrahmen «bis %s Stufen» ein', (maxLeap) => {
+    const questions = generate('melodiediktat', { maxLeap, scale: 'dur' }, 40);
+    // Eine Stufe sind höchstens zwei Halbtöne, also ist die Obergrenze das
+    // Doppelte des erlaubten Stufensprungs.
+    const limit = Number(maxLeap) * 2;
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'melody') continue;
+      const pitches = solution.measures.flat().map((note) => midi(parsePitch(note.keys![0])));
+      for (let i = 1; i < pitches.length; i++) {
+        expect(Math.abs(pitches[i] - pitches[i - 1])).toBeLessThanOrEqual(limit);
+      }
+    }
+  });
+
+  it('gibt die erste Note vor, wenn es verlangt ist', () => {
+    const withNote = generate('melodiediktat', { giveFirstNote: true }, 20);
+    for (const question of withNote) {
+      const task = question.task as NotationTask;
+      const solution = task.solution;
+      if (solution.type !== 'melody') continue;
+      expect(task.score.measures[0].notes).toHaveLength(1);
+      expect(task.score.measures[0].notes[0].keys).toEqual(solution.measures[0][0].keys);
+    }
+
+    const without = generate('melodiediktat', { giveFirstNote: false }, 20);
+    for (const question of without) {
+      expect((question.task as NotationTask).score.measures[0].notes).toHaveLength(0);
+    }
+  });
+
+  it('wirft verständlich, wenn kein Notenwert in den Takt passt', () => {
+    const generator = generatorById('melodiediktat')!;
+    expect(() =>
+      generator.generate(
+        { ...generator.defaults, timeSignature: '4/4', durations: ['q.'] } as never,
+        makeRng(7),
+      ),
+    ).toThrow(/Takt/);
+  });
+});
+
+describe('Halbtonschritte', () => {
+  it('markiert bei Dur die Stellen 3–4 und 7–8', () => {
+    const questions = generate('halbtonschritte-markieren', { scales: ['dur'], directions: ['up'] });
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'mark') continue;
+      expect(solution.gaps).toEqual([2, 6]);
+    }
+  });
+
+  it('markiert bei natürlichem Moll die Stellen 2–3 und 5–6', () => {
+    const questions = generate('halbtonschritte-markieren', {
+      scales: ['moll-natuerlich'],
+      directions: ['up'],
+    });
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'mark') continue;
+      expect(solution.gaps).toEqual([1, 4]);
+    }
+  });
+
+  it('zählt bei harmonischem Moll die übermässige Sekunde nicht mit', () => {
+    const questions = generate('halbtonschritte-markieren', {
+      scales: ['moll-harmonisch'],
+      directions: ['up'],
+    });
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'mark') continue;
+      // 2–3, 5–6 und 7–8; der Anderthalbtonschritt 6–7 gehört nicht dazu.
+      expect(solution.gaps).toEqual([1, 4, 6]);
+    }
+  });
+
+  it('dreht die Stellen beim Abwärtsspielen mit', () => {
+    const questions = generate('halbtonschritte-markieren', {
+      scales: ['dur'],
+      directions: ['down'],
+    });
+    for (const question of questions) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'mark') continue;
+      // Aufwärts 2 und 6, gespiegelt an sieben Zwischenräumen: 0 und 4.
+      expect(solution.gaps).toEqual([0, 4]);
+    }
+  });
+
+  it('zeichnet acht Töne', () => {
+    for (const question of generate('halbtonschritte-markieren', {}, 40)) {
+      expect((question.task as NotationTask).score.measures[0].notes).toHaveLength(8);
+    }
+  });
+});
+
+describe('Notenwerte zuordnen', () => {
+  it('bietet bei «Name → Zeichen» vier Zeichen an', () => {
+    const questions = generate('notenwerte-zuordnen', { direction: 'name-zeichen' }, 60);
+    for (const question of questions) {
+      expect(question.legend).toHaveLength(4);
+      const correct = (question.task as SelectTask).fields[0].correct;
+      expect(question.legend!.map((entry) => entry.label)).toContain(correct);
+    }
+  });
+
+  it('zeigt bei «Zeichen → Name» genau ein Zeichen', () => {
+    const questions = generate('notenwerte-zuordnen', { direction: 'zeichen-name' }, 60);
+    for (const question of questions) {
+      expect(question.legend).toBeUndefined();
+      expect((question.task as SelectTask).score!.measures[0].notes).toHaveLength(1);
+    }
+  });
+
+  it('fragt nur die angekreuzten Werte', () => {
+    const seen = answersFor(
+      generate('notenwerte-zuordnen', { durations: ['w', 'h'], direction: 'zeichen-name' }),
+      'a',
+    );
+    expect([...seen].sort()).toEqual(['h', 'w']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Antwortformat
+// ---------------------------------------------------------------------------
+
+describe('Antwortformat', () => {
+  it('liest jede erzeugte Tonangabe wieder ein', () => {
+    // Der Sonderfall B: «hes4» muss als erniedrigtes H zurückkommen und nicht
+    // als Heses. Ein Fehler hier fiele erst im Notenbild auf.
+    for (const generator of GENERATORS) {
+      for (const question of generate(generator.id, {}, 30)) {
+        for (const key of allKeysOf(question.task)) {
+          const pitch = parsePitch(key);
+          expect(Math.abs(pitch.alter), `${generator.id}: ${key}`).toBeLessThanOrEqual(2);
+        }
+      }
+    }
+  });
+
+  it('nennt für jede Melodie so viele Klangereignisse wie Noten', () => {
+    for (const question of generate('melodiediktat', {}, 20)) {
+      const solution = (question.task as NotationTask).solution;
+      if (solution.type !== 'melody') continue;
+      expect(question.melody).toHaveLength(solution.measures.flat().length);
+    }
+  });
+});
+
+function allKeysOf(task: Task): string[] {
+  const keys: string[] = [];
+  const collect = (score?: { measures: { notes: { keys?: string[] }[]; bass?: { keys?: string[] }[] }[] }) => {
+    for (const bar of score?.measures ?? []) {
+      for (const note of [...bar.notes, ...(bar.bass ?? [])]) keys.push(...(note.keys ?? []));
+    }
+  };
+  if (task.kind === 'select') collect(task.score);
+  if (task.kind === 'notation') {
+    collect(task.score);
+    if (task.solution.type === 'melody') {
+      for (const bar of task.solution.measures) for (const note of bar) keys.push(...(note.keys ?? []));
+    }
+    if (task.solution.type === 'pitch') {
+      for (const slot of task.solution.slots) keys.push(...slot.accept);
+    }
+  }
+  return keys;
+}
+
+/** Nur damit der Import benutzt wird, wenn Tests umgebaut werden. */
+export type { InputNote };

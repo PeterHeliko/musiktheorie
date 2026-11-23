@@ -1,0 +1,142 @@
+/**
+ * «Teilen» — zwei Links zur Auswahl:
+ *  - die Übung mit den aktuellen Einstellungen (wer ihn öffnet, bekommt neue
+ *    Aufgaben derselben Art), und
+ *  - genau diese Aufgabe bzw. diese Runde.
+ *
+ * Auf Telefonen öffnet sich das Teilen-Menü des Systems, sonst wird der Link
+ * kopiert. Der Link steht zusätzlich als markierbarer Text da: Kopieren in die
+ * Zwischenablage kann scheitern (alte Browser, eingebettete Ansichten), und
+ * dann soll man ihn trotzdem bekommen.
+ */
+
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { absoluteUrl } from '../router';
+
+export function SharePanel({
+  title,
+  exerciseHref,
+  taskHref,
+  taskLabel,
+}: {
+  title: string;
+  exerciseHref: string;
+  /** null, wenn sich die laufende Aufgabe nicht als Link fassen lässt. */
+  taskHref: string | null;
+  taskLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+
+  // Ausserhalb klicken oder Escape schliesst.
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      if (panel.current && !panel.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div class="share" ref={panel}>
+      <button
+        type="button"
+        class="share-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        Teilen
+      </button>
+      {open && (
+        <div class="share-panel" role="dialog" aria-label="Link teilen">
+          <ShareRow
+            label="Diese Übung"
+            hint="mit deinen Einstellungen, neue Aufgaben"
+            title={title}
+            url={absoluteUrl(exerciseHref)}
+          />
+          {taskHref !== null && (
+            <ShareRow
+              label={taskLabel}
+              hint="genau so, wie sie gerade dasteht"
+              title={title}
+              url={absoluteUrl(taskHref)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShareRow({
+  label,
+  hint,
+  title,
+  url,
+}: {
+  label: string;
+  hint: string;
+  title: string;
+  url: string;
+}) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const canShare = typeof navigator.share === 'function' && isTouchDevice();
+
+  useEffect(() => setState('idle'), [url]);
+
+  const share = async () => {
+    if (canShare) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch (error) {
+        // Abgebrochen ist kein Fehler; alles andere: kopieren versuchen.
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setState('copied');
+    } catch {
+      setState('failed');
+    }
+  };
+
+  return (
+    <div class="share-row">
+      <div class="share-row-head">
+        <span>
+          <strong>{label}</strong> <span class="share-hint">— {hint}</span>
+        </span>
+        <button type="button" class="share-copy" onClick={share}>
+          {state === 'copied' ? 'Kopiert ✓' : canShare ? 'Teilen …' : 'Link kopieren'}
+        </button>
+      </div>
+      <input
+        class="share-url"
+        type="text"
+        readOnly
+        value={url}
+        aria-label={`Link: ${label}`}
+        onFocus={(event) => (event.currentTarget as HTMLInputElement).select()}
+      />
+      {state === 'failed' && (
+        <p class="share-hint">Kopieren ging nicht — markiere den Link und kopiere ihn von Hand.</p>
+      )}
+    </div>
+  );
+}
+
+/** Teilen-Menü nur auf Touch-Geräten; am Rechner ist Kopieren der erwartete Weg. */
+function isTouchDevice(): boolean {
+  return globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
+}

@@ -1,0 +1,1124 @@
+/* Herkunft: musiktheorie-scorm/src/styles.css (Stand 2026-08-21), über das Projekt «training».
+   Wird hier eigenständig weitergeführt; es gibt keinen Abgleich mit dem Original mehr. */
+/*
+ * Gestaltung des Einstufungstests.
+ *
+ * Randbedingungen:
+ *  - Läuft in Moodle oft in einem iframe mit begrenzter Höhe → kompakte
+ *    Abstände, nichts verlässt sich auf Viewport-Höhe.
+ *  - Muss auf Tablets bedienbar sein → Trefferflächen mindestens 44 px.
+ *  - Keine externen Schriften: alles System-Schriften, sonst bräuchte es
+ *    einen Netzwerkzugriff und das Paket wäre nicht mehr offline-tauglich.
+ */
+
+:root {
+  --ink: #1a1d24;
+  --ink-soft: #5b6472;
+  --line: #d9dee6;
+  --line-strong: #b6bfcc;
+  --surface: #ffffff;
+  --surface-alt: #f5f7fa;
+  --accent: #1d6fa5;
+  --accent-soft: #e8f2f9;
+  --good: #1f7a4d;
+  --good-soft: #e6f4ec;
+  --bad: #b3261e;
+  --bad-soft: #fdecea;
+  --warn-soft: #fff6e0;
+  --radius: 8px;
+  --focus: 0 0 0 3px rgba(29, 111, 165, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--surface-alt);
+}
+
+.shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px 16px 64px;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 4px;
+}
+h2 {
+  font-size: 1.3rem;
+  margin: 24px 0 8px;
+}
+h3 {
+  font-size: 1.05rem;
+  margin: 0 0 6px;
+}
+
+/* --------------------------------------------------------------- Startseite */
+
+.start-page,
+.result-page {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.subtitle {
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+}
+
+.welcome ul {
+  padding-left: 20px;
+}
+.welcome li {
+  margin-bottom: 4px;
+}
+
+.notice {
+  background: var(--accent-soft);
+  border-left: 4px solid var(--accent);
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin: 16px 0;
+}
+.notice-warning {
+  background: var(--warn-soft);
+  border-left-color: #c99000;
+}
+
+/* ------------------------------------------------------------------- Kopf */
+
+.exam-header {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.exam-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.exam-title h1 {
+  font-size: 1.2rem;
+}
+
+.progress-text {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.section-nav {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.section-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--ink-soft);
+  min-height: 36px;
+}
+.section-tab:hover {
+  border-color: var(--line-strong);
+}
+.section-tab.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.section-tab-number {
+  font-weight: 700;
+}
+
+/* -------------------------------------------------------------- Aufgaben */
+
+.section-intro {
+  color: var(--ink-soft);
+  margin-top: 0;
+}
+
+.exercise {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.instruction {
+  margin: 0 0 6px;
+}
+.hint {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  background: var(--surface-alt);
+  padding: 6px 10px;
+  border-radius: 4px;
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.task {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.task:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+.task-plain {
+  display: block;
+}
+
+.task-number {
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-prompt {
+  margin: 0 0 8px;
+}
+.task-prompt-strong {
+  font-weight: 600;
+}
+
+.task-visual {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.score {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.score svg {
+  display: block;
+}
+
+/*
+ * Die Grundfarbe des Notenbilds setzt render.ts als Attribut auf das <svg>,
+ * damit sie sich vererbt und einzelne Gruppen sie überschreiben können.
+ * Hier NICHT `fill: currentColor` auf svg text/path setzen: eine CSS-Regel
+ * schlägt Präsentationsattribute und würde jede farbige Note (blau markiert,
+ * blaue Vorschau) wieder schwarz machen.
+ */
+
+/* --------------------------------------------------------------- Legende */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+}
+.legend-item {
+  margin: 0;
+  text-align: center;
+  width: 92px;
+}
+.legend-item figcaption {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-top: -6px;
+}
+
+/* ----------------------------------------------------------------- Felder */
+
+.field-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.field-row-wide .field {
+  min-width: 150px;
+}
+
+/* Notenbild links, Antwortfelder rechts daneben. */
+.task-side {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.task-side .task-visual {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+.task-side .field-row {
+  flex: 1 1 260px;
+}
+
+/* Mehrspaltige Anordnung der Auswahlfelder, z.B. 2×2 beim Dreiklang. */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--field-columns, 1), minmax(140px, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+}
+.field-grid .field {
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  flex: 1 1 auto;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field label,
+.field legend {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  padding: 0;
+}
+
+select,
+input[type='text'],
+textarea {
+  font: inherit;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: inherit;
+  width: 100%;
+  min-height: 42px;
+}
+textarea {
+  resize: vertical;
+}
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-color: var(--accent);
+}
+
+.field-buttons {
+  min-width: 100%;
+}
+/* Im Raster dürfen Knopffelder ihre Spalte teilen statt sie zu sprengen. */
+.field-grid .field-buttons {
+  min-width: 0;
+}
+
+.button-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.choice {
+  font: inherit;
+  min-height: 44px;
+  min-width: 48px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+}
+/*
+ * `:not(.is-selected)` ist entscheidend: eine Hover-Regel hat höhere
+ * Spezifität als `.choice.is-selected` und würde deren Hintergrund
+ * überschreiben — weisse Schrift auf hellem Grund, also unlesbar.
+ */
+.choice:hover:not(:disabled):not(.is-selected) {
+  background: var(--surface-alt);
+}
+.choice.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.choice.is-selected:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+/* -------------------------------------------------------- Noteneingabe */
+
+.notation-input {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.palette-label {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.palette-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.palette-actions {
+  justify-content: flex-end;
+  margin-left: auto;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.tool {
+  font: inherit;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+/* Wie bei .choice: aktive Knöpfe von der Hover-Einfärbung ausnehmen. */
+.tool:hover:not(:disabled):not(.is-active) {
+  background: var(--accent-soft);
+}
+.tool.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.tool.is-active:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+.tool:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tool-symbol {
+  font-size: 1.25rem;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+/*
+ * Notenzeichen aus Bravura — derselben Schrift, die auch das Notenbild setzt.
+ * VexFlow meldet sie beim Laden an; die Ersatzangabe greift nur, falls das
+ * einmal scheitert.
+ *
+ * SMuFL-Zeichen stehen auf einer Grundlinie, die der mittleren Notenlinie
+ * entspricht — sie sind also NICHT um ihre eigene Mitte gebaut. Gemessen an
+ * Bravura (Werte je 1em):
+ *
+ *              über Grundlinie   darunter
+ *   Noten            0,88          0,15     → Mitte liegt 0,365 zu hoch
+ *   Pausen      0,01 bis 0,38   0,01 bis 0,50 → ungefähr mittig
+ *
+ * `line-height: 0` legt die Grundlinie exakt in die Kastenmitte; die
+ * Verschiebung rückt anschliessend die Zeichenfläche dorthin. Ohne das ragen
+ * die Notenhälse oben aus dem Knopf heraus.
+ */
+.tool-symbol-music {
+  font-family: Bravura, serif;
+  font-size: 1.9rem;
+  line-height: 0;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(0.365em);
+}
+
+/* Pausen sind bereits um die Grundlinie gebaut und brauchen kaum Korrektur. */
+.tool-symbol-music.is-rest {
+  transform: translateY(0.05em);
+  position: relative;
+}
+
+/*
+ * Ein Stück Notenlinie hinter den Pausen.
+ *
+ * Ganze und halbe Pause sind beide ein kleiner Balken und unterscheiden sich
+ * ALLEIN dadurch, ob er unter der Linie hängt oder auf ihr sitzt. Ohne
+ * Bezugslinie sind sie praktisch nicht auseinanderzuhalten. Die Linie liegt auf
+ * der Schriftgrundlinie — genau der Linie, auf die sich die Zeichen beziehen —,
+ * und die Viertel-, Achtel- und Sechzehntelpause durchkreuzen sie so, wie sie
+ * es im Notenbild auch tun.
+ */
+.tool-symbol-music.is-rest::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.15em;
+  border-top: 0.055em solid currentColor;
+  transform: translate(-50%, 0);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/*
+ * Der Punkt einer punktierten Pause gehört in den Zwischenraum ÜBER die Linie,
+ * nicht auf sie. Ein Notenzwischenraum ist ein Viertel Geviert.
+ */
+.tool-symbol-music.is-rest .tool-dot {
+  transform: translateY(-0.25em);
+}
+
+/*
+ * Der Punktierungspunkt ist in SMuFL ein eigenes Zeichen und um die Grundlinie
+ * zentriert — also genau auf Höhe des Notenkopfs beziehungsweise der Pausen­
+ * mitte. Er braucht deshalb keine Höhenkorrektur, nur weniger Abstand.
+ */
+.tool-dot {
+  margin-left: 0.08em;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Ohne Beschriftung ist Platz für ein grösseres Zeichen — und es wird besser
+   getroffen, weil die ganze Fläche dem Symbol gehört. */
+.tool-glyph {
+  min-width: 54px;
+  min-height: 52px;
+}
+.tool-glyph .tool-symbol-music {
+  font-size: 2.2rem;
+  height: 2.3rem;
+}
+
+.tool-wide {
+  flex-direction: row;
+  gap: 6px;
+  padding: 4px 14px;
+  font-size: 0.85rem;
+}
+
+.score-click-area {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 4px;
+  cursor: crosshair;
+  background: var(--surface);
+}
+/* Im Bearbeiten-Modus wird ausgewählt, nicht gesetzt. */
+.score-click-area.is-editing {
+  cursor: pointer;
+  border-style: solid;
+  border-color: var(--accent);
+}
+.score-click-area:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.input-summary,
+.input-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* Umschalter zwischen Eingeben und Bearbeiten. */
+.mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  align-self: flex-start;
+}
+.mode-tab {
+  font: inherit;
+  font-size: 0.85rem;
+  min-height: 40px;
+  padding: 6px 18px;
+  border: none;
+  border-right: 1px solid var(--line-strong);
+  background: var(--surface);
+  cursor: pointer;
+}
+.mode-tab:last-child {
+  border-right: none;
+}
+.mode-tab:hover:not(:disabled):not(.is-active) {
+  background: var(--surface-alt);
+}
+.mode-tab.is-active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.mode-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mark-area {
+  position: relative;
+}
+.mark-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mark-button {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px dashed var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.mark-button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.mark-button.is-active {
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ Audio */
+
+.audio-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.play-button {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.play-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.play-button:disabled {
+  background: var(--line);
+  border-color: var(--line);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+.play-icon {
+  font-size: 0.8rem;
+}
+
+.audio-note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.audio-exhausted {
+  color: var(--bad);
+}
+.audio-error {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------- Freitext */
+
+.text-table-wrapper {
+  overflow-x: auto;
+}
+.text-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+.text-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.text-table td {
+  padding: 4px 6px;
+  vertical-align: top;
+}
+
+/* ------------------------------------------------------------------ Fuss */
+
+.exam-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.footer-right {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/*
+ * Reihenfolge ist hier entscheidend: erst die allgemeine Knopfform, danach die
+ * Hervorhebung. Beide Regeln haben dieselbe Spezifität — stünde .primary
+ * zuerst, würde die allgemeine Regel Hintergrund und Rand wieder überschreiben
+ * und der Knopf wäre weiss auf weiss.
+ */
+.exam-footer button,
+.dialog-actions button,
+.start-page button {
+  font: inherit;
+  min-height: 46px;
+  padding: 10px 22px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.exam-footer button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.primary,
+.exam-footer button.primary,
+.dialog-actions button.primary,
+.start-page button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* ------------------------------------------------------------- Dialogfeld */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 28, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 100;
+}
+.dialog {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 22px;
+  max-width: 460px;
+  width: 100%;
+}
+.dialog h3 {
+  margin-top: 0;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ------------------------------------------------------------ Auswertung */
+
+.thank-you {
+  background: var(--good-soft);
+  border: 1px solid var(--good);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin: 0 0 18px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.detail-table td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.detail-block {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.detail-block summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.detail-section h4 {
+  margin: 18px 0 4px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--line-strong);
+}
+.detail-group h5 {
+  margin: 12px 0 2px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.detail-mark {
+  width: 24px;
+  font-weight: 700;
+}
+tr.is-correct .detail-mark {
+  color: var(--good);
+}
+tr.is-wrong .detail-mark {
+  color: var(--bad);
+}
+.detail-given {
+  font-weight: 600;
+}
+.detail-correct {
+  color: var(--good);
+}
+/* Musikgeschichte: von Hand korrigiert, also weder Häkchen noch Kreuz. */
+tr.is-manual .detail-label {
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------- Auswertung für die Lehrperson */
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.review-header h1 {
+  margin: 0;
+}
+.review-header .subtitle {
+  margin: 0;
+}
+.review-score {
+  display: flex;
+  flex-direction: column;
+  margin-left: auto;
+  text-align: right;
+}
+.review-score b {
+  font-size: 2rem;
+  line-height: 1;
+}
+.review-score span {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.review-header button {
+  font: inherit;
+  min-height: 42px;
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Klassenübersicht */
+.class-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.92rem;
+}
+.class-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 10px 8px;
+  border-bottom: 2px solid var(--line-strong);
+}
+.class-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.class-table .numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.class-table .of {
+  color: var(--ink-soft);
+  font-size: 0.85em;
+}
+.class-meta {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.class-row:hover {
+  background: var(--surface-alt);
+}
+.class-detail {
+  background: var(--surface-alt);
+  padding: 4px 16px 16px;
+}
+.link-button {
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 6px 12px;
+  min-height: 36px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.link-button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.person-report .detail-group:first-child h4 {
+  margin-top: 8px;
+}
+.free-text {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.free-text li {
+  padding: 2px 0;
+  white-space: pre-wrap;
+}
+
+.review-section h2 {
+  margin-top: 28px;
+}
+.review-exercise {
+  margin-bottom: 18px;
+}
+/* Die Aufgabenansicht bringt eigene Ränder mit; die Bewertung schliesst
+   nahtlos darunter an. */
+.review-exercise .exercise {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.review-marks {
+  background: var(--surface-alt);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 10px 16px;
+}
+
+.task-marks {
+  padding: 6px 0;
+  border-top: 1px dashed var(--line);
+}
+.task-marks:first-child {
+  border-top: none;
+}
+.task-marks-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.task-marks ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.task-marks li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 3px 0;
+  font-size: 0.9rem;
+}
+
+.mark-badge {
+  flex: 0 0 auto;
+  min-width: 104px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+li.is-correct .mark-badge {
+  background: var(--good-soft);
+  color: var(--good);
+}
+li.is-wrong .mark-badge {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+li.is-manual .mark-badge {
+  background: var(--warn-soft);
+  color: #8a6400;
+}
+.mark-label {
+  color: var(--ink-soft);
+}
+.mark-given {
+  font-weight: 600;
+}
+.mark-expected {
+  color: var(--good);
+  font-size: 0.85rem;
+}
+
+.error-list {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  padding-left: 18px;
+}
+
+/* --------------------------------------------------------- Schmale Geräte */
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 10px 10px 48px;
+  }
+  .exercise {
+    padding: 12px;
+  }
+  .task {
+    gap: 8px;
+  }
+  .section-tab-title {
+    display: none;
+  }
+  .section-tab {
+    min-width: 40px;
+    justify-content: center;
+  }
+  .palette-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media print {
+  .exam-footer,
+  .section-nav,
+  .toolbar {
+    display: none;
+  }
+}

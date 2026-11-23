@@ -1,0 +1,1001 @@
+/*
+ * Gestaltung der Übungsseite.
+ *
+ * `styles-base.css` bringt die Grundlagen mit: Farben, Notenbild, Antwort-
+ * knöpfe, Werkzeugleiste der Noteneingabe. Was hier dazukommt, gehört allein
+ * zum Üben — Auswahl der Übung, Filter, sofortige Rückmeldung, Runden.
+ */
+
+@import './styles-base.css';
+
+/* ------------------------------------------------------------ Übungsauswahl */
+
+.mode-section {
+  margin-top: 28px;
+}
+
+.mode-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mode-section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  min-height: 44px;
+}
+
+.mode-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.mode-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.mode-card-title {
+  font-weight: 600;
+}
+
+.mode-card-hint {
+  color: var(--ink-soft);
+  font-size: 0.87rem;
+  line-height: 1.35;
+}
+
+.mode-card-stats {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.mode-footnote {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+/* ----------------------------------------------------------------- Kopfzeile */
+
+.practice-header {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+}
+
+.practice-header h1 {
+  font-size: 1.35rem;
+  margin: 4px 0 12px;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.crumb-section {
+  color: var(--ink-soft);
+}
+
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 10px 14px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.stats-bar strong {
+  color: var(--ink);
+}
+
+.stats-streak strong {
+  color: var(--good);
+}
+
+.stats-round {
+  margin-left: auto;
+}
+
+.session-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* -------------------------------------------------------------------- Filter */
+
+.filter-panel {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-height: 44px;
+}
+
+.filter-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--radius);
+}
+
+.filter-toggle-icon {
+  color: var(--ink-soft);
+}
+
+.filter-summary {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.filter-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.filter-field {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.filter-field:last-of-type {
+  border-bottom: 0;
+}
+
+.filter-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chip {
+  padding: 7px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.filter-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-chip.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.filter-chip:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.filter-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.filter-bulk {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.filter-hint {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+/*
+ * Gesperrtes Filterfeld: sichtbar, aber sichtbar unbenutzbar. Die Begründung
+ * steht darunter — ein ausgegrautes Feld ohne Erklärung liest sich wie ein
+ * Fehler.
+ */
+.filter-control {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.filter-field.is-locked .filter-label,
+.filter-field.is-locked .filter-control {
+  opacity: 0.45;
+}
+
+.filter-field.is-locked .filter-chip {
+  cursor: not-allowed;
+}
+
+.filter-locked {
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-strong);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.filter-range {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-range input[type='range'] {
+  flex: 1;
+  max-width: 320px;
+}
+
+.filter-range-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  min-width: 6ch;
+}
+
+.filter-actions {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------------- Aufgabe */
+
+.question {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.question .instruction {
+  margin-top: 0;
+}
+
+/* Beim Üben steht immer nur eine Aufgabe da — eine Nummer wäre also stets
+   «1» und damit sinnlos. */
+.question .task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.question .task {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+/*
+ * Luft unter dem Abspielknopf: er steht als eigene Zeile über der Aufgabe und
+ * klebte sonst unmittelbar an den Antwortknöpfen.
+ */
+.question .audio-player {
+  margin-bottom: 20px;
+}
+
+.question-notation {
+  margin-top: 12px;
+}
+
+/*
+ * Ein Antwortfeld, das durch die eigene Antwort gegenstandslos geworden ist —
+ * etwa die Umkehrung, nachdem «übermässig» gewählt wurde. Es bleibt stehen und
+ * wird blass, statt zu verschwinden: ein Feld, das beim Antworten wegspringt,
+ * wirkt wie ein Fehler.
+ */
+.field.is-muted {
+  opacity: 0.4;
+}
+
+.waiver-note {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  font-size: 0.87rem;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.waiver-icon {
+  flex: none;
+  color: var(--accent);
+}
+
+.question .task-prompt {
+  margin: 0 0 10px;
+}
+
+.question-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+/*
+ * Knopfgestalt für die Übungsseite.
+ *
+ * Die Grundlagen gestalten Knöpfe nur in drei Zusammenhängen (.exam-footer,
+ * .dialog-actions, .start-page) — die es hier alle nicht gibt. Ohne diese
+ * Regel wäre «Prüfen» ein nackter Systemknopf.
+ *
+ * `.link-button` bleibt aussen vor: der ist absichtlich klein und leicht.
+ */
+.question-actions button:not(.link-button),
+.round-actions button:not(.link-button),
+.notice button:not(.link-button) {
+  font: inherit;
+  min-height: 46px;
+  padding: 10px 22px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.question-actions button.primary,
+.round-actions button.primary,
+.notice button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.question-actions button:disabled,
+.round-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.question-actions button:not(.link-button):hover:not(:disabled),
+.round-actions button:not(.link-button):hover:not(:disabled),
+.notice button:not(.link-button):hover:not(:disabled) {
+  filter: brightness(1.06);
+  border-color: var(--accent);
+}
+
+/* --------------------------------------------------------------- Rückmeldung */
+
+.feedback {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1px solid;
+}
+
+.feedback.is-correct {
+  background: var(--good-soft);
+  border-color: var(--good);
+}
+
+.feedback.is-partial {
+  background: var(--warn-soft);
+  border-color: #c98a12;
+}
+
+.feedback.is-wrong {
+  background: var(--bad-soft);
+  border-color: var(--bad);
+}
+
+.feedback-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.feedback-mark {
+  font-size: 1.15rem;
+}
+
+.is-correct > .feedback-head .feedback-mark {
+  color: var(--good);
+}
+
+.is-wrong > .feedback-head .feedback-mark {
+  color: var(--bad);
+}
+
+.feedback-score {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.feedback-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-list li {
+  display: flex;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.feedback-detail-mark {
+  flex: none;
+  width: 1em;
+}
+
+.feedback-list li.is-correct .feedback-detail-mark {
+  color: var(--good);
+}
+
+.feedback-list li.is-wrong .feedback-detail-mark {
+  color: var(--bad);
+}
+
+.feedback-detail-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.feedback-detail-label {
+  color: var(--ink-soft);
+}
+
+.feedback-detail-label::after {
+  content: ':';
+}
+
+.feedback-given {
+  font-weight: 600;
+}
+
+.feedback-arrow {
+  color: var(--ink-soft);
+}
+
+.feedback-correct {
+  font-weight: 600;
+  color: var(--good);
+}
+
+.feedback-solution {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.feedback-solution figcaption {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+/* --------------------------------------------------------- Rundenauswertung */
+
+.round-summary {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.round-summary h2 {
+  margin-top: 0;
+}
+
+.round-score {
+  font-size: 1.1rem;
+}
+
+.round-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.round-list li {
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+}
+
+.round-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.round-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.notice-good {
+  background: var(--good-soft);
+  border-color: var(--good);
+}
+
+/* ----------------------------------------------------------------- Fusszeile */
+
+.practice-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------- Audio */
+
+/* Zweiter Abspielknopf («langsamer») — gleiche Form, weniger Gewicht. */
+.play-button-secondary {
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--line-strong);
+}
+
+.play-button-secondary:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .stats-round {
+    margin-left: 0;
+  }
+
+  .question {
+    padding: 16px;
+  }
+}
+
+/* ------------------------------------------------------------- Kopfzeile */
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.site-nav {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+}
+
+.site-nav a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.site-nav a:hover {
+  color: var(--accent);
+}
+
+.site-nav .site-name {
+  color: var(--ink);
+  font-weight: 700;
+  margin-right: auto;
+}
+
+/* Übungskarten sind Links — ohne Unterstreichung, mit der Fertigkeit oben. */
+a.mode-card {
+  text-decoration: none;
+}
+
+.mode-card-skill {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- Teilen */
+
+.practice-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.share {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.share-toggle,
+.share-copy {
+  white-space: nowrap;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 14px;
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.share-toggle:hover,
+.share-copy:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.share-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: min(440px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(26, 29, 36, 0.14);
+}
+
+.share-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.share-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.share-hint {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.share-url {
+  font: inherit;
+  font-size: 0.82rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-alt);
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------- Tonhöhe (Versuch) */
+
+.tool-page {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: #8a6400;
+  font-size: 0.78rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.privacy-note {
+  font-size: 0.87rem;
+  color: var(--ink-soft);
+  margin: 0 0 16px;
+}
+
+.tool-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.tool-controls button {
+  font: inherit;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Muss nach der allgemeinen Regel stehen und genauso spezifisch sein — sonst
+   gewinnt deren weisser Hintergrund, und der Hauptknopf ist weiss auf weiss. */
+.tool-controls button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.tool-a4 {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.tool-a4 select {
+  font: inherit;
+  padding: 4px;
+}
+
+.pitch-display {
+  margin: 20px 0 12px;
+  padding: 18px 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  text-align: center;
+}
+
+.pitch-display.is-idle {
+  opacity: 0.55;
+}
+
+.pitch-note {
+  font-size: 4.2rem;
+  font-weight: 700;
+  line-height: 1.05;
+  min-height: 4.4rem;
+  margin-bottom: 10px;
+  color: var(--ink);
+  transition: color 120ms;
+}
+
+.pitch-note sup {
+  font-size: 0.45em;
+  vertical-align: 1.2em;
+  margin-left: 0.05em;
+}
+
+.pitch-note.is-in-tune {
+  color: var(--good);
+}
+
+.pitch-none {
+  color: var(--line-strong);
+}
+
+.pitch-numbers {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.5em;
+}
+
+.cents-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  margin: 10px auto 8px;
+}
+
+.cents-label {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.cents-track {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+/* ±15 Cent: getroffen. */
+.cents-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 35%;
+  width: 30%;
+  background: var(--good-soft);
+}
+
+.cents-centre {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--good);
+}
+
+.cents-needle {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.cents-needle.is-in-tune {
+  background: var(--good);
+}
+
+.pitch-curve {
+  display: block;
+  width: 100%;
+  height: 260px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.tool-help {
+  margin-top: 16px;
+}
+
+.tool-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tool-help ol {
+  padding-left: 20px;
+}
+
+.diagnostics {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  font-size: 0.87rem;
+  margin: 10px 0 0;
+}
+
+.diagnostics dt {
+  color: var(--ink-soft);
+}
+
+.diagnostics dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagnostics-ua {
+  word-break: break-word;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 560px) {
+  .pitch-note {
+    font-size: 3.4rem;
+  }
+  .practice-title {
+    flex-direction: column;
+  }
+  .share-panel {
+    left: 0;
+    right: auto;
+  }
+  /* iOS vergrössert die Seite beim Antippen jedes Felds unter 16 px. */
+  .share-url {
+    font-size: 16px;
+  }
+}
+
+.loading {
+  color: var(--ink-soft);
+  padding: 24px 0;
+}
