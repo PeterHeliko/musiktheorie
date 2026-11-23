@@ -14,14 +14,13 @@
 
 import { DEFAULT_INTERVALS, INTERVAL_OPTIONS } from '../content/options';
 import type { ScoreSpec, SingTask } from '../content/schema';
+import { staffSpace } from '../music/staff-space';
 import {
-  diatonicIndex,
   intervalBetween,
   intervalFullName,
   intervalLabel,
   midi,
   parseIntervalLabel,
-  parsePitch,
   transposeByInterval,
   type Interval,
   type Pitch,
@@ -70,42 +69,6 @@ function tryTranspose(from: Pitch, interval: Interval, direction: 'up' | 'down')
   } catch {
     return null;
   }
-}
-
-/**
- * Wie weit ein Ton samt Vorzeichen über und unter die Mitte seines
- * Notenkopfs reicht, in Zeicheneinheiten (Linienabstand 10). Daraus ergeben
- * sich die gemessenen Werte von INTERVAL_REACH in shared.ts.
- */
-const HEAD = 5;
-const SHARP = 13;
-const FLAT_ABOVE = 18;
-
-/** Der Schlüssel allein, über und unter dem System (Bravura; Violin gemessen). */
-const CLEF_REACH = { treble: { above: 14, below: 16 }, bass: { above: 1, below: 0 } };
-
-/** Oberste und unterste Notenlinie je Schlüssel. */
-const STAFF_LINES = {
-  treble: { top: diatonicIndex(parsePitch('f5')), bottom: diatonicIndex(parsePitch('e4')) },
-  bass: { top: diatonicIndex(parsePitch('a3')), bottom: diatonicIndex(parsePitch('g2')) },
-};
-
-/**
- * Platz über und unter dem System: so viel, wie der äusserste mögliche
- * Ausgangston der Stimmlage in diesem Schlüssel braucht, plus 1 Luft. Fest je
- * Einstellung, damit das System nicht von Aufgabe zu Aufgabe springt.
- */
-function referenceSpace(clef: 'treble' | 'bass', starts: Pitch[]): { above: number; below: number } {
-  const { top, bottom } = STAFF_LINES[clef];
-  let { above, below } = CLEF_REACH[clef];
-  for (const pitch of starts) {
-    const position = diatonicIndex(pitch);
-    const up = pitch.alter < 0 ? FLAT_ABOVE : pitch.alter > 0 ? SHARP : HEAD;
-    const down = pitch.alter > 0 ? SHARP : HEAD;
-    above = Math.max(above, (position - top) * 5 + up);
-    below = Math.max(below, (bottom - position) * 5 + down);
-  }
-  return { above: above + 1, below: below + 1 };
 }
 
 /** Ein Ton als Ganze, ohne Taktangabe — der Ausgangston im System. */
@@ -193,7 +156,10 @@ export const intervalleSingen: Generator<Filters> = {
         interval.number === 1
           ? intervalFullName(interval)
           : `${intervalFullName(interval)} ${direction === 'up' ? 'aufwärts' : 'abwärts'}`,
-      score: referenceScore(pitchKey(start), clef, referenceSpace(clef, plainStarts)),
+      // Platz über und unter dem System: so viel, wie der äusserste mögliche
+      // Ausgangston der Stimmlage braucht. Fest je Einstellung, damit das
+      // System nicht von Aufgabe zu Aufgabe springt.
+      score: referenceScore(pitchKey(start), clef, staffSpace(clef, plainStarts)),
       reference: pitchKey(start),
       target: pitchKey(target),
       tolerance,

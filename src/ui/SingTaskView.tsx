@@ -23,11 +23,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { player, samplesFor } from '../audio/player';
 import type { AudioEvent } from '../content/audio';
-import type { SingTask } from '../content/schema';
+import type { NoteSpec, ScoreSpec, SingTask } from '../content/schema';
+import { pitchKey } from '../generators/shared';
+import { staffSpace } from '../music/staff-space';
 import { midi, parsePitch, toGermanPitch, type Pitch } from '../music/theory';
+import type { SingAnswer } from '../scoring';
 import { drawCurve, type CurveLine, type CurvePoint } from '../sing/curve';
 import { HoldDetector } from '../sing/hold';
-import { judgeNote, rolesOf, type SingGoal } from '../sing/judge';
+import { judgeNote, judgeSung, rolesOf, type SingGoal, type SungVerdict } from '../sing/judge';
 import { NoiseGate, rms } from '../sing/level';
 import {
   ANALYSIS_WINDOW,
@@ -36,7 +39,7 @@ import {
   openedMicrophone,
   type Microphone,
 } from '../sing/microphone';
-import { midiFromFrequency } from '../sing/notes';
+import { midiFromFrequency, pitchFromMidi } from '../sing/notes';
 import { PitchSmoother, detectPitch } from '../sing/pitch';
 import { useExam } from '../state';
 import { Score } from './Score';
@@ -58,7 +61,7 @@ type MicState = 'off' | 'opening' | 'on' | 'error';
 type Phase = 'waiting' | 'playing' | 'listening' | 'done';
 
 export function SingTaskView({ task }: { task: SingTask }) {
-  const { setAnswer } = useExam();
+  const { answer, setAnswer } = useExam();
   const reference = useMemo(() => parsePitch(task.reference), [task]);
   const target = useMemo(() => parsePitch(task.target), [task]);
   const goal = useMemo<SingGoal>(
@@ -162,6 +165,15 @@ export function SingTaskView({ task }: { task: SingTask }) {
     });
   }, [mic]);
 
+  // Nach dem Urteil steht es auch im System: der Zielton grün, ein falscher
+  // Ton rot davor.
+  const sung = answer<SingAnswer>(task.id)?.notes;
+  const score = useMemo(() => {
+    if (!sung) return task.score;
+    const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
+    return verdict.note === null ? task.score : verdictScore(task, target, verdict);
+  }, [task, sung]);
+
   const status =
     phase === 'playing'
       ? 'Hör zu …'
@@ -174,7 +186,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
   return (
     <div class="sing-task">
       {task.prompt && <p class="task-prompt task-prompt-strong">{task.prompt}</p>}
-      <Score spec={task.score} />
+      <Score spec={score} />
 
       <div class="audio-player">
         <button
@@ -223,6 +235,48 @@ export function SingTaskView({ task }: { task: SingTask }) {
       )}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// System nach dem Urteil
+// ---------------------------------------------------------------------------
+
+/** So viel Zeichenbreite braucht jede weitere Ganze samt Vorzeichen. */
+const NOTE_ROOM = 50;
+
+/**
+ * Das System nach dem Urteil: Ausgangston, ein falsch gesungener Ton rot, der
+ * Zielton grün — so notiert, wie die Aufgabe ihn meint.
+ *
+ * Die Oktave zählt beim Singen nicht. Ein falscher Ton steht deshalb in der
+ * Oktave, die dem Zielton am nächsten liegt: dort sieht man, wie weit er
+ * daneben war. Geschrieben wird er, wie man ihn meist liest (Cis, Es, Fis,
+ * As, B); der richtige Ton, nur zu ungenau gesungen, wie der Zielton.
+ */
+function verdictScore(task: SingTask, target: Pitch, verdict: SungVerdict): ScoreSpec {
+  const notes: NoteSpec[] = [{ keys: [task.reference], duration: 'w' }];
+  const shown: Pitch[] = [parsePitch(task.reference), target];
+  if (!verdict.correct && verdict.note !== null) {
+    const heard = pitchFromMidi(Math.round(verdict.note));
+    const sung = verdict.rightNote
+      ? target
+      : { ...heard, octave: heard.octave + Math.round((midi(target) - midi(heard)) / 12) };
+    notes.push({ keys: [pitchKey(sung)], duration: 'w', mark: 'wrong' });
+    shown.push(sung);
+  }
+  notes.push({ keys: [task.target], duration: 'w', mark: 'correct' });
+
+  // Mindestens so viel Platz wie vorher, damit das System nicht springt —
+  // und genug für die neuen Töne.
+  const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+  const needed = staffSpace(clef, shown);
+  const before = task.score.space ?? needed;
+  return {
+    ...task.score,
+    width: (task.score.width ?? 110) + NOTE_ROOM * (notes.length - 1),
+    space: { above: Math.max(before.above, needed.above), below: Math.max(before.below, needed.below) },
+    measures: [{ notes }],
+  };
 }
 
 // ---------------------------------------------------------------------------

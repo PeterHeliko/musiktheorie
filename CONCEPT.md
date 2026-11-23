@@ -24,6 +24,7 @@ shareable link for every exercise.
 | Visual style          | As simple as possible, "zero nonsense". The current plain look stays. Design changes only after the user has chosen between options. |
 | Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. A topic may split its list under subheadings (Intervalle: Grobbestimmung, Feinbestimmung). When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
+| Feedback              | **Show, don't say.** The task shows the solution itself: outlined answer button, outlined key, green note in the staff (beside a wrong one). The bottom bar then says only «✓ Richtig» / «✗ Falsch». Words only where the task can't show it yet; screen readers always get words. |
 
 ---
 

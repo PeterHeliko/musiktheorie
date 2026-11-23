@@ -107,6 +107,11 @@ Link / Speicher / Filterformular
 - **Übung:** bildschirmfüllend, ohne Kopfzeile der Website. Leiste oben (✕ zurück zum
   Thema, Titel, die wievielte Aufgabe bzw. «7/10», ⚙), die Aufgabe, und unten eine feste
   Leiste mit Rückmeldung und Hauptknopf (Prüfen / Weiter).
+- **Rückmeldung:** zeigen statt sagen. Die Lösung steht in der Aufgabe selbst — grün
+  umrandeter Knopf, grün umrandete Taste, grüne Note im System —, die Leiste unten sagt dann
+  nur «✓ Richtig» oder «✗ Falsch» (`showsSolution` in `src/ui/Feedback.tsx`). In Worten
+  steht sie nur, wo die Aufgabe sie (noch) nicht zeigt: Auswahllisten, Diktat, Vorzeichen,
+  Pausen. Bildschirmleser bekommen sie immer in Worten.
 - **⚙ Einstellungen:** Übungsform, Filter, Zurücksetzen, Teilen. Änderungen gelten beim
   Schliessen; ohne Änderung läuft die Aufgabe weiter.
 
@@ -119,8 +124,7 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 - **Benennen** (`SelectTask.keyboard`): markierte Tasten, darunter die gewohnten
   Antwortknöpfe. Stumm.
 - **Spielen** (`KeyboardTask`): Antippen wählt eine Taste und lässt sie klingen, «Prüfen»
-  gibt sie ab. Die Rückmeldung nennt das gespielte Intervall, nicht den Tonnamen — die
-  vorgegebene Taste hat keine Schreibweise.
+  gibt sie ab. Falsch gespielt, ist die richtige Taste grün umrandet.
 - Markiert wird mit Füllung: vorgegebene Tasten blau, die gewählte hellblau, nach dem
   Prüfen grün oder rot wie die Antwortknöpfe. Nicht spielbare Tasten (schwarz in der
   Grobbestimmung) sehen aus wie alle anderen.
@@ -157,6 +161,8 @@ singt.
 - **Die Oktave ist egal**, die Richtung wird deshalb nicht geprüft. Bei der Oktave zählt
   der Abstand zum gespielten oder zum selbst nachgesungenen Ausgangston.
 - Diese Regeln stehen nur in `src/sing/judge.ts`; Ansicht und Bewertung nutzen beide sie.
+- Nach dem Urteil steht im System neben dem Ausgangston der Zielton grün, ein falscher Ton
+  rot davor — in der Oktave, die dem Zielton am nächsten liegt.
 - **Stimmlage** (hoch/mittel/tief) ist persönlich: unter ⚙, auf dem Gerät gespeichert, nie
   im Link. Ein Aufgabenlink fragt bei allen dasselbe Intervall, in der eigenen Lage.
 - **Schlüssel** ist eine gewöhnliche Einstellung, unabhängig von der Stimmlage. Der

@@ -344,7 +344,12 @@ async function main() {
     await page.locator('.question .choice').first().click();
     await page.waitForSelector('.verdict', { timeout: 5000 });
     const verdict = await page.locator('.verdict').innerText();
-    check(/Richtig/.test(verdict), `ein Klick genügt; die Leiste unten sagt es («${verdict.replace(/\n/g, ' ')}»)`);
+    const verdictWord = await page.locator('.verdict-text').innerText();
+    // Die Knöpfe zeigen die Lösung; die Leiste nennt nur das Urteil.
+    check(
+      verdictWord === 'Richtig' || verdictWord === 'Falsch',
+      `ein Klick genügt; die Leiste unten sagt nur das Urteil («${verdictWord}»)`,
+    );
     check(
       (await page.locator('.question .choice[disabled]').count()) > 0,
       'Aufgabe ist nach dem Antworten eingefroren',
@@ -414,6 +419,40 @@ async function main() {
     await page.waitForSelector('.verdict');
     check(await page.locator('.verdict').isVisible(), 'Noteneingabe wird bewertet');
     await page.screenshot({ path: join(SHOTS, 'noteneingabe.png'), fullPage: true });
+
+    // Feste Aufgabe: des¹, grosse Terz aufwärts → f¹. Gesetzt wird fis¹.
+    console.log('\nNoteneingabe: die Lösung steht im System');
+    await page.goto(exercise('intervalle-notieren', '?intervalle=g3&richtung=auf&aufgabe=3&v=2'), {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('.notation-input svg');
+    await page.keyboard.press('f');
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(80);
+    check(/fis/.test(await page.locator('.input-summary').innerText()), 'fis¹ gesetzt');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.verdict');
+    const staffNotes = page.locator('.notation-input svg .vf-stavenote');
+    check((await page.locator('.verdict-text').innerText()) === 'Falsch', 'die Leiste sagt nur «Falsch»');
+    // VexFlow schreibt die Farbe an die Gruppe der Note oder an ihre Teile.
+    const notationColours = await staffNotes.evaluateAll((notes) =>
+      notes.map((note) =>
+        note.outerHTML.includes('#00d903') ? 'green' : note.outerHTML.includes('#b3261e') ? 'red' : 'black',
+      ),
+    );
+    check(
+      notationColours.join(' ') === 'black red green',
+      `die gesetzte Note ist rot, die richtige steht grün daneben (${notationColours.join(', ')})`,
+    );
+    check(
+      (await staffNotes.nth(2).evaluate((note) => note.textContent)).includes(''),
+      'das f¹ nach dem fis¹ trägt ein Auflösungszeichen',
+    );
+    check(
+      /richtig wäre f1/.test(await page.locator('.verdict .visually-hidden').textContent()),
+      'Bildschirmleser hören die Lösung trotzdem',
+    );
+    await page.screenshot({ path: join(SHOTS, 'noteneingabe-loesung.png'), fullPage: true });
 
     // ------------------------------------------------- Ziehen und loslassen
     console.log('\nNoteneingabe: ziehen, gesetzt wird beim Loslassen');
@@ -765,8 +804,8 @@ async function main() {
     await keyAt(page, start + 3).click();
     await page.keyboard.press('Enter');
     await page.waitForSelector('.verdict');
-    const rightVerdict = await page.locator('.verdict').innerText();
-    check(/Richtig: kleine Terz aufwärts/.test(rightVerdict), `die Eingabetaste prüft («${rightVerdict.replace(/\n/g, ' ')}»)`);
+    const rightVerdict = await page.locator('.verdict-text').innerText();
+    check(rightVerdict === 'Richtig', `die Eingabetaste prüft («${rightVerdict}»)`);
     check((await keyAt(page, start + 3).getAttribute('data-state')) === 'right', 'die richtige Taste wird grün');
     check((await page.locator('.question .piano-key:not([disabled])').count()) === 0, 'danach ist die Klaviatur eingefroren');
     await page.goto(fixedTask, { waitUntil: 'networkidle' });
@@ -774,10 +813,13 @@ async function main() {
     await keyAt(page, start + 4).click();
     await checkButton.click();
     await page.waitForSelector('.verdict');
-    const wrongVerdict = await page.locator('.verdict').innerText();
+    const wrongVerdict = await page.locator('.verdict-text').innerText();
+    check(wrongVerdict === 'Falsch', `falsch: die Leiste sagt nur das Urteil («${wrongVerdict}»)`);
     check(
-      /Gespielt: grosse Terz aufwärts · richtig wäre kleine Terz aufwärts/.test(wrongVerdict),
-      `falsch: die Leiste sagt, was gespielt wurde («${wrongVerdict.replace(/\n/g, ' ')}»)`,
+      /gespielt grosse Terz aufwärts, richtig wäre kleine Terz aufwärts/.test(
+        await page.locator('.verdict .visually-hidden').textContent(),
+      ),
+      'Bildschirmleser hören, was gespielt wurde',
     );
     check(
       (await keyAt(page, start + 4).getAttribute('data-state')) === 'wrong' &&
@@ -1205,8 +1247,20 @@ async function main() {
       'spielt zuerst den Ausgangston und hört dabei nicht zu',
     );
     await singPage.waitForSelector('.verdict', { timeout: 12_000 });
-    const rightVerdict = (await singPage.locator('.verdict').innerText()).replace(/\n/g, ' ');
-    check(/Richtig: g\b/.test(rightVerdict), `der Zielton eine Oktave tiefer ist richtig («${rightVerdict}»)`);
+    const rightVerdict = await singPage.locator('.verdict-text').innerText();
+    check(rightVerdict === 'Richtig', `der Zielton eine Oktave tiefer ist richtig («${rightVerdict}»)`);
+    /** Die Noten im System: «black», «red» oder «green», in ihrer Reihenfolge. */
+    const staffColours = () =>
+      singPage.locator('.sing-task .score svg .vf-stavenote').evaluateAll((notes) =>
+        notes.map((note) =>
+          note.outerHTML.includes('#00d903') ? 'green' : note.outerHTML.includes('#b3261e') ? 'red' : 'black',
+        ),
+      );
+    const rightStaff = await staffColours();
+    check(
+      rightStaff.join(' ') === 'black green',
+      `im System stehen Ausgangston und Zielton, dieser grün (${rightStaff.join(', ')})`,
+    );
     check(
       (await singPage.locator('.session-bar.is-correct').count()) === 1,
       'die Leiste unten wird grün',
@@ -1227,10 +1281,17 @@ async function main() {
     });
     await singPage.locator('.sing-mic button').click();
     await singPage.waitForSelector('.verdict', { timeout: 12_000 });
-    const wrongVerdict = (await singPage.locator('.verdict').innerText()).replace(/\n/g, ' ');
+    const wrongVerdict = await singPage.locator('.verdict-text').innerText();
+    check(wrongVerdict === 'Falsch', `ein anderer Ton ist falsch («${wrongVerdict}»)`);
+    const wrongStaff = await singPage.locator('.sing-task .score svg .vf-stavenote').count();
+    const wrongColours = await staffColours();
     check(
-      /Gesungen: g · richtig wäre d2/.test(wrongVerdict),
-      `ein anderer Ton ist falsch und wird genannt («${wrongVerdict}»)`,
+      wrongStaff === 3 && wrongColours.join(' ') === 'black red green',
+      `im System: Ausgangston, das gesungene g rot, der Zielton grün (${wrongColours.join(', ')})`,
+    );
+    check(
+      /gesungen g, richtig wäre d2/.test(await singPage.locator('.verdict .visually-hidden').textContent()),
+      'Bildschirmleser hören, was gesungen wurde',
     );
     check((await singPage.locator('.session-bar.is-wrong').count()) === 1, 'die Leiste unten wird rot');
     await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-falsch.png') });

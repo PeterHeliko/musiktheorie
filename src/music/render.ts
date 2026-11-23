@@ -130,7 +130,15 @@ const ACCIDENTAL_GLYPHS = {
   sharp: '',
 } as const;
 
-function buildNote(spec: NoteSpec, clef: 'treble' | 'bass'): DrawnNote {
+/**
+ * Versetzungen, die im laufenden Takt schon stehen: Stammton und Oktave →
+ * Versetzung. Ein Vorzeichen gilt bis zum Taktende; ein Stammton an derselben
+ * Stelle braucht danach ein Auflösungszeichen (es¹ gesetzt, e¹ als Lösung
+ * daneben).
+ */
+type MeasureAlters = Map<string, number>;
+
+function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlters = new Map()): DrawnNote {
   if (spec.glyph) {
     // GlyphNote zeichnet genau ein Zeichen auf einer Notenlinie — ohne
     // Notenkopf, ohne Hals. Die Zeile ergibt sich aus der Tonhöhe.
@@ -172,13 +180,17 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass'): DrawnNote {
     pitches.forEach((pitch, index) => {
       const glyph = accidentalGlyph(pitch.alter);
       // Auflösungszeichen nur setzen, wenn es wirklich gebraucht wird —
-      // ein ♮ vor jeder Stammtonnote wäre falscher Notensatz.
-      if (glyph && pitch.alter !== 0) note.addModifier(new Accidental(glyph), index);
+      // ein ♮ vor jeder Stammtonnote wäre falscher Notensatz. Gebraucht wird
+      // es, wenn an derselben Stelle im Takt vorher ein Vorzeichen stand.
+      const earlier = alters.get(`${pitch.step}${pitch.octave}`) ?? 0;
+      if (glyph && (pitch.alter !== 0 || earlier !== 0)) note.addModifier(new Accidental(glyph), index);
       // Nur die Vorschau-Köpfe einfärben, die vorhandenen bleiben schwarz.
       if (extra.some((p) => midi(p) === midi(pitch) && p.step === pitch.step)) {
         note.setKeyStyle(index, PREVIEW_STYLE);
       }
     });
+    // Was im Takt gilt, bestimmen nur die gesetzten Töne, keine Vorschau.
+    if (!spec.preview) for (const pitch of own) alters.set(`${pitch.step}${pitch.octave}`, pitch.alter);
   }
 
   if (spec.dotted) Dot.buildAndAttach([note], { all: true });
@@ -323,7 +335,8 @@ function drawSystem(
     staves.push({ stave, clef });
 
     const specs = pick(measure);
-    const built = specs.map((n) => buildNote(n, clef));
+    const alters: MeasureAlters = new Map();
+    const built = specs.map((n) => buildNote(n, clef, alters));
     notes.push(built);
 
     if (built.length > 0) {

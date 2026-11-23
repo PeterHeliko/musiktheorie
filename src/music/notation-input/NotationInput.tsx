@@ -31,6 +31,7 @@ import {
 } from '../render';
 import {
   diatonicIndex,
+  midi,
   naturalAt,
   nearestWithStep,
   parsePitch,
@@ -49,7 +50,7 @@ import type {
   PitchAnswer,
   SlotAnswer,
 } from '../../scoring';
-import { pitchSlotCorrect } from '../../scoring';
+import { pitchSlotCorrect, toPitch } from '../../scoring';
 import { shortcutAllowed } from '../../ui/keyboard';
 import { AccidentalPalette, DurationPalette, ToolbarActions, type DurationChoice } from './toolbar';
 
@@ -381,6 +382,34 @@ const KEY_LETTERS = new Map<string, { step: Step; alter: number }>([
   ['b', { step: 'b', alter: -1 }],
 ]);
 
+/**
+ * Zeichenbreite vor und nach den Noten eines Takts (Schlüssel, Ränder). Grob
+ * genug, um ein Notenbild für eine Note mehr zu verbreitern, ohne dass die
+ * vorhandenen rutschen.
+ */
+const SCORE_PREFIX = 60;
+
+/**
+ * Die Lösung als grüne Note, nachdem falsch oder gar nicht geantwortet wurde
+ * — nur bei einem einzelnen Ton (Intervall notieren); bei Akkorden und
+ * mehreren Plätzen gäbe es keinen eindeutigen Ort für sie. Sind beide
+ * Richtungen richtig, die, die dem gesetzten Ton näher liegt: sie zeigt, wo
+ * er hingehört hätte. Ohne gesetzten Ton die erste.
+ */
+function solutionNote(
+  slots: { slot: number; accept: string[]; chord?: boolean }[],
+  placed: PitchAnswer,
+): NoteSpec | null {
+  if (slots.length !== 1 || slots[0].chord) return null;
+  const [slot] = slots;
+  const own = placed[String(slot.slot)] ?? [];
+  if (own.length > 0 && pitchSlotCorrect(slot, own)) return null;
+  const at = own.length > 0 ? midi(toPitch(own[0])) : null;
+  const distance = (key: string) => (at === null ? 0 : Math.abs(midi(parsePitch(key)) - at));
+  const nearest = slot.accept.reduce((best, key) => (distance(key) < distance(best) ? key : best));
+  return { keys: [nearest], duration: 'w', mark: 'correct' };
+}
+
 function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as PitchAnswer | undefined) ?? {};
@@ -441,6 +470,10 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         return { ...note, keys, previewKeys: previewKey ? [previewKey] : undefined };
       }
       if (own.length === 0) {
+        // Geprüft, ohne dass etwas steht (gesetzt und zurückgesetzt): an der
+        // Leerstelle steht dann gleich die Lösung.
+        const solution = readOnly ? solutionNote(slots, placed) : null;
+        if (solution) return solution;
         // Die Leerstelle ist eine GhostNote und kann keine Köpfe tragen.
         // Sobald etwas vorzuschauen ist, wird sie durch eine echte, blau
         // gezeichnete Note ersetzt — sonst käme die Vorschau erst zum
@@ -458,6 +491,20 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         mark: readOnly ? (pitchSlotCorrect(slot, own) ? 'correct' : 'wrong') : undefined,
       };
     });
+
+    // War der gesetzte Ton falsch, steht die Lösung grün daneben. Das Bild
+    // wird dafür breiter statt enger: so bleiben die beiden Töne, wo sie
+    // waren, und die Lösung kommt rechts dazu.
+    const own = slots.length === 1 ? (placed[String(slots[0].slot)] ?? []) : [];
+    const solution = readOnly && own.length > 0 ? solutionNote(slots, placed) : null;
+    if (solution) {
+      const width = task.score.width ?? 600;
+      return {
+        ...task.score,
+        width: width + Math.round((width - SCORE_PREFIX) / notes.length),
+        measures: [{ ...measure, notes: [...notes, solution] }],
+      };
+    }
 
     return { ...task.score, measures: [{ ...measure, notes }] };
   }, [task.score, JSON.stringify(placed), JSON.stringify(slots), hover?.diatonic, hover?.x, alter, readOnly]);

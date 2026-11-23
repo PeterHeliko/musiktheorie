@@ -138,14 +138,15 @@ export function QuestionView({
   // Nach dem Prüfen: «Weiter» bekommt den Fokus (Eingabetaste genügt), und
   // eine ausführliche Rückmeldung wird ins Bild geholt, falls sie unterhalb
   // des sichtbaren Bereichs liegt. Ohne ausführliche Rückmeldung sind die
-  // Antwortknöpfe selbst die Rückmeldung — sie werden ins Bild geholt, denn die
-  // Leiste unten wird mit dem Urteil höher und deckte sonst die letzte Reihe
-  // zu (das Notenbild ist auf genau den Platz VOR dem Antworten bemessen).
+  // Antwortknöpfe selbst die Rückmeldung — die letzte Reihe wird ins Bild
+  // geholt, denn die Leiste unten wird mit dem Urteil höher und deckte sie
+  // sonst zu (das Notenbild ist auf genau den Platz VOR dem Antworten bemessen).
   useEffect(() => {
     if (!result) return;
     nextButton.current?.focus({ preventScroll: true });
     const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const target = details.current ?? (single ? article.current?.querySelector('.field-buttons') : null);
+    const rows = article.current?.querySelectorAll('.field-buttons');
+    const target = details.current ?? (rows && rows.length > 0 ? rows[rows.length - 1] : null);
     target?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
   }, [result]);
 

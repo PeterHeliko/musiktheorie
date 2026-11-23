@@ -1,18 +1,24 @@
 /**
- * Rückmeldung nach dem Antworten — in zwei Teilen:
+ * Rückmeldung nach dem Antworten — wo immer es geht, zeigt die Aufgabe sie
+ * selbst, statt sie hinzuschreiben (Entscheid 2026-11-23): die richtige
+ * Antwort ist der grün umrandete Knopf, die grün umrandete Taste, die grüne
+ * Note im System. Wer sie dort sieht, braucht sie nicht noch einmal zu lesen.
  *
- *  - `Verdict`: eine Zeile in der Leiste unten, direkt über «Weiter». Bei
- *    Aufgaben mit einer einzigen Antwort steht dort schon alles («✓ Richtig:
- *    kleine Terz», «✗ Richtig wäre: grosse Septime»).
+ *  - `Verdict`: eine Zeile in der Leiste unten, direkt über «Weiter». Zeigt
+ *    die Aufgabe die Lösung, steht dort nur das Urteil («✓ Richtig»,
+ *    «✗ Falsch»). Sonst, bei einer einzigen Antwort, auch sie («✗ Richtig
+ *    wäre: e2»).
  *  - `FeedbackDetails`: die Liste unter der Aufgabe, nur bei mehrteiligen
- *    Aufgaben und beim Diktat. Sie wäre für die Leiste zu lang.
+ *    Aufgaben, deren Lösung nicht schon zu sehen ist, und beim Diktat.
  *
  * Die Bewertung liefert bereits deutsche, lesbare Texte
  * (`Detail.studentResponse` / `correctResponse`) — hier wird nichts neu
- * formuliert, sondern nur angezeigt.
+ * formuliert, sondern nur angezeigt. Bildschirmleser bekommen sie auch dort,
+ * wo die Leiste sie nicht zeigt: Farben und Umrandungen sehen sie nicht.
  */
 
 import type { NotationTask, ScoreSpec, Task } from '../content/schema';
+import type { Detail } from '../scoring';
 import type { TaskResult } from '../scoring';
 import { Score } from './Score';
 
@@ -27,28 +33,67 @@ const MARK: Record<Grade, string> = { correct: '✓', partial: '≈', wrong: '�
 const WORD: Record<Grade, string> = {
   correct: 'Richtig',
   partial: 'Teilweise richtig',
-  wrong: 'Nicht richtig',
+  wrong: 'Falsch',
 };
+
+/**
+ * Zeigt die Aufgabe nach dem Prüfen die Lösung selbst?
+ *
+ *  - Knopfraster: die eigene Wahl grün oder rot, die richtige grün umrandet.
+ *  - Klaviatur: ebenso die Tasten.
+ *  - Ein einzelner gesetzter Ton: falsch, steht der richtige grün daneben.
+ *  - Singen: Zielton grün im System, ein falscher Ton rot davor.
+ *
+ * Auswahllisten, Diktat, Vorzeichen, Pausen und Halbtonschritte zeigen sie
+ * (noch) nicht — dort bleibt sie in Worten.
+ */
+export function showsSolution(task: Task): boolean {
+  switch (task.kind) {
+    case 'select':
+      return task.fields.every((field) => field.buttons);
+    case 'keyboard':
+    case 'sing':
+      return true;
+    case 'notation':
+      return (
+        task.solution.type === 'pitch' &&
+        task.solution.slots.length === 1 &&
+        !task.solution.slots[0].chord &&
+        !task.fields?.length
+      );
+    default:
+      return false;
+  }
+}
 
 /** Braucht die Aufgabe die ausführliche Liste unter der Aufgabe? */
 export function hasDetails(result: TaskResult, task: Task): boolean {
+  if (showsSolution(task)) return false;
   return result.details.length > 1 || solutionScore(task) !== null;
+}
+
+/** Die Antwort in Worten, wie sie früher in der Leiste stand. */
+function spokenAnswer(detail: Detail, task: Task): string {
+  if (detail.correct) return detail.studentResponse;
+  if (task.kind === 'sing') return `gesungen ${detail.studentResponse}, richtig wäre ${detail.correctResponse}`;
+  if (task.kind === 'keyboard') return `gespielt ${detail.studentResponse}, richtig wäre ${detail.correctResponse}`;
+  return `richtig wäre ${detail.correctResponse}`;
 }
 
 export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
   const grade = gradeOf(result);
-  const single = !hasDetails(result, task) ? result.details[0] : undefined;
+  const shown = showsSolution(task);
+  const single = result.details.length === 1 && !hasDetails(result, task) ? result.details[0] : undefined;
 
   let text: string;
-  if (single && grade === 'correct') text = `${WORD.correct}: ${single.studentResponse}`;
-  // Beim Singen sieht man die eigene Antwort nicht als Knopf oder Note —
-  // deshalb steht da, was gesungen wurde.
-  else if (single && task.kind === 'sing') text = `Gesungen: ${single.studentResponse} · richtig wäre ${single.correctResponse}`;
-  // Auf der Klaviatur ist die Taste zu sehen, aber nicht, welches Intervall
-  // sie bildet — das sagt die Leiste.
-  else if (single && task.kind === 'keyboard') text = `Gespielt: ${single.studentResponse} · richtig wäre ${single.correctResponse}`;
-  else if (single) text = `Richtig wäre: ${single.correctResponse}`;
-  else text = WORD[grade];
+  if (shown || !single) text = WORD[grade];
+  else if (grade === 'correct') text = `${WORD.correct}: ${single.studentResponse}`;
+  else text = `Richtig wäre: ${single.correctResponse}`;
+
+  const many = result.details.length > 1;
+  const spoken = shown
+    ? result.details.map((detail) => (many ? `${detail.label} ` : '') + spokenAnswer(detail, task)).join('; ')
+    : '';
 
   return (
     <p class={`verdict is-${grade}`} role="status">
@@ -56,7 +101,8 @@ export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
         {MARK[grade]}
       </span>
       <span class="verdict-text">{text}</span>
-      {!single && result.possible > 1 && (
+      {spoken && <span class="visually-hidden">: {spoken}</span>}
+      {result.details.length > 1 && result.possible > 1 && (
         <span class="verdict-score">
           {format(result.earned)} von {format(result.possible)} Punkten
         </span>
