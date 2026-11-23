@@ -226,48 +226,83 @@ export function heardInterval(id: string, label: string, allowed: readonly strin
   };
 }
 
+type Space = NonNullable<ScoreSpec['space']>;
+
 /**
- * Platz über und unter dem System beim Intervall-Notenbild, je Lage.
- *
- * Gemessen an den gezeichneten Pixeln über alle Töne beider Schlüssel, mit
- * Doppelvorzeichen (Stand 2026-11: eng bis 37,5 über / 29 unter dem System,
- * weit bis 52,5 / 39), plus etwas Luft. Fest je Lage statt je Aufgabe: sonst
- * spränge das Knopfraster darunter von Aufgabe zu Aufgabe auf und ab.
- * «eng» braucht unten weniger als die Vorgabe, «weit» oben mehr — dort
- * stiessen hohe Töne mit b sonst an den Rand.
+ * Wie weit das Intervall-Notenbild über und unter das System reicht — der
+ * äusserste Ton samt Vorzeichen oder der Schlüssel selbst —, je Schlüssel,
+ * Lage und Vorzeichenregel. Gemessen an den gezeichneten Pixeln jedes Tons,
+ * den die Einstellung zulässt (Stand 2026-11, Linienabstand 10, aufgerundet).
+ * Der Violinschlüssel allein reicht 14 über und 16 unter das System.
  */
-const NAMING_SPACE: Record<string, NonNullable<ScoreSpec['space']>> = {
-  eng: { above: 40, below: 32 },
-  weit: { above: 56, below: 42 },
+const INTERVAL_REACH: Record<'treble' | 'bass', Record<'eng' | 'weit', Record<AccidentalPolicy, Space>>> = {
+  treble: {
+    eng: { stammton: { above: 14, below: 16 }, einfach: { above: 23, below: 29 }, alle: { above: 28, below: 29 } },
+    weit: { stammton: { above: 25, below: 30 }, einfach: { above: 38, below: 39 }, alle: { above: 43, below: 39 } },
+  },
+  bass: {
+    eng: { stammton: { above: 20, below: 5 }, einfach: { above: 33, below: 14 }, alle: { above: 38, below: 14 } },
+    weit: { stammton: { above: 35, below: 25 }, einfach: { above: 48, below: 39 }, alle: { above: 53, below: 39 } },
+  },
 };
 
 /**
- * Notenbild der Grobbestimmung, je Lage. Ohne Vorzeichen reicht viel weniger
- * Platz über und unter dem System, und rechts braucht es kaum mehr als die
- * Noten — beides geht stattdessen in die Grösse.
+ * Platz über und unter dem System beim Intervall-Notenbild: so viel, wie die
+ * Einstellungen höchstens brauchen, plus 1 Luft.
  *
- * Platz gemessen an den gezeichneten Pixeln der äussersten Töne beider
- * Schlüssel (Stand 2026-11: eng bis 20 über / 16 unter dem System — oben das
- * d1 im Bassschlüssel, unten der Violinschlüssel selbst; weit bis 35 / 30),
- * plus 1 Luft. Fest je Lage, wie bei der Feinbestimmung.
+ * Fest je Einstellung statt je Aufgabe: sonst spränge das System von Aufgabe
+ * zu Aufgabe auf und ab. Aber nicht mehr als nötig — wer nur im
+ * Violinschlüssel ohne Doppelvorzeichen übt, bekommt keinen leeren Platz für
+ * Bassnoten mit Doppel-b. Leerer Platz über dem System ist verlorene Grösse.
  */
-const SIZE_SCORE = { width: 110, scale: 3 };
-const SIZE_SPACE: Record<string, NonNullable<ScoreSpec['space']>> = {
-  eng: { above: 21, below: 17 },
-  weit: { above: 36, below: 31 },
-};
+export function intervalSpace(clefs: readonly string[], width: string, policy: AccidentalPolicy): Space {
+  const lage = width === 'eng' ? 'eng' : 'weit';
+  const chosen = clefs.length > 0 ? clefs : ['treble', 'bass'];
+  const reach = chosen.map((clef) => INTERVAL_REACH[clef === 'bass' ? 'bass' : 'treble'][lage][policy]);
+  return {
+    above: Math.max(...reach.map((r) => r.above)) + 1,
+    below: Math.max(...reach.map((r) => r.below)) + 1,
+  };
+}
+
+/**
+ * Anzeigegrösse der Intervall-Notenbilder: dazwischen füllen sie die Höhe, die
+ * die Übungsansicht übrig hat (ScoreSpec.fit). Unter 2 (System 80 px hoch)
+ * wird lieber gescrollt; über 4 (160 px) wird es auf grossen Bildschirmen nur
+ * noch riesig — Telefone bleiben ohnehin darunter.
+ */
+const INTERVAL_MIN_SCALE = 2;
+const INTERVAL_MAX_SCALE = 4;
 
 /**
  * Zwei Töne als Ganze auf einem System — das Notenbild der Intervall-
- * bestimmung. Grösser als die übrigen Notenbilder: zwei Töne in einem Akkord
+ * bestimmung. So gross, wie der Bildschirm zulässt: zwei Töne in einem Akkord
  * sind auf dem Telefon sonst schwer auseinanderzuhalten.
+ *
+ * `width` ist die Zeichenbreite. Ohne Vorzeichen genügt 110; mit stehen links
+ * vor den Noten bis zu zwei Doppelvorzeichen, dafür 150.
  */
 function twoNoteScore(
   keys: [string, string],
   clef: 'treble' | 'bass',
-  { width, scale, space }: { width: number; scale: number; space: NonNullable<ScoreSpec['space']> },
+  { width, space }: { width: number; space: Space },
 ): ScoreSpec {
-  return { clef, width, scale, space, measures: [{ notes: [{ keys, duration: 'w' }] }] };
+  return {
+    clef,
+    width,
+    scale: INTERVAL_MIN_SCALE,
+    fit: { minScale: INTERVAL_MIN_SCALE, maxScale: INTERVAL_MAX_SCALE },
+    space,
+    measures: [{ notes: [{ keys, duration: 'w' }] }],
+  };
+}
+
+/** Was das Intervall-Notenbild über die Einstellungen wissen muss. */
+export interface NamingLayout {
+  /** Alle eingestellten Schlüssel, nicht nur der dieser Aufgabe. */
+  clefs: readonly string[];
+  width: string;
+  policy: AccidentalPolicy;
 }
 
 /**
@@ -280,18 +315,14 @@ export function intervalNaming(
   label: string,
   clef: 'treble' | 'bass',
   allowed: readonly string[],
-  width = 'eng',
+  { clefs, width, policy }: NamingLayout,
 ): SelectTask {
   return {
     id,
     kind: 'select',
-    // Breiter gezeichnet als bei der Grobbestimmung: links vor den Noten
-    // stehen bis zu zwei Doppelvorzeichen. Auf dem Telefon begrenzt die
-    // Bildschirmbreite die Grösse, nicht `scale`.
     score: twoNoteScore(keys, clef, {
-      width: 150,
-      scale: 3,
-      space: NAMING_SPACE[width] ?? NAMING_SPACE.weit,
+      width: policy === 'stammton' ? 110 : 150,
+      space: intervalSpace(clefs, width, policy),
     }),
     fields: [
       {
@@ -316,12 +347,12 @@ export function intervalSizeNaming(
   correct: string,
   clef: 'treble' | 'bass',
   allowed: readonly string[],
-  width = 'eng',
+  { clefs, width }: Omit<NamingLayout, 'policy'>,
 ): SelectTask {
   return {
     id,
     kind: 'select',
-    score: twoNoteScore(keys, clef, { ...SIZE_SCORE, space: SIZE_SPACE[width] ?? SIZE_SPACE.weit }),
+    score: twoNoteScore(keys, clef, { width: 110, space: intervalSpace(clefs, width, 'stammton') }),
     fields: [
       {
         id: 'a',

@@ -111,18 +111,21 @@ export function QuestionView({
 
   const nextButton = useRef<HTMLButtonElement>(null);
   const details = useRef<HTMLDivElement>(null);
+  const article = useRef<HTMLElement>(null);
   const showDetails = result !== null && hasDetails(result, question.task);
 
   // Nach dem Prüfen: «Weiter» bekommt den Fokus (Eingabetaste genügt), und
   // eine ausführliche Rückmeldung wird ins Bild geholt, falls sie unterhalb
-  // des sichtbaren Bereichs liegt.
+  // des sichtbaren Bereichs liegt. Ohne ausführliche Rückmeldung sind die
+  // Antwortknöpfe selbst die Rückmeldung — sie werden ins Bild geholt, denn die
+  // Leiste unten wird mit dem Urteil höher und deckte sonst die letzte Reihe
+  // zu (das Notenbild ist auf genau den Platz VOR dem Antworten bemessen).
   useEffect(() => {
     if (!result) return;
     nextButton.current?.focus({ preventScroll: true });
-    if (details.current) {
-      const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      details.current.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
-    }
+    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const target = details.current ?? (single ? article.current?.querySelector('.field-buttons') : null);
+    target?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
   }, [result]);
 
   const answered = () => {
@@ -139,7 +142,7 @@ export function QuestionView({
       <main class="session-body">
         <div class="session-column">
           {notice}
-          <article class="question">
+          <article class="question" ref={article}>
             {showExplanation && (
               <div class="explanation">
                 <p class="instruction" dangerouslySetInnerHTML={{ __html: instruction }} />

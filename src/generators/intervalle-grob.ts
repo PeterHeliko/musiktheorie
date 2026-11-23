@@ -108,7 +108,7 @@ export const intervalleGrobBestimmen: Generator<NamingFilters> = {
         size,
         clef,
         sizes,
-        width,
+        { clefs, width },
       ),
     };
   },

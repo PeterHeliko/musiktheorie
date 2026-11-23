@@ -570,6 +570,34 @@ async function main() {
       'hochkant: zwei Grössen je Zeile',
     );
     await sizePhonePage.screenshot({ path: join(SHOTS, 'telefon-grob-bestimmen.png') });
+
+    // Notenbild so gross, wie der Platz zulässt: die Knöpfe bleiben ohne
+    // Scrollen sichtbar, auch nach dem Antworten, wenn die Leiste unten wächst.
+    console.log('\nIntervall-Notenbild füllt den Platz');
+    for (const id of ['intervalle-grob-bestimmen', 'intervalle-bestimmen']) {
+      await sizePhonePage.goto(exercise(id), { waitUntil: 'networkidle' });
+      await sizePhonePage.waitForSelector('.question svg');
+      const staffHeight = await sizePhonePage
+        .locator('.question svg')
+        .first()
+        .evaluate((svg) => (svg.getBoundingClientRect().height * 40) / svg.viewBox.baseVal.height);
+      const lastChoice = sizePhonePage.locator('.question .choice').last();
+      const lastBox = await lastChoice.boundingBox();
+      const barTop = (await sizePhonePage.locator('.session-bar').boundingBox()).y;
+      check(
+        lastBox.y + lastBox.height <= barTop + 1 && staffHeight > 82,
+        `${id}: System ${Math.round(staffHeight)} px hoch, alle Knöpfe ohne Scrollen sichtbar`,
+      );
+      await lastChoice.click();
+      await sizePhonePage.waitForSelector('.verdict');
+      await sizePhonePage.waitForTimeout(800);
+      const answeredBox = await lastChoice.boundingBox();
+      const answeredBarTop = (await sizePhonePage.locator('.session-bar').boundingBox()).y;
+      check(
+        answeredBox.y + answeredBox.height <= answeredBarTop + 1,
+        `${id}: nach dem Antworten ist die letzte Knopfreihe nicht verdeckt`,
+      );
+    }
     await sizePhone.close();
 
     // ------------------------------------------------- Erklärung

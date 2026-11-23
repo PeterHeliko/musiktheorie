@@ -1207,6 +1207,15 @@
 /* Breite der Aufgabe als Bezug für die Intervall-Anordnung (Container-Query). */
 .session-body .session-column {
   container-type: inline-size;
+  /* Ränder des Inhalts bleiben in der Spalte: Score.tsx misst ihre Höhe, um
+     Notenbilder mit `fit` auf den übrigen Platz zu bringen. */
+  display: flow-root;
+}
+
+/* Ein Notenbild, das den übrigen Platz füllt (ScoreSpec.fit), steht oben:
+   weniger Abstand zur Leiste, der Platz geht ins Bild. */
+.session-body:has(.score-fit) {
+  padding-top: 8px;
 }
 
 /* Die Aufgabe steht mittig über den Antworten. */

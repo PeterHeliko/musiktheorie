@@ -78,6 +78,16 @@ export interface ScoreSpec {
    */
   scale?: number;
   /**
+   * In der Übungsansicht so gross wie möglich: das Bild füllt die Höhe, die
+   * neben dem Rest der Aufgabe übrig bleibt, sodass die Antwortknöpfe ohne
+   * Scrollen sichtbar sind. Nie breiter als die Spalte, nie grösser als
+   * `maxScale` (auf grossen Bildschirmen würde es sonst riesig) und nie
+   * kleiner als `minScale` — reicht der Platz dafür nicht, wird eben
+   * gescrollt. Umgesetzt in Score.tsx; `scale` gilt dann nur bis zur ersten
+   * Messung.
+   */
+  fit?: { minScale: number; maxScale: number };
+  /**
    * Platz über der obersten und unter der untersten Notenlinie, in
    * Zeicheneinheiten (Linienabstand 10). Ohne Angabe so viel, wie VexFlow
    * oben vorsieht, und genug für tiefe Hilfslinien unten. Wer weiss, wie weit
