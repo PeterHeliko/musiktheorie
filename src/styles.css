@@ -1175,8 +1175,8 @@
 .session .question {
   text-align: center;
 }
+
 /* Erklärung: nur auf Wunsch (ⓘ), sonst ausgeblendet. */
-/* Erklärung: beim ersten Mal und auf Wunsch (ⓘ), sonst ausgeblendet. */
 .explanation {
   max-width: 36em;
   margin: 0 auto 16px;
@@ -1246,4 +1246,19 @@
 
 .session-icon.is-active {
   color: var(--accent);
+}
+
+/* Strichsymbole (icons.tsx) — Grösse und Strich wie in padago (tokens.css:
+   --icon 23px, --icon-stroke 1.75px). Farbe aus der Schrift, also auch blau,
+   wenn ⓘ aktiv ist. */
+.icon {
+  display: block;
+  flex: none;
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }

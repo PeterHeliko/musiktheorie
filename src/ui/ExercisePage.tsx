@@ -45,6 +45,7 @@ import {
   type SessionSettings,
 } from '../settings';
 import { AnswerStore } from '../state';
+import { CloseIcon, GearIcon, InfoIcon } from './icons';
 import { QuestionView } from './QuestionView';
 import { RoundSummary, isPerfect, type RoundEntry } from './RoundSummary';
 import { SettingsSheet } from './SettingsSheet';
@@ -320,7 +321,7 @@ export function ExercisePage({
       <header class="session-top">
         <div class="session-column session-top-inner">
           <a class="session-icon" href={topicHref} aria-label="Übung schliessen">
-            ✕
+            <CloseIcon />
           </a>
           <h1 class="session-title">{generator.title}</h1>
           {progress !== null && (
@@ -335,7 +336,7 @@ export function ExercisePage({
             aria-pressed={explain}
             onClick={() => setExplain(!explain)}
           >
-            ⓘ
+            <InfoIcon />
           </button>
           <button
             type="button"
@@ -344,7 +345,7 @@ export function ExercisePage({
             aria-expanded={settingsOpen}
             onClick={() => setSettingsOpen(true)}
           >
-            ⚙
+            <GearIcon />
           </button>
         </div>
       </header>
