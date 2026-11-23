@@ -58,6 +58,7 @@ export function QuestionView({
   canCheck,
   nextLabel,
   notice,
+  showExplanation,
 }: {
   question: Question;
   store: AnswerStore;
@@ -72,6 +73,11 @@ export function QuestionView({
   nextLabel: string;
   /** Hinweis über der Aufgabe, etwa zu einem veralteten Link. */
   notice?: ComponentChildren;
+  /**
+   * Anweisung und Hinweis zeigen? Sie gelten für alle Aufgaben der Übung und
+   * erscheinen deshalb nur beim ersten Mal und auf Wunsch (ⓘ).
+   */
+  showExplanation: boolean;
 }) {
   // Die Klangereignisse hängen an der Aufgabe, nicht am Zustand — sonst
   // begänne die Wiedergabe bei jedem Tastendruck von vorn.
@@ -134,8 +140,15 @@ export function QuestionView({
         <div class="session-column">
           {notice}
           <article class="question">
-            <p class="instruction" dangerouslySetInnerHTML={{ __html: instruction }} />
-            {hint && <p class="hint" dangerouslySetInnerHTML={{ __html: hint }} />}
+            {showExplanation && (
+              <div class="explanation">
+                <p class="instruction" dangerouslySetInnerHTML={{ __html: instruction }} />
+                {hint && <p class="hint" dangerouslySetInnerHTML={{ __html: hint }} />}
+              </div>
+            )}
+            {question.context && question.task.kind !== 'notation' && (
+              <p class="task-context">{question.context}</p>
+            )}
 
             {question.legend && (
               <div class="legend">
@@ -171,6 +184,7 @@ export function QuestionView({
                   {question.task.prompt && (
                     <p class="task-prompt task-prompt-strong">{question.task.prompt}</p>
                   )}
+                  {question.context && <p class="task-context">{question.context}</p>}
                   <NotationInput task={question.task} />
                 </div>
               ) : null}
@@ -194,26 +208,31 @@ export function QuestionView({
         </div>
       </main>
 
+      {/* Schmal: Rückmeldung mittig über dem Knopf. Breit: Rückmeldung links,
+          Knöpfe rechts (Container-Query in styles.css). Der Hauptknopf steht
+          zuletzt, also ganz rechts. */}
       <footer class="session-bar">
         <div class="session-column">
-          {result && <Verdict result={result} task={question.task} />}
-          <div class="session-actions">
-            {result ? (
-              <button type="button" class="primary" onClick={onNext} ref={nextButton}>
-                {nextLabel}
-              </button>
-            ) : (
-              <>
-                {!single && (
-                  <button type="button" class="primary" onClick={check} disabled={!canCheck}>
-                    Prüfen
-                  </button>
-                )}
-                <button type="button" class="link-button" onClick={onNext}>
-                  überspringen
+          <div class="bar-content">
+            {result && <Verdict result={result} task={question.task} />}
+            <div class="session-actions">
+              {result ? (
+                <button type="button" class="primary" onClick={onNext} ref={nextButton}>
+                  {nextLabel}
                 </button>
-              </>
-            )}
+              ) : (
+                <>
+                  <button type="button" class="link-button" onClick={onNext}>
+                    überspringen
+                  </button>
+                  {!single && (
+                    <button type="button" class="primary" onClick={check} disabled={!canCheck}>
+                      Prüfen
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </footer>

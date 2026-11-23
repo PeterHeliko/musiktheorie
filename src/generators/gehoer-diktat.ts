@@ -84,7 +84,7 @@ export const gehoerDiktat: Generator<Filters> = {
   version: 1,
   title: 'Rhythmus- und Melodiediktat',
   instruction:
-    'Du hörst eine Melodie. Notiere den Rhythmus und wenn du kannst, auch die Tonhöhen.',
+    'Du hörst eine Melodie. Notiere den Rhythmus und wenn du kannst, auch die Tonhöhen. Ist die erste Note vorgegeben, steht sie schon im System.',
   hint: 'Rhythmus und Tonhöhen werden getrennt bewertet — ein verpasster Notenwert kostet die Tonhöhenpunkte nicht.',
 
   filters: [
@@ -197,7 +197,7 @@ export const gehoerDiktat: Generator<Filters> = {
       task,
       audio: { id, kind: 'melody', tempo, countIn },
       melody: toAudioEvents(measures),
-      instruction: buildInstruction(bars, timeSignature, keyName, scale, giveFirstNote, measures),
+      context: buildContext(bars, timeSignature, keyName, scale, giveFirstNote, measures),
       maxPlays: limitPlays ? LIMITED_PLAYS : undefined,
       allowSlow: true,
     };
@@ -239,7 +239,8 @@ export function toAudioEvents(measures: NoteSpec[][]): AudioEvent[] {
   }));
 }
 
-function buildInstruction(
+/** Die Eckdaten der Melodie in einer Zeile: «4 Takte, 4/4-Takt, G-Dur, beginnt mit g1». */
+function buildContext(
   bars: number,
   timeSignature: string,
   keyName: string,
@@ -250,12 +251,9 @@ function buildInstruction(
   const gender = scale === 'dur' ? keyName : keyByName(keyName).minor;
   const first = measures[0][0];
   // `toGermanPitch()` schreibt die Lage deutsch: G4 → «g1».
-  const start =
-    giveFirstNote && first.keys?.length
-      ? ` Sie beginnt mit der bereits eingetragenen Note ${toGermanPitch(parsePitch(first.keys[0]))}.`
-      : '';
-  return (
-    `Du hörst eine ${bars}-taktige Melodie im ${timeSignature}-Takt in ${gender}.${start} ` +
-    'Notiere den Rhythmus und wenn du kannst, auch die Tonhöhen.'
-  );
+  const parts = [`${bars} Takte`, `${timeSignature}-Takt`, gender];
+  if (giveFirstNote && first.keys?.length) {
+    parts.push(`beginnt mit ${toGermanPitch(parsePitch(first.keys[0]))}`);
+  }
+  return parts.join(', ');
 }

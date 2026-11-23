@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Ref } from 'preact';
+import type { RefObject } from 'preact';
 import type { MeasureSpec, NotationTask, NoteSpec, ScoreSpec } from '../../content/schema';
 import { useExam } from '../../state';
 import { Score } from '../../ui/Score';
@@ -120,7 +120,7 @@ function drawWidthFor(available: number, minDraw: number): number {
   return Math.max(Math.floor(available / SCORE_SCALE), Math.min(available, minDraw));
 }
 
-function useMeasuredWidth(fallback: number, minDraw = 0): [Ref<HTMLDivElement>, number] {
+function useMeasuredWidth(fallback: number, minDraw = 0): [RefObject<HTMLDivElement>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(drawWidthFor(fallback, minDraw));
 
@@ -214,18 +214,46 @@ function useHover(live: () => RenderedScore | null, enabled: boolean) {
  * - Der Zeiger wird am Rahmen festgehalten (Pointer Capture). Der Rahmen bleibt
  *   beim Neuzeichnen bestehen, das SVG darin nicht — ohne Capture ginge das
  *   Loslassen ins Leere, sobald die Vorschau das SVG ersetzt hat.
- * - Im Rahmen scrollt der Finger nicht die Seite (CSS touch-action: none),
- *   sonst würde senkrechtes Ziehen die Seite verschieben statt die Tonhöhe.
+ * - Im Rahmen scrollt der Finger nicht die Seite, sonst würde senkrechtes
+ *   Ziehen die Seite verschieben statt die Tonhöhe. Dafür reicht CSS
+ *   (touch-action: none) nicht: iOS Safari kennt davon nur «auto» und
+ *   «manipulation». Deshalb zusätzlich touchstart/touchmove mit
+ *   preventDefault — als nicht-passive Listener, sonst ignoriert der Browser
+ *   das preventDefault.
+ * - Damit diese Touch-Ereignisse überhaupt beim Rahmen ankommen, darf das
+ *   berührte Element nicht verschwinden: iOS schickt alle weiteren
+ *   Touch-Ereignisse an das Element, auf dem der Finger aufsetzte — wird es
+ *   ersetzt (die Vorschau zeichnet das SVG neu), steigen sie nicht mehr auf.
+ *   Das SVG nimmt deshalb keine Zeigerereignisse an (CSS pointer-events:
+ *   none), getroffen wird immer der beständige Rahmen darum.
  */
 function usePointerPlacement(
   hover: { onMove: (event: MouseEvent) => void; onLeave: () => void },
   enabled: boolean,
   commit: (event: PointerEvent) => void,
+  area: RefObject<HTMLElement>,
 ) {
   const active = useRef<number | null>(null);
   // Immer die aktuelle Fassung: `commit` ist bei jedem Rendern eine neue Funktion.
   const commitRef = useRef(commit);
   commitRef.current = commit;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
+  useEffect(() => {
+    const element = area.current;
+    if (!element) return;
+    // Nach dem Prüfen (gesperrt) darf über dem Notenbild wieder gescrollt werden.
+    const block = (event: TouchEvent) => {
+      if (enabledRef.current) event.preventDefault();
+    };
+    element.addEventListener('touchstart', block, { passive: false });
+    element.addEventListener('touchmove', block, { passive: false });
+    return () => {
+      element.removeEventListener('touchstart', block);
+      element.removeEventListener('touchmove', block);
+    };
+  }, [area]);
 
   const finish = (event: PointerEvent, apply: boolean) => {
     if (active.current !== event.pointerId) return;
@@ -335,7 +363,8 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   const [alter, setAlter] = useState(0);
   const { rendered, onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
+  const area = useRef<HTMLDivElement>(null);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
 
   if (solution.type !== 'pitch') return null;
   const slots = solution.slots;
@@ -436,7 +465,7 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         </ToolbarActions>
       </div>
 
-      <div class="score-click-area" {...pointer}>
+      <div class="score-click-area" ref={area} {...pointer}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
@@ -474,8 +503,8 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
   const [selection, setSelection] = useState<Selection[]>([]);
   const { rendered, onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave, clearHover } = useHover(live, !readOnly && editMode === 'eingabe');
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
   const [wrapper, width] = useMeasuredWidth(720, minDrawWidth(task.score.measures.length));
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, wrapper);
 
   if (solution.type !== 'melody') return null;
 
@@ -746,8 +775,8 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
   const [choice, setChoice] = useState<DurationChoice>({ duration: 'q', dotted: false });
   const { onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
   const [wrapper, width] = useMeasuredWidth(760, minDrawWidth(task.score.measures.length));
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, wrapper);
 
   if (solution.type !== 'slot') return null;
   const asRest = task.mode === 'rest';
@@ -844,7 +873,8 @@ function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
   const value = (answer.n as KeysigAnswer | undefined) ?? { sign: 1, placed: [] };
   const { onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick);
+  const area = useRef<HTMLDivElement>(null);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
 
   if (solution.type !== 'keysig') return null;
 
@@ -929,7 +959,7 @@ function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
         </ToolbarActions>
       </div>
 
-      <div class="score-click-area" {...pointer}>
+      <div class="score-click-area" ref={area} {...pointer}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 

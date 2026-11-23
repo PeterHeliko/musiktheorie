@@ -53,10 +53,21 @@ export interface Question {
   legend?: { label: string; score: ScoreSpec }[];
   /** Antwort, die andere Felder gegenstandslos macht. */
   waiver?: Waiver;
-  /** Anweisung, die von der Vorgabe der Übung abweicht (z.B. Richtung). */
+  /**
+   * Anweisung, die von der Vorgabe der Übung abweicht (z.B. Richtung). Wie die
+   * Vorgabe gehört sie zur Erklärung, die beim ersten Mal erscheint und sonst
+   * hinter ⓘ liegt — sie gilt für alle Aufgaben mit diesen Einstellungen.
+   */
   instruction?: string;
-  /** Zusätzlicher Bedienhinweis unter der Anweisung. */
+  /** Zusätzlicher Bedienhinweis, ebenfalls Teil der Erklärung. */
   hint?: string;
+  /**
+   * Was nur für DIESE Aufgabe gilt und ohne das sie sich nicht lösen lässt —
+   * steht als eine kurze Zeile immer bei der Aufgabe. Etwa beim Diktat Takte,
+   * Tonart und erster Ton. Allgemeines gehört nicht hierher, sondern in
+   * `instruction`.
+   */
+  context?: string;
   /** Abspiellimit; weglassen = unbegrenzt (die Übungs-Vorgabe). */
   maxPlays?: number;
   /** «langsamer»-Knopf anbieten (Diktat). */

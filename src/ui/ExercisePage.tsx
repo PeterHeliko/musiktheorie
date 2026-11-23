@@ -37,8 +37,10 @@ import type { TaskResult } from '../scoring';
 import { hrefFor, navigate, replaceQuery } from '../router';
 import {
   clearFilters,
+  hasSeenExplanation,
   loadFilters,
   loadSession,
+  markExplanationSeen,
   recordResult,
   saveFilters,
   saveSession,
@@ -102,6 +104,12 @@ export function ExercisePage({
   const [session, setSession] = useState<SessionSettings>(start.session);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outdated, setOutdated] = useState(start.outdated);
+  /**
+   * Erklärung (Anweisung und Hinweis) zeigen? Beim allerersten Öffnen einer
+   * Übung ja; mit der nächsten Aufgabe verschwindet sie und gilt als gelesen.
+   * ⓘ holt sie jederzeit für die aktuelle Aufgabe zurück.
+   */
+  const [explain, setExplain] = useState(() => !hasSeenExplanation(generator.id));
 
   const inRound = session.mode === 'runde';
 
@@ -215,6 +223,10 @@ export function ExercisePage({
 
   const next = useCallback(() => {
     setOutdated(false);
+    if (explain) {
+      setExplain(false);
+      markExplanationSeen(generator.id);
+    }
     if (inRound && round.length >= roundTarget) {
       setSummary(round);
       return;
@@ -226,7 +238,7 @@ export function ExercisePage({
       return;
     }
     setCurrent(build(generator, filters, randomSeed()));
-  }, [queue, inRound, round, roundTarget, generator, filters]);
+  }, [queue, inRound, round, roundTarget, generator, filters, explain]);
 
   // ---------------------------------------------------------------- Ansicht
   const topicHref = hrefFor({ page: 'thema', topic: generator.topic });
@@ -303,6 +315,7 @@ export function ExercisePage({
         onCheck={check}
         onNext={next}
         notice={notice}
+        showExplanation={explain}
       />
     );
   }
@@ -320,6 +333,18 @@ export function ExercisePage({
               {progress}
             </span>
           )}
+          <button
+            type="button"
+            class={`session-icon session-info ${explain ? 'is-active' : ''}`}
+            aria-label="Erklärung"
+            aria-pressed={explain}
+            onClick={() => {
+              if (explain) markExplanationSeen(generator.id);
+              setExplain(!explain);
+            }}
+          >
+            ⓘ
+          </button>
           <button
             type="button"
             class="session-icon session-settings"

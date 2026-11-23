@@ -126,7 +126,7 @@ export const intervalleNotieren: Generator<WritingFilters> = {
   version: 1,
   title: 'Intervalle notieren',
   instruction: 'Ergänze zum vorgegebenen Ton den zweiten Ton des verlangten Intervalls.',
-  hint: 'Klicke die Stelle im System an; das Vorzeichen wählst du vorher in der Werkzeugleiste.',
+  hint: 'Tippe die Stelle im System an oder ziehe dorthin; das Vorzeichen wählst du vorher in der Werkzeugleiste.',
 
   filters: [
     { kind: 'multi', key: 'intervals', label: 'Welche Intervalle?', options: INTERVAL_OPTIONS },
@@ -224,6 +224,14 @@ export const intervalleNotieren: Generator<WritingFilters> = {
         direction === 'frei'
           ? 'Beide Richtungen werden als richtig gewertet. Achte auf das passende Vorzeichen.'
           : 'Achte auf das passende Vorzeichen.',
+      // Bei fester Richtung gehört sie zur Aufgabe: ohne sie ist die Antwort
+      // nicht eindeutig.
+      context:
+        direction === 'up'
+          ? 'über dem vorgegebenen Ton'
+          : direction === 'down'
+            ? 'unter dem vorgegebenen Ton'
+            : undefined,
     };
   },
 };

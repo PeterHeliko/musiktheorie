@@ -73,7 +73,7 @@ export const tonartenVorzeichen: Generator<SignatureFilters> = {
   title: 'Vorzeichen setzen',
   instruction:
     'Setze die Vorzeichen der angegebenen Tonart in der richtigen Reihenfolge auf die richtigen Positionen.',
-  hint: 'Wähle zuerst ♯ oder ♭, klicke dann die Positionen an.',
+  hint: 'Wähle zuerst ♯ oder ♭ und setze dann die Vorzeichen auf ihre Positionen.',
 
   filters: [
     { kind: 'range', key: 'maxAccidentals', label: 'Höchstens', min: 0, max: 7, unit: 'Vorzeichen' },
@@ -117,10 +117,9 @@ export const tonartenVorzeichen: Generator<SignatureFilters> = {
 
     return {
       task: keySignatureTask(taskId('tv', rng), keyName, key.accidentals, clef),
-      instruction:
-        key.accidentals === 0
-          ? `${keyName} hat keine Vorzeichen. Lass das System leer.`
-          : this.instruction,
+      // Ohne diesen Satz wüsste man bei C-Dur und a-Moll nicht, ob man etwas
+      // übersehen hat.
+      context: key.accidentals === 0 ? `${keyName} hat keine Vorzeichen. Lass das System leer.` : undefined,
     };
   },
 };

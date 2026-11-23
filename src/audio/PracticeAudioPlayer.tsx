@@ -115,15 +115,15 @@ export function PracticeAudioPlayer({
         </button>
       )}
 
+      {/* Ein Hinweis nur, wenn er etwas sagt: bei begrenzten Wiedergaben oder
+          wenn der Ton nicht lädt. «Beliebig oft» ist der Normalfall. */}
       {failed ? (
         <span class="audio-note audio-error">
-          Kein Ton. Sind die Klaviersamples gebaut? («npm run samples»)
+          Der Ton liess sich nicht laden. Prüfe die Verbindung und versuche es nochmals.
         </span>
-      ) : maxPlays === undefined ? (
-        <span class="audio-note">beliebig oft abspielbar</span>
-      ) : (
+      ) : maxPlays === undefined ? null : (
         <span class={`audio-note ${exhausted ? 'audio-exhausted' : ''}`}>
-          {exhausted ? 'Keine Wiedergabe mehr übrig' : `noch ${remaining}× abspielbar`}
+          {exhausted ? 'Keine Wiedergabe mehr übrig' : `noch ${remaining}×`}
         </span>
       )}
     </div>

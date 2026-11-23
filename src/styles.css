@@ -936,18 +936,62 @@
   padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
-.session-actions .primary {
-  min-width: 200px;
+
+/*
+ * Leiste unten. Schmal: Rückmeldung mittig über dem Hauptknopf, der die
+ * Breite füllt. Breit: Rückmeldung links, Knöpfe rechts in einer Zeile.
+ * Entscheidend ist der verfügbare Platz, nicht das Gerät — deshalb eine
+ * Container-Query auf die Spalte der Leiste.
+ */
+.session-bar .session-column {
+  container-type: inline-size;
 }
 
-/* Eine Zeile Rückmeldung über dem Hauptknopf. */
+.bar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-actions {
+  justify-content: center;
+}
+
+.session-actions .primary {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Eine Zeile Rückmeldung. */
 .verdict {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   flex-wrap: wrap;
   gap: 4px 8px;
-  margin: 2px 0 10px;
+  margin: 0;
+  text-align: center;
   font-weight: 600;
+}
+
+@container (min-width: 600px) {
+  .bar-content {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+  .verdict {
+    flex: 1;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .session-actions {
+    margin-left: auto;
+  }
+  .session-actions .primary {
+    flex: none;
+    min-width: 200px;
+  }
 }
 
 .verdict-mark {
@@ -967,7 +1011,6 @@
 }
 
 .verdict-score {
-  margin-left: auto;
   font-weight: 400;
   font-size: 0.88rem;
   color: var(--ink-soft);
@@ -1051,11 +1094,6 @@
   .list-page {
     padding: 16px;
   }
-  /* Auf dem Telefon füllt der Hauptknopf die Leiste: leichter zu treffen. */
-  .session-actions .primary {
-    flex: 1;
-    min-width: 0;
-  }
 }
 
 /* ------------------------------------------------------- Intervall-Raster */
@@ -1068,7 +1106,8 @@
   grid-template-areas: var(--portrait);
 }
 
-@media (orientation: landscape) {
+/* Quer, sobald der Platz reicht — auf dem Rechner wie auf dem gedrehten Telefon. */
+@container (min-width: 600px) {
   .interval-grid {
     gap: 8px 6px;
     grid-template-columns: repeat(16, minmax(0, 1fr));
@@ -1085,4 +1124,88 @@
      mitten in einer Silbe (lang="de-CH" am <html>). */
   hyphens: auto;
   -webkit-hyphens: auto;
+}
+
+/* ------------------------------------------------- Aufgabe in der Übung */
+
+/* Breite der Aufgabe als Bezug für die Intervall-Anordnung (Container-Query). */
+.session-body .session-column {
+  container-type: inline-size;
+}
+
+/* Die Aufgabe steht mittig über den Antworten. */
+.session .question {
+  text-align: center;
+}
+
+/* Erklärung: beim ersten Mal und auf Wunsch (ⓘ), sonst ausgeblendet. */
+.explanation {
+  max-width: 36em;
+  margin: 0 auto 16px;
+  padding: 12px 16px;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+}
+
+.explanation .instruction {
+  margin: 0;
+}
+
+.explanation .hint {
+  margin: 6px 0 0;
+  padding: 0;
+  background: none;
+}
+
+/* Was nur für diese Aufgabe gilt (Diktat: Takte, Tonart, erster Ton). */
+.task-context {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+}
+
+.session .audio-player,
+.session .task-visual,
+.session .legend,
+.session .button-grid,
+.session .field-row {
+  justify-content: center;
+}
+
+/* Notenbild immer über den Antworten, nie daneben. */
+.session .task-side {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.session .task-side .field-row {
+  flex: none;
+}
+
+.session .field-grid {
+  grid-template-columns: repeat(var(--field-columns, 1), minmax(140px, 240px));
+}
+
+/* Antwortfelder, Werkzeugleiste und Rückmeldungslisten bleiben linksbündig
+   gelesen — zentriert wird nur ihre Lage. */
+.session .field,
+.session .notation-input .toolbar,
+.session .feedback,
+.session .waiver-note {
+  text-align: left;
+}
+
+.session .field-buttons legend {
+  width: 100%;
+  text-align: center;
+}
+
+.session .feedback,
+.session .waiver-note {
+  max-width: 36em;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.session-icon.is-active {
+  color: var(--accent);
 }

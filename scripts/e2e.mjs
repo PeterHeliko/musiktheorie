@@ -405,6 +405,32 @@ async function main() {
     const afterCancel = await page.locator('.input-summary').innerText();
     check(!/Gesetzt:/.test(afterCancel), `Loslassen ausserhalb des Notenbilds bricht ab («${afterCancel}»)`);
 
+    // ------------------------------------------------- Ziehen mit dem Finger
+    console.log('\nNoteneingabe mit dem Finger (Telefon)');
+    const touch = await browser.newContext({ ...devices['iPhone 13'] });
+    const touchPage = await touch.newPage();
+    await touchPage.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
+    await touchPage.waitForSelector('.notation-input svg');
+    await touchPage.locator('.score-click-area').scrollIntoViewIfNeeded();
+    const scrollBefore = await touchPage.locator('.session-body').evaluate((el) => el.scrollTop);
+    const touchArea = await touchPage.locator('.score-click-area').boundingBox();
+    const cdp = await touch.newCDPSession(touchPage);
+    const finger = (type, x, y) =>
+      cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+    const tx = touchArea.x + touchArea.width * 0.72;
+    await finger('touchStart', tx, touchArea.y + touchArea.height * 0.2);
+    for (let step = 1; step <= 8; step++) {
+      await finger('touchMove', tx, touchArea.y + touchArea.height * (0.2 + step * 0.06));
+    }
+    const midDrag = await touchPage.locator('.input-summary').innerText();
+    await finger('touchEnd', tx, touchArea.y + touchArea.height * 0.68);
+    await touchPage.waitForTimeout(200);
+    const scrollAfter = await touchPage.locator('.session-body').evaluate((el) => el.scrollTop);
+    check(!/Gesetzt:/.test(midDrag), 'während des Ziehens ist noch nichts gesetzt');
+    check(/Gesetzt:/.test(await touchPage.locator('.input-summary').innerText()), 'beim Loslassen steht die Note');
+    check(scrollAfter === scrollBefore, `Ziehen verschiebt die Seite nicht (${scrollBefore} → ${scrollAfter})`);
+    await touch.close();
+
     // ------------------------------------------------- grösseres Notenbild
     console.log('\nNotenbild');
     await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
@@ -465,6 +491,76 @@ async function main() {
     check(Math.abs(p1.y - p8.y) < 2 && p1.y > p5.y, 'hochkant: Prime und Oktave zuletzt');
     await portraitPage.screenshot({ path: join(SHOTS, 'telefon-intervalle-hochkant.png') });
     await portrait.close();
+
+    // Quer oder hochkant entscheidet die Breite, nicht die Ausrichtung.
+    const narrow = await browser.newContext({ viewport: { width: 520, height: 420 } });
+    const narrowPage = await narrow.newPage();
+    await narrowPage.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
+    await narrowPage.waitForSelector('.interval-grid');
+    const nk2 = await centre(narrowPage, 'kleine Sekunde');
+    const ng2 = await centre(narrowPage, 'grosse Sekunde');
+    check(Math.abs(nk2.y - ng2.y) < 2, 'schmales Querformat-Fenster: Zeilen wie hochkant');
+    await narrow.close();
+
+    // ------------------------------------------------- Erklärung
+    console.log('\nErklärung beim ersten Mal, danach hinter ⓘ');
+    const explainContext = await browser.newContext();
+    const explainPage = await explainContext.newPage();
+    await explainPage.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
+    await explainPage.waitForSelector('.question');
+    check((await explainPage.locator('.explanation').count()) === 1, 'beim ersten Öffnen steht die Erklärung da');
+    await explainPage.locator('.question .choice').first().click();
+    await explainPage.locator('.session-bar button:has-text("Weiter")').click();
+    await explainPage.waitForSelector('.question .choice:not([disabled])');
+    check((await explainPage.locator('.explanation').count()) === 0, 'ab der zweiten Aufgabe ist sie weg');
+    await explainPage.locator('.session-info').click();
+    check((await explainPage.locator('.explanation').count()) === 1, 'ⓘ holt sie zurück');
+    await explainPage.locator('.session-info').click();
+    await explainPage.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
+    await explainPage.waitForSelector('.question');
+    check((await explainPage.locator('.explanation').count()) === 0, 'beim nächsten Besuch erscheint sie nicht mehr');
+    await explainPage.goto(exercise('melodiediktat'), { waitUntil: 'networkidle' });
+    await explainPage.waitForSelector('.task-context');
+    const dictationContext = await explainPage.locator('.task-context').innerText();
+    check(/\d Takte, \d\/\d-Takt, \S+-(Dur|Moll)/.test(dictationContext), `das Diktat nennt seine Eckdaten («${dictationContext}»)`);
+    await explainContext.close();
+
+    // ------------------------------------------------- Leiste unten
+    console.log('\nRückmeldung in der Leiste');
+    const barCheck = async (p) => {
+      await p.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
+      await p.locator('.question .choice').first().click();
+      await p.waitForSelector('.verdict');
+      return {
+        verdict: await p.locator('.verdict').boundingBox(),
+        button: await p.locator('.session-bar button:has-text("Weiter")').boundingBox(),
+        width: p.viewportSize().width,
+      };
+    };
+    const wide = await barCheck(page);
+    check(
+      wide.verdict.x + wide.verdict.width <= wide.button.x && Math.abs(wide.verdict.y + wide.verdict.height / 2 - (wide.button.y + wide.button.height / 2)) < 12,
+      'breit: Rückmeldung links, «Weiter» rechts in einer Zeile',
+    );
+    const phoneBar = await browser.newContext({ ...devices['iPhone 13'] });
+    const phoneBarPage = await phoneBar.newPage();
+    const slim = await barCheck(phoneBarPage);
+    check(
+      slim.verdict.y + slim.verdict.height <= slim.button.y + 1 &&
+        Math.abs(slim.verdict.x + slim.verdict.width / 2 - slim.width / 2) < 4,
+      'schmal: Rückmeldung mittig über dem Knopf',
+    );
+    await phoneBarPage.screenshot({ path: join(SHOTS, 'telefon-rueckmeldung.png') });
+    await phoneBar.close();
+
+    // Die Aufgabe steht mittig.
+    await page.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
+    const playBox = await page.locator('.play-button').boundingBox();
+    const columnBox = await page.locator('.session-body .session-column').boundingBox();
+    check(
+      Math.abs(playBox.x + playBox.width / 2 - (columnBox.x + columnBox.width / 2)) < 80,
+      'der Abspielknopf steht mittig über den Antworten',
+    );
 
     // ------------------------------------------------- automatisch abspielen
     console.log('\nHörbeispiel spielt von selbst');

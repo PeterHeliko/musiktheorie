@@ -591,11 +591,17 @@ button:focus-visible {
   cursor: crosshair;
   background: var(--surface);
   /* Gezogen wird die Tonhöhe, nicht die Seite; gesetzt wird beim Loslassen
-     (usePointerPlacement in NotationInput.tsx). */
+     (usePointerPlacement in NotationInput.tsx). Für iOS kommt dort noch
+     preventDefault auf den Touch-Ereignissen dazu. */
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+/* Getroffen wird immer der Rahmen, nie das SVG: das wird beim Ziehen neu
+   gezeichnet, und iOS verlöre mit ihm den Finger. */
+.score-click-area svg {
+  pointer-events: none;
 }
 /* Im Bearbeiten-Modus wird ausgewählt, nicht gesetzt. */
 .score-click-area.is-editing {

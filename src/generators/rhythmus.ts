@@ -185,7 +185,7 @@ export const rhythmusPausen: Generator<RestFilters> = {
   version: 1,
   title: 'Fehlende Pausen ergänzen',
   instruction: 'In jedem Takt fehlt genau eine Pause. Trage den passenden Pausenwert ein.',
-  hint: 'Wähle den Wert in der Werkzeugleiste und klicke dann auf die mit «x» markierte Stelle.',
+  hint: 'Wähle den Wert in der Werkzeugleiste und tippe dann auf die mit «x» markierte Stelle.',
 
   filters: [
     { kind: 'single', key: 'timeSignature', label: 'Taktart', options: TIME_OPTIONS },
