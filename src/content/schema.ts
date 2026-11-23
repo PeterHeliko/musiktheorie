@@ -152,8 +152,8 @@ export interface SelectField {
    * Reihen wie eine Klaviatur (kleine zwischen den grossen).
    * «sizes»: die Intervallgrössen der Grobbestimmung — hochkant zwei je
    * Zeile, quer alle in einer Reihe.
-   * «notes»: Tonnamen, eine Spalte je Stammton (c … h), darüber die mit ♭,
-   * darunter die mit ♯. Fehlende Namen lassen ihren Platz frei.
+   * «notes»: Tonnamen, eine Spalte je Stammton (c … h), darüber die mit ♯,
+   * darunter die mit ♭. Fehlende Namen lassen ihren Platz frei.
    */
   buttonLayout?: 'intervals' | 'sizes' | 'notes';
 }

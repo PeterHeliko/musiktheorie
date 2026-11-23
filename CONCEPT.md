@@ -159,8 +159,8 @@ The first topic: before counting intervals, you need to know the notes.
 
 Only the name counts, never the octave: «fis», not «fis¹». Playing or writing accepts the note
 in any octave the keyboard (c to h¹, as for Intervalle) or the staff allows. Octave names get
-their own exercise. Names are lowercase. Answers are one grid: a column per letter, ♭ names
-above, ♯ names below; without accidentals only c–h. On the keyboard a black key has two names
+their own exercise. Names are lowercase. Answers are one grid: a column per letter, ♯ names
+above, ♭ names below; without accidentals only c–h. On the keyboard a black key has two names
 and both are right; ces, fes, eis and his don't appear there (those keys are h, e, f, c). In
 the score the spelling is the question: fes is fes. The default is ♭ ♯ with black keys; no
 double accidentals. Naming keys is silent, as for Intervalle.

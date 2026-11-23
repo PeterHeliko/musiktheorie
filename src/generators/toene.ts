@@ -9,7 +9,7 @@
  * c¹) werden einmal eine eigene Übung.
  *
  * Antwortknöpfe sind ein Raster: eine Spalte je Stammton, darüber die
- * Namen mit ♭, darunter die mit ♯ (Entscheid 2026-11-24).
+ * Namen mit ♯, darunter die mit ♭ (Entscheid 2026-11-24).
  *
  *  - Klaviatur: Eine Taste hat keine Schreibweise. Eine schwarze heisst cis
  *    oder des, beides ist richtig; eine weisse heisst wie ihr Stammton, also

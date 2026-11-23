@@ -296,8 +296,9 @@ function intervalAreas(values: string[]): Record<string, string> {
 
 /**
  * Platz jedes Tonnamens (klein geschrieben, wie in src/generators/toene.ts):
- * die Spalte ist der Stammton (c … h), die Zeile das Vorzeichen — oben ♭, in
- * der Mitte keins, unten ♯. So steht des über d und cis unter c, und jeder
+ * die Spalte ist der Stammton (c … h), die Zeile das Vorzeichen — oben ♯, in
+ * der Mitte keins, unten ♭ (Entscheid 2026-11-24): erhöht steht oben,
+ * erniedrigt unten. So steht cis über c und des unter d, und jeder
  * Name immer an derselben Stelle.
  */
 const NOTE_CELL: Record<string, { column: number; alter: number }> = Object.fromEntries(
@@ -309,5 +310,5 @@ const NOTE_CELL: Record<string, { column: number; alter: number }> = Object.from
 /** Die Vorzeichen-Zeilen, die vorkommen, von oben nach unten. Leere fallen weg. */
 function noteRows(values: string[]): number[] {
   const present = new Set(values.map((value) => NOTE_CELL[value]?.alter));
-  return [-1, 0, 1].filter((alter) => present.has(alter));
+  return [1, 0, -1].filter((alter) => present.has(alter));
 }
