@@ -1443,15 +1443,21 @@
 }
 
 /* Ein Notenbild, das den übrigen Platz füllt (ScoreSpec.fit): weniger
-   Abstand zu den Leisten oben und unten, der Platz geht ins Bild. */
+   Abstand zur Leiste unten, der Platz geht ins Bild. Oben bleibt der
+   Abstand wie überall. */
 .session-body:has(.score-fit) {
-  padding-top: 8px;
   padding-bottom: 12px;
 }
 
 /* Die Aufgabe steht mittig über den Antworten. */
 .session .question {
   text-align: center;
+}
+
+/* Unter der Kopfleiste überall derselbe Abstand: der der .session-body.
+   Was zuoberst steht, bringt keinen eigenen dazu. */
+.session .question > :first-child {
+  margin-top: 0;
 }
 
 /* Erklärung: nur auf Wunsch (ⓘ), sonst ausgeblendet. */
@@ -1551,7 +1557,6 @@
 .session-body:has(.sing-task) {
   display: flex;
   flex-direction: column;
-  padding-top: 8px;
   padding-bottom: 12px;
 }
 
