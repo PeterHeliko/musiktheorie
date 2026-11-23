@@ -54,6 +54,8 @@ export interface NoteSpec {
    * denen zu einem vorgegebenen Ton dazugesetzt wird.
    */
   previewKeys?: string[];
+  /** Nach dem Prüfen: selbst gesetzte Note grün (richtig) oder rot (falsch). */
+  mark?: 'correct' | 'wrong';
 }
 
 export interface MeasureSpec {

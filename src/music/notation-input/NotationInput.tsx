@@ -39,6 +39,7 @@ import type {
   PitchAnswer,
   SlotAnswer,
 } from '../../scoring';
+import { pitchSlotCorrect } from '../../scoring';
 import { AccidentalPalette, DurationPalette, ToolbarActions, type DurationChoice } from './toolbar';
 
 // ---------------------------------------------------------------------------
@@ -412,11 +413,14 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         keys: [noteKey(own[0])],
         duration: note.duration,
         previewKeys: previewKey ? [previewKey] : undefined,
+        // Nach dem Prüfen ist die Antwort eingefroren — dann zeigt die Farbe
+        // der gesetzten Note, ob sie stimmt.
+        mark: readOnly ? (pitchSlotCorrect(slot, own) ? 'correct' : 'wrong') : undefined,
       };
     });
 
     return { ...task.score, measures: [{ ...measure, notes }] };
-  }, [task.score, JSON.stringify(placed), JSON.stringify(slots), hover?.diatonic, hover?.x, alter]);
+  }, [task.score, JSON.stringify(placed), JSON.stringify(slots), hover?.diatonic, hover?.x, alter, readOnly]);
 
   function handleClick(event: PointerEvent) {
     // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der

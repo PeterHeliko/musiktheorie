@@ -9,7 +9,7 @@
  */
 
 import { resolveOptions } from '../content/options';
-import type { NotationTask, SelectField, Task, TextTableTask } from '../content/schema';
+import type { NotationTask, PitchSlotSolution, SelectField, Task, TextTableTask } from '../content/schema';
 import {
   DURATION_LABELS,
   germanNoteName,
@@ -142,6 +142,22 @@ function scoreSelectFields(
 // Noteneingabe
 // ---------------------------------------------------------------------------
 
+/**
+ * Stimmt ein Eingabeplatz der Tonhöhen-Eingabe? Ausgelagert, damit die
+ * Noteneingabe nach dem Prüfen genau so einfärbt, wie hier bewertet wird.
+ */
+export function pitchSlotCorrect(slot: PitchSlotSolution, notes: InputNote[]): boolean {
+  const accepted = slot.accept.map(parsePitch);
+  if (slot.chord) {
+    // Alle erwarteten Töne müssen da sein, keine überzähligen.
+    const givenPitches = notes.map(toPitch).sort((a, b) => midi(a) - midi(b));
+    const wanted = [...accepted].sort((a, b) => midi(a) - midi(b));
+    return givenPitches.length === wanted.length && givenPitches.every((p, i) => samePitch(p, wanted[i]));
+  }
+  // Genau ein Ton, der einer der zulässigen Varianten entspricht.
+  return notes.length === 1 && accepted.some((p) => samePitch(p, toPitch(notes[0])));
+}
+
 function scoreNotation(task: NotationTask, answer: NotationAnswer | undefined): Detail[] {
   const solution = task.solution;
   const given = answer?.n;
@@ -154,19 +170,7 @@ function scoreNotation(task: NotationTask, answer: NotationAnswer | undefined): 
       return solution.slots.map((slot) => {
         const notes = placed[String(slot.slot)] ?? [];
         const accepted = slot.accept.map(parsePitch);
-
-        let correct: boolean;
-        if (slot.chord) {
-          // Alle erwarteten Töne müssen da sein, keine überzähligen.
-          const givenPitches = notes.map(toPitch).sort((a, b) => midi(a) - midi(b));
-          const wanted = [...accepted].sort((a, b) => midi(a) - midi(b));
-          correct =
-            givenPitches.length === wanted.length &&
-            givenPitches.every((p, i) => samePitch(p, wanted[i]));
-        } else {
-          // Genau ein Ton, der einer der zulässigen Varianten entspricht.
-          correct = notes.length === 1 && accepted.some((p) => samePitch(p, toPitch(notes[0])));
-        }
+        const correct = pitchSlotCorrect(slot, notes);
 
         return {
           id: `${id}_s${slot.slot}`,

@@ -198,8 +198,16 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass'): DrawnNote {
   if (spec.preview) {
     note.setStyle(PREVIEW_STYLE);
   }
+  if (spec.mark) {
+    const colour = spec.mark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR;
+    note.setStyle({ fillStyle: colour, strokeStyle: colour });
+  }
   return note;
 }
+
+/** Rückmeldung nach dem Prüfen — dieselben Farben wie --good / --bad. */
+export const CORRECT_COLOUR = '#1f7a4d';
+export const WRONG_COLOUR = '#b3261e';
 
 /** Farbe für vorgegebene Töne, die der Prüfling nicht ändern darf. */
 export const HIGHLIGHT_COLOUR = '#1d6fa5';
