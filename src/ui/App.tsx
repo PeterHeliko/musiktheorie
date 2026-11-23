@@ -11,7 +11,7 @@ import { generatorById } from '../generators/index';
 import type { FilterValues, Generator } from '../generators/types';
 import { documentTitle, metaFor } from '../pages';
 import { hrefFor, useLocation } from '../router';
-import { Overview } from './Overview';
+import { TopicList, TopicPage } from './Overview';
 import { PitchTool } from './PitchTool';
 
 /**
@@ -42,7 +42,7 @@ function LazyExercisePage(props: { generator: Generator<FilterValues>; search: s
       </div>
     );
   }
-  if (!module) return <p class="loading">Übung wird geladen …</p>;
+  if (!module) return <p class="loading session-loading">Übung wird geladen …</p>;
   return <module.ExercisePage {...props} />;
 }
 
@@ -56,10 +56,13 @@ export function App() {
   let page;
   switch (route.page) {
     case 'start':
-      page = <Overview variant="start" />;
+      page = <TopicList heading="Musiktheorie üben" />;
       break;
     case 'ueben':
-      page = <Overview variant="ueben" />;
+      page = <TopicList heading="Übungen" />;
+      break;
+    case 'thema':
+      page = <TopicPage topic={route.topic} />;
       break;
     case 'uebung': {
       const generator = generatorById(route.id)!;
@@ -78,6 +81,9 @@ export function App() {
       break;
   }
 
+  // Eine laufende Übung füllt den Bildschirm allein — ohne Kopfzeile der Website.
+  if (route.page === 'uebung') return page;
+
   return (
     <>
       <SiteHeader />
@@ -93,8 +99,6 @@ function SiteHeader() {
         <a class="site-name" href={hrefFor({ page: 'start' })}>
           Musiktheorie üben
         </a>
-        <a href={hrefFor({ page: 'ueben' })}>Übungen</a>
-        <a href={hrefFor({ page: 'tonhoehe' })}>Tonhöhe</a>
       </nav>
     </header>
   );

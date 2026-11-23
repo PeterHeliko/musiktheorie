@@ -21,6 +21,9 @@ shareable link for every exercise.
 | Sharing               | **Every possible exercise state is a link** (§7)                                                   |
 | Singing               | **Included.** The site listens and judges sung pitch: notes, intervals, chords, melodies (§6)      |
 | Site framework        | **B**: Vite + Preact single-page app, plus one generated HTML file per route (§9)                 |
+| Visual style          | As simple as possible, "zero nonsense". The current plain look stays. Design changes only after the user has chosen between options. |
+| Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
+| Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
 
 ---
 
@@ -224,11 +227,12 @@ quizzes need licensed recordings and images, and they aren't music theory.
 ## 5. Site structure
 
 ```
-/                                 Start: «Weiter, wo du warst» · Lernpfad · Üben · Werkzeuge
+/                                 Start: topics (later: «Weiter, wo du warst» + Lernpfad first)
 /lernen/                          Lernpfad: Kurse
 /lernen/intervalle/               a Kurs: Abschnitte and Stufen with checkmarks
 /lernen/intervalle/terzen/        one Stufe (its own link)
-/ueben/                           all exercises, by Thema × Fertigkeit
+/ueben/                           the topics
+/ueben/intervalle/                one topic: its exercises, full titles only
 /ueben/intervalle-singen/         one exercise; filters and task in the query string (§7)
 /wissen/intervalle/               short explanation with playable examples + «Jetzt üben»
 /werkzeuge/klavier/  /metronom/  /quintenzirkel/  /tonhoehe/   (live pitch display)

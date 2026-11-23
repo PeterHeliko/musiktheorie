@@ -16,7 +16,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import { startServer } from './serve.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +47,9 @@ const MODES = {
 };
 const MODE_IDS = Object.keys(MODES);
 
+/** Themen mit Übungen — muss zu src/generators/types.ts (TOPICS) passen. */
+const TOPICS = ['rhythmus', 'intervalle', 'tonleitern', 'dreiklaenge', 'melodie'];
+
 let failures = 0;
 
 function check(condition, label) {
@@ -59,6 +62,22 @@ function check(condition, label) {
 }
 
 const exercise = (id, query = '') => `${BASE}ueben/${id}/${query}`;
+
+/**
+ * Wartet, bis eine Bedingung im Browser gilt. Adresszeile und Fokus werden
+ * erst nach dem Zeichnen nachgeführt — sofort nachzusehen hiesse, zu früh.
+ */
+async function eventually(page, test, arg = null, timeout = 3000) {
+  try {
+    await page.waitForFunction(test, arg, { timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Für eventually(): steht dieser Parameter mit diesem Wert in der Adresszeile? */
+const hasParam = ([name, value]) => new URL(location.href).searchParams.get(name) === value;
 
 /** Notenbild ohne die von VexFlow fortlaufend vergebenen Kennungen. */
 async function scoreFingerprint(page) {
@@ -145,7 +164,9 @@ async function main() {
     console.log('\nJede Seite hat ihre eigene HTML-Datei (wie auf GitHub Pages)');
     const pages = [
       ['', 'Musiktheorie üben'],
-      ['ueben/', 'Alle Übungen · Musiktheorie üben'],
+      ['ueben/', 'Übungen · Musiktheorie üben'],
+      ['ueben/intervalle/', 'Intervalle · Musiktheorie üben'],
+      ['ueben/tonleitern/', 'Tonleitern und Tonarten · Musiktheorie üben'],
       ['werkzeuge/tonhoehe/', 'Tonhöhe anzeigen · Musiktheorie üben'],
       ...MODE_IDS.map((id) => [`ueben/${id}/`, `${MODES[id]} · Musiktheorie üben`]),
     ];
@@ -179,41 +200,53 @@ async function main() {
     const unknownExercise = await page.goto(exercise('gibt-es-nicht'), { waitUntil: 'networkidle' });
     check(unknownExercise.status() === 404, 'unbekannte Übung antwortet mit 404');
 
-    // ----------------------------------------------------------- Startseite
-    console.log('\nStartseite und Übersicht');
+    // ------------------------------------------------- Themen → Übungen
+    console.log('\nAuswahl: Themen, dann Übungen');
     const loaded = [];
     page.on('request', (request) => loaded.push(request.url()));
     await page.goto(BASE, { waitUntil: 'networkidle' });
+    const topicLinks = page.locator('.nav-list').first().locator('a');
+    check((await topicLinks.count()) === TOPICS.length, `${TOPICS.length} Themen auf der Startseite`);
     check(
-      (await page.locator('.mode-card[href*="/ueben/"]').count()) === MODE_IDS.length,
-      `${MODE_IDS.length} Übungen auf der Startseite`,
+      (await page.locator('.list-page').innerText()).includes('Tonhöhe anzeigen'),
+      'darunter das Werkzeug «Tonhöhe anzeigen»',
     );
-    check((await page.locator('.mode-section').count()) === 6, 'fünf Themen und die Werkzeuge');
-    check(
-      !loaded.some((url) => url.includes('ExercisePage')),
-      'die Startseite lädt den Notensatz nicht',
-    );
+    check(!loaded.some((url) => url.includes('ExercisePage')), 'die Startseite lädt den Notensatz nicht');
     check(!loaded.some((url) => url.includes('/samples/')), 'die Startseite lädt keine Klaviertöne');
     await page.screenshot({ path: join(SHOTS, '00-start.png'), fullPage: true });
 
     // Wechsel ohne Neuladen: eine Markierung im Fenster überlebt nur dann.
     await page.evaluate(() => (window.__ohneNeuladen = true));
-    await page.locator('.mode-card', { hasText: 'Intervalle am Notenbild bestimmen' }).click();
+    await topicLinks.filter({ hasText: /^Intervalle$/ }).click();
+    await page.waitForSelector('.list-page h1:has-text("Intervalle")');
+    check(page.url() === `${BASE}ueben/intervalle/`, 'ein Thema öffnet seine Übungsliste');
+    const exerciseLinks = await page.locator('.nav-list a').allInnerTexts();
+    check(
+      exerciseLinks.join('|') ===
+        ['Intervalle am Notenbild bestimmen', 'Intervalle notieren', 'Intervalle hörend erkennen'].join('|'),
+      `die Liste nennt die vollen Titel, ohne Beschreibung (${exerciseLinks.join(', ')})`,
+    );
+    await page.screenshot({ path: join(SHOTS, '01-thema.png'), fullPage: true });
+    await page.locator('.nav-list a', { hasText: 'Intervalle am Notenbild bestimmen' }).click();
     await page.waitForSelector('.question');
-    check(page.url().startsWith(exercise('intervalle-bestimmen')), 'Klick auf eine Karte öffnet die Übung');
-    check(await page.evaluate(() => window.__ohneNeuladen === true), 'ohne die Seite neu zu laden');
+    check(page.url().startsWith(exercise('intervalle-bestimmen')), 'eine Übung öffnet sich');
+    check(await page.evaluate(() => window.__ohneNeuladen === true), 'alles ohne die Seite neu zu laden');
     check(
       (await page.title()) === 'Intervalle am Notenbild bestimmen · Musiktheorie üben',
       'der Titel im Tab folgt',
     );
+    check((await page.locator('.site-header').count()) === 0, 'in der Übung ist die Kopfzeile der Website weg');
+    await page.locator('.session-icon[aria-label="Übung schliessen"]').click();
+    await page.waitForSelector('.list-page h1:has-text("Intervalle")');
+    check(page.url() === `${BASE}ueben/intervalle/`, '✕ führt zurück zum Thema');
     await page.goBack();
-    await page.waitForSelector('.mode-card');
-    check(page.url() === BASE, 'der Zurück-Knopf führt zur Startseite');
+    await page.waitForSelector('.question');
+    check(page.url().startsWith(exercise('intervalle-bestimmen')), 'der Zurück-Knopf des Browsers funktioniert');
 
     await page.goto(`${BASE}ueben/`, { waitUntil: 'networkidle' });
     check(
-      (await page.locator('.mode-card').count()) === MODE_IDS.length,
-      '«/ueben/» listet alle Übungen',
+      (await page.locator('.nav-list').first().locator('a').count()) === TOPICS.length,
+      '«/ueben/» listet die Themen',
     );
 
     // ------------------------------------------------- jede Übung zeichnet sich
@@ -244,6 +277,28 @@ async function main() {
       await page.screenshot({ path: join(SHOTS, `${mode}.png`), fullPage: true });
     }
 
+    // ------------------------------------------- auf dem Telefon: nur die Aufgabe
+    console.log('\nÜbung auf dem Telefon');
+    const phone = await browser.newContext({ ...devices['iPhone 13'] });
+    const phonePage = await phone.newPage();
+    for (const mode of ['intervalle-hoeren', 'dreiklaenge-bestimmen', 'melodiediktat']) {
+      await phonePage.goto(exercise(mode), { waitUntil: 'networkidle' });
+      await phonePage.waitForSelector('.question .instruction');
+      const viewport = phonePage.viewportSize();
+      const instruction = await phonePage.locator('.question .instruction').boundingBox();
+      const bar = await phonePage.locator('.session-bar').boundingBox();
+      check(instruction.y < 120, `${mode}: die Aufgabe beginnt gleich unter der Leiste (bei ${Math.round(instruction.y)} px)`);
+      check(
+        Math.abs(bar.y + bar.height - viewport.height) < 2,
+        `${mode}: der Hauptknopf steht am unteren Rand`,
+      );
+      await phonePage.screenshot({ path: join(SHOTS, `telefon-${mode}.png`) });
+    }
+    await phonePage.locator('.session-settings').click();
+    await phonePage.waitForSelector('.sheet');
+    await phonePage.screenshot({ path: join(SHOTS, 'telefon-einstellungen.png') });
+    await phone.close();
+
     // -------------------------------------------------- Antworten mit einem Klick
     console.log('\nEinfachauswahl antwortet sofort');
     await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
@@ -252,19 +307,26 @@ async function main() {
       (await page.locator('button:has-text("Prüfen")').count()) === 0,
       'kein Prüfen-Knopf bei einem einzelnen Knopfraster',
     );
+    check((await page.locator('.session-progress').innerText()) === '1', 'oben steht die wievielte Aufgabe');
     await page.locator('.question .choice').first().click();
-    await page.waitForSelector('.feedback', { timeout: 5000 });
-    check(await page.locator('.feedback').isVisible(), 'ein Klick genügt für die Rückmeldung');
+    await page.waitForSelector('.verdict', { timeout: 5000 });
+    const verdict = await page.locator('.verdict').innerText();
+    check(/Richtig/.test(verdict), `ein Klick genügt; die Leiste unten sagt es («${verdict.replace(/\n/g, ' ')}»)`);
     check(
       (await page.locator('.question .choice[disabled]').count()) > 0,
       'Aufgabe ist nach dem Antworten eingefroren',
     );
+    check(
+      await eventually(page, () => document.activeElement?.textContent?.trim() === 'Weiter'),
+      '«Weiter» hat den Fokus',
+    );
     await page.screenshot({ path: join(SHOTS, 'rueckmeldung.png'), fullPage: true });
 
     const firstTask = new URL(page.url()).searchParams.get('aufgabe');
-    await page.locator('button:has-text("Nächste Aufgabe")').click();
+    await page.locator('.session-bar button:has-text("Weiter")').click();
     await page.waitForSelector('.question .choice:not([disabled])');
-    check((await page.locator('.feedback').count()) === 0, 'Nächste Aufgabe kommt ohne alte Rückmeldung');
+    check((await page.locator('.verdict').count()) === 0, 'die nächste Aufgabe kommt ohne alte Rückmeldung');
+    check((await page.locator('.session-progress').innerText()) === '2', 'und wird mitgezählt');
     // Die Adresse wird nach dem Zeichnen nachgeführt — darauf warten.
     let secondTask = null;
     try {
@@ -286,15 +348,16 @@ async function main() {
     console.log('\nMehrfeldaufgabe wartet auf «Prüfen»');
     await page.goto(exercise('dreiklaenge-bestimmen'), { waitUntil: 'networkidle' });
     await page.waitForSelector('.question select');
+    check(await page.locator('button:has-text("Prüfen")').isDisabled(), 'Prüfen ist erst nach einer Eingabe möglich');
+    for (const select of await page.locator('.question select').all()) await select.selectOption({ index: 1 });
+    check(!(await page.locator('button:has-text("Prüfen")').isDisabled()), 'Prüfen wird nach der Eingabe möglich');
+    await page.locator('button:has-text("Prüfen")').click();
+    await page.waitForSelector('.verdict');
     check(
-      await page.locator('button:has-text("Prüfen")').isDisabled(),
-      'Prüfen ist erst nach einer Eingabe möglich',
+      (await page.locator('.question .feedback-list li').count()) >= 2,
+      'die Einzelheiten stehen unter der Aufgabe, das Urteil in der Leiste',
     );
-    await page.locator('.question select').first().selectOption({ index: 1 });
-    check(
-      !(await page.locator('button:has-text("Prüfen")').isDisabled()),
-      'Prüfen wird nach der Eingabe möglich',
-    );
+    await page.screenshot({ path: join(SHOTS, 'rueckmeldung-mehrteilig.png'), fullPage: true });
 
     // ------------------------------------------------------------ Noteneingabe
     console.log('\nNoteneingabe');
@@ -307,8 +370,8 @@ async function main() {
     await page.waitForTimeout(200);
     check(!(await page.locator('button:has-text("Prüfen")').isDisabled()), 'ein Klick setzt eine Note');
     await page.locator('button:has-text("Prüfen")').click();
-    await page.waitForSelector('.feedback');
-    check(await page.locator('.feedback').isVisible(), 'Noteneingabe wird bewertet');
+    await page.waitForSelector('.verdict');
+    check(await page.locator('.verdict').isVisible(), 'Noteneingabe wird bewertet');
     await page.screenshot({ path: join(SHOTS, 'noteneingabe.png'), fullPage: true });
 
     // -------------------------------------------------------------------- Klang
@@ -333,60 +396,87 @@ async function main() {
     check((await audioPage.locator('.audio-error').count()) === 0, 'kein Audiofehler gemeldet');
     await fresh.close();
 
-    // ------------------------------------------------------------------- Filter
-    console.log('\nFilter und Adresszeile');
+    // ---------------------------------------------------- Einstellungen (⚙)
+    console.log('\nEinstellungen und Adresszeile');
+    const openSettings = async () => {
+      await page.locator('.session-settings').click();
+      await page.waitForSelector('.sheet');
+    };
+    const closeSettings = async () => {
+      await page.locator('.sheet-bar button:has-text("Fertig")').click();
+      await page.waitForSelector('.sheet', { state: 'detached' });
+    };
+    const selectedChips = () =>
+      page.locator('.filter-field', { hasText: 'Welche Intervalle?' }).locator('.filter-chip.is-selected').count();
+
     await page.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
-    await page.locator('.filter-toggle').click();
-    await page.waitForSelector('.filter-body');
+    await page.waitForSelector('.question');
+    await eventually(page, () => new URL(location.href).searchParams.has('aufgabe'));
+    const untouched = new URL(page.url()).searchParams.get('aufgabe');
+    await openSettings();
+    await page.screenshot({ path: join(SHOTS, 'einstellungen.png'), fullPage: true });
+    await closeSettings();
+    await page.waitForTimeout(300);
+    check(
+      new URL(page.url()).searchParams.get('aufgabe') === untouched,
+      'Schliessen ohne Änderung lässt die Aufgabe stehen',
+    );
+
+    await openSettings();
     await page
       .locator('.filter-field', { hasText: 'Welche Intervalle?' })
       .locator('button:has-text("keine")')
       .click();
-    await page.waitForTimeout(150);
-    const selectedChips = () =>
-      page.locator('.filter-field', { hasText: 'Welche Intervalle?' }).locator('.filter-chip.is-selected').count();
     check((await selectedChips()) === 1, 'Mehrfachauswahl behält den letzten Haken');
-    const filtered = new URL(page.url());
     check(
-      filtered.searchParams.get('intervalle') === 'r1',
-      `die Einstellung steht in der Adresszeile (${filtered.search})`,
+      new URL(page.url()).searchParams.get('intervalle') === null,
+      'die Änderung gilt erst beim Schliessen',
+    );
+    await closeSettings();
+    check(
+      await eventually(page, hasParam, ['intervalle', 'r1']),
+      'danach steht sie in der Adresszeile',
+    );
+    check(
+      await eventually(page, (before) => new URL(location.href).searchParams.get('aufgabe') !== before, untouched),
+      'und es gibt eine neue Aufgabe',
     );
 
     await page.reload({ waitUntil: 'networkidle' });
-    await page.locator('.filter-toggle').click();
-    await page.waitForSelector('.filter-body');
+    await openSettings();
     check((await selectedChips()) === 1, 'Neuladen behält die Einstellung');
+    await closeSettings();
 
     // Ohne Parameter geöffnet: die eigenen, gespeicherten Einstellungen.
     await page.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
-    await page.locator('.filter-toggle').click();
-    await page.waitForSelector('.filter-body');
+    await openSettings();
     check((await selectedChips()) === 1, 'ohne Link gelten die zuletzt gewählten Einstellungen');
-    check(new URL(page.url()).searchParams.get('intervalle') === 'r1', 'und stehen gleich in der Adresszeile');
-    await page.screenshot({ path: join(SHOTS, 'filter.png'), fullPage: true });
+    await closeSettings();
+    check(await eventually(page, hasParam, ['intervalle', 'r1']), 'und stehen gleich in der Adresszeile');
 
     // Ein fremder Link überschreibt die eigenen Einstellungen nicht.
     await page.goto(exercise('intervalle-hoeren', '?intervalle=k3,g3'), { waitUntil: 'networkidle' });
-    await page.locator('.filter-toggle').click();
-    await page.waitForSelector('.filter-body');
+    await openSettings();
     check((await selectedChips()) === 2, 'ein Link mit «intervalle=k3,g3» stellt genau zwei ein');
+    await closeSettings();
     await page.goto(exercise('intervalle-hoeren'), { waitUntil: 'networkidle' });
-    await page.locator('.filter-toggle').click();
-    await page.waitForSelector('.filter-body');
+    await openSettings();
     check((await selectedChips()) === 1, 'danach gelten wieder die eigenen Einstellungen');
 
-    await page.locator('.filter-actions button').click();
-    await page.waitForTimeout(150);
+    await page.locator('.sheet button:has-text("Auf Vorgabe zurücksetzen")').click();
     check((await selectedChips()) === 13, 'Zurücksetzen stellt alle Werte her');
-    check(!new URL(page.url()).searchParams.has('intervalle'), 'und die Adresszeile ist wieder kurz');
+    await closeSettings();
+    check(
+      await eventually(page, () => !new URL(location.href).searchParams.has('intervalle')),
+      'und die Adresszeile ist wieder kurz',
+    );
 
     // ---------------------------------------------------------------- Teilen
     console.log('\nTeilen');
     await page.goto(exercise('intervalle-notieren', '?schluessel=bass'), { waitUntil: 'networkidle' });
     await page.waitForSelector('.notation-input svg');
     const original = await scoreFingerprint(page);
-    await page.locator('.share-toggle').click();
-    await page.waitForSelector('.share-panel');
+    await openSettings();
     const links = await page.locator('.share-url').evaluateAll((inputs) => inputs.map((input) => input.value));
     check(links.length === 2, 'zwei Links: Übung und Aufgabe');
     check(
@@ -394,7 +484,7 @@ async function main() {
       `Übungslink ohne Aufgabe (${links[0]})`,
     );
     check(/[?&]aufgabe=[0-9a-z]+&v=\d+$/.test(links[1]), 'Aufgabenlink mit Aufgabe und Fassung');
-    await page.screenshot({ path: join(SHOTS, 'teilen.png'), fullPage: true });
+    await closeSettings();
 
     const other = await browser.newContext();
     const otherPage = await other.newPage();
@@ -423,8 +513,8 @@ async function main() {
         prompts.push(await p.locator('.question .task-prompt').innerText());
         for (const select of await p.locator('.question select').all()) await select.selectOption({ index: 1 });
         await p.locator('button:has-text("Prüfen")').click();
-        await p.waitForSelector('.feedback');
-        await p.locator('.question-actions .primary').click();
+        await p.waitForSelector('.verdict');
+        await p.locator('.session-bar .primary').click();
       }
       roundPrompts.push(prompts.join(' | '));
       await ctx.close();
@@ -434,8 +524,10 @@ async function main() {
     // -------------------------------------------------------------------- Runde
     console.log('\nRunde');
     await page.goto(exercise('stufen-bestimmen'), { waitUntil: 'networkidle' });
-    await page.locator('button:has-text("Runde à 10")').click();
-    await page.waitForSelector('.stats-round');
+    await openSettings();
+    await page.locator('.sheet .filter-chip', { hasText: 'Runde à 10' }).click();
+    await closeSettings();
+    check((await page.locator('.session-progress').innerText()) === '1/10', 'oben steht «1/10»');
     let roundInUrl = true;
     try {
       await page.waitForFunction(() => new URL(location.href).searchParams.get('runde') === '10', null, {
@@ -449,13 +541,13 @@ async function main() {
       await page.waitForSelector('.question select');
       for (const select of await page.locator('.question select').all()) await select.selectOption({ index: 1 });
       await page.locator('button:has-text("Prüfen")').click();
-      await page.waitForSelector('.feedback');
-      await page.locator('.question-actions .primary').click();
+      await page.waitForSelector('.verdict');
+      await page.locator('.session-bar .primary').click();
       await page.waitForTimeout(100);
     }
     await page.waitForSelector('.round-summary', { timeout: 5000 });
     const score = await page.locator('.round-score').innerText();
-    check(/\bvon 10\b/.test(score), `Runde endet mit einer Auswertung über zehn Aufgaben`);
+    check(/\bvon 10\b/.test(score), 'Runde endet mit einer Auswertung über zehn Aufgaben');
     await page.screenshot({ path: join(SHOTS, 'runde.png'), fullPage: true });
     const repeat = page.locator('button:has-text("Falsche wiederholen")');
     if ((await repeat.count()) > 0) {

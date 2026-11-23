@@ -1,39 +1,68 @@
 /**
- * Rückmeldung nach dem Antworten.
+ * Rückmeldung nach dem Antworten — in zwei Teilen:
+ *
+ *  - `Verdict`: eine Zeile in der Leiste unten, direkt über «Weiter». Bei
+ *    Aufgaben mit einer einzigen Antwort steht dort schon alles («✓ Richtig:
+ *    kleine Terz», «✗ Richtig wäre: grosse Septime»).
+ *  - `FeedbackDetails`: die Liste unter der Aufgabe, nur bei mehrteiligen
+ *    Aufgaben und beim Diktat. Sie wäre für die Leiste zu lang.
  *
  * Die Bewertung liefert bereits deutsche, lesbare Texte
  * (`Detail.studentResponse` / `correctResponse`) — hier wird nichts neu
  * formuliert, sondern nur angezeigt.
- *
- * Beim Diktat kommt das Notenbild der Lösung dazu. Eine Melodie in Worten
- * («g1 a1 h1 c2 …») kann man nicht mit dem vergleichen, was man selbst
- * geschrieben hat — man muss sie sehen.
  */
 
 import type { NotationTask, ScoreSpec, Task } from '../content/schema';
 import type { TaskResult } from '../scoring';
 import { Score } from './Score';
 
-export function Feedback({ result, task }: { result: TaskResult; task: Task }) {
-  const perfect = result.earned >= result.possible - 1e-9;
-  const partial = !perfect && result.earned > 1e-9;
+type Grade = 'correct' | 'partial' | 'wrong';
+
+function gradeOf(result: TaskResult): Grade {
+  if (result.earned >= result.possible - 1e-9) return 'correct';
+  return result.earned > 1e-9 ? 'partial' : 'wrong';
+}
+
+const MARK: Record<Grade, string> = { correct: '✓', partial: '≈', wrong: '✗' };
+const WORD: Record<Grade, string> = {
+  correct: 'Richtig',
+  partial: 'Teilweise richtig',
+  wrong: 'Nicht richtig',
+};
+
+/** Braucht die Aufgabe die ausführliche Liste unter der Aufgabe? */
+export function hasDetails(result: TaskResult, task: Task): boolean {
+  return result.details.length > 1 || solutionScore(task) !== null;
+}
+
+export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
+  const grade = gradeOf(result);
+  const single = !hasDetails(result, task) ? result.details[0] : undefined;
+
+  let text: string;
+  if (single && grade === 'correct') text = `${WORD.correct}: ${single.studentResponse}`;
+  else if (single) text = `Richtig wäre: ${single.correctResponse}`;
+  else text = WORD[grade];
 
   return (
-    <div class={`feedback ${perfect ? 'is-correct' : partial ? 'is-partial' : 'is-wrong'}`}>
-      <div class="feedback-head">
-        <span class="feedback-mark" aria-hidden="true">
-          {perfect ? '✓' : partial ? '≈' : '✗'}
+    <p class={`verdict is-${grade}`} role="status">
+      <span class="verdict-mark" aria-hidden="true">
+        {MARK[grade]}
+      </span>
+      <span class="verdict-text">{text}</span>
+      {!single && result.possible > 1 && (
+        <span class="verdict-score">
+          {format(result.earned)} von {format(result.possible)} Punkten
         </span>
-        <strong>
-          {perfect ? 'Richtig' : partial ? 'Teilweise richtig' : 'Nicht richtig'}
-        </strong>
-        {result.possible > 1 && (
-          <span class="feedback-score">
-            {format(result.earned)} von {format(result.possible)} Punkten
-          </span>
-        )}
-      </div>
+      )}
+    </p>
+  );
+}
 
+export function FeedbackDetails({ result, task }: { result: TaskResult; task: Task }) {
+  const solution = solutionScore(task);
+  return (
+    <div class="feedback">
       <ul class="feedback-list">
         {result.details.map((detail) => (
           <li key={detail.id} class={detail.correct ? 'is-correct' : 'is-wrong'}>
@@ -56,10 +85,10 @@ export function Feedback({ result, task }: { result: TaskResult; task: Task }) {
         ))}
       </ul>
 
-      {solutionScore(task) && (
+      {solution && (
         <figure class="feedback-solution">
           <figcaption>So klang die Melodie:</figcaption>
-          <Score spec={solutionScore(task)!} />
+          <Score spec={solution} />
         </figure>
       )}
     </div>
@@ -72,8 +101,9 @@ function format(value: number): string {
 }
 
 /**
- * Das Notenbild der Musterlösung — nur beim Diktat. Bei allen anderen Aufgaben
- * steht die Lösung ohnehin in der Aufgabe oder im Antworttext.
+ * Das Notenbild der Musterlösung — nur beim Diktat. Eine Melodie in Worten
+ * («g1 a1 h1 c2 …») kann man nicht mit dem vergleichen, was man selbst
+ * geschrieben hat — man muss sie sehen.
  */
 function solutionScore(task: Task): ScoreSpec | null {
   if (task.kind !== 'notation') return null;

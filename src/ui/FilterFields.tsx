@@ -1,9 +1,10 @@
 /**
- * Filterformular — einmal geschrieben, für alle Übungen.
+ * Filterfelder — einmal geschrieben, für alle Übungen.
  *
  * Die Filter eines Generators sind Daten (`FilterSpec[]`), nicht Oberfläche.
  * Deshalb steht hier ein einziges Formular, das jede Übung bedienen kann, und
- * eine neue Übung bringt ihr Formular von selbst mit.
+ * eine neue Übung bringt ihr Formular von selbst mit. Gezeigt wird es im
+ * Einstellungsblatt der Übung (SettingsSheet).
  *
  * Eine Regel ist wichtiger als alle Gestaltung: eine Mehrfachauswahl darf nie
  * leer werden. Ein Generator ohne erlaubte Werte kann nichts würfeln, und der
@@ -13,52 +14,22 @@
 
 import type { FilterSpec, FilterValues } from '../generators/types';
 
-export function FilterPanel({
+export function FilterFields({
   filters,
   values,
   onChange,
-  onReset,
-  open,
-  onToggle,
 }: {
   filters: FilterSpec[];
   values: FilterValues;
   onChange: (next: FilterValues) => void;
-  onReset: () => void;
-  open: boolean;
-  onToggle: () => void;
 }) {
   const set = (key: string, value: FilterValues[string]) => onChange({ ...values, [key]: value });
-
   return (
-    <section class={`filter-panel ${open ? 'is-open' : ''}`}>
-      <button
-        type="button"
-        class="filter-toggle"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls="filter-body"
-      >
-        <span class="filter-toggle-icon" aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
-        Filter
-        <span class="filter-summary">{summarise(filters, values)}</span>
-      </button>
-
-      {open && (
-        <div class="filter-body" id="filter-body">
-          {filters.map((filter) => (
-            <FilterField key={filter.key} filter={filter} values={values} set={set} />
-          ))}
-          <div class="filter-actions">
-            <button type="button" class="link-button" onClick={onReset}>
-              Auf Vorgabe zurücksetzen
-            </button>
-          </div>
-        </div>
-      )}
-    </section>
+    <>
+      {filters.map((filter) => (
+        <FilterField key={filter.key} filter={filter} values={values} set={set} />
+      ))}
+    </>
   );
 }
 
@@ -244,16 +215,4 @@ function RangeField({
       </output>
     </div>
   );
-}
-
-/** Kurzfassung für den zugeklappten Zustand: was ist überhaupt eingeschränkt? */
-function summarise(filters: FilterSpec[], values: FilterValues): string {
-  const narrowed: string[] = [];
-  for (const filter of filters) {
-    if (filter.kind !== 'multi') continue;
-    const selected = (values[filter.key] as string[] | undefined) ?? [];
-    if (selected.length === 0 || selected.length === filter.options.length) continue;
-    narrowed.push(`${filter.label.replace(/\?$/, '')}: ${selected.length}/${filter.options.length}`);
-  }
-  return narrowed.length === 0 ? 'alles zugelassen' : narrowed.join(' · ');
 }

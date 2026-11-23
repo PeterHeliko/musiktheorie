@@ -1,5 +1,5 @@
 /**
- * «Teilen» — zwei Links zur Auswahl:
+ * Teilen — zwei Links zur Auswahl, im Einstellungsblatt der Übung:
  *  - die Übung mit den aktuellen Einstellungen (wer ihn öffnet, bekommt neue
  *    Aufgaben derselben Art), und
  *  - genau diese Aufgabe bzw. diese Runde.
@@ -10,10 +10,10 @@
  * dann soll man ihn trotzdem bekommen.
  */
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { absoluteUrl } from '../router';
 
-export function SharePanel({
+export function ShareLinks({
   title,
   exerciseHref,
   taskHref,
@@ -25,53 +25,21 @@ export function SharePanel({
   taskHref: string | null;
   taskLabel: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const panel = useRef<HTMLDivElement>(null);
-
-  // Ausserhalb klicken oder Escape schliesst.
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: PointerEvent) => {
-      if (panel.current && !panel.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
   return (
-    <div class="share" ref={panel}>
-      <button
-        type="button"
-        class="share-toggle"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        Teilen
-      </button>
-      {open && (
-        <div class="share-panel" role="dialog" aria-label="Link teilen">
-          <ShareRow
-            label="Diese Übung"
-            hint="mit deinen Einstellungen, neue Aufgaben"
-            title={title}
-            url={absoluteUrl(exerciseHref)}
-          />
-          {taskHref !== null && (
-            <ShareRow
-              label={taskLabel}
-              hint="genau so, wie sie gerade dasteht"
-              title={title}
-              url={absoluteUrl(taskHref)}
-            />
-          )}
-        </div>
+    <div class="share-links">
+      <ShareRow
+        label="Diese Übung"
+        hint="mit diesen Einstellungen, neue Aufgaben"
+        title={title}
+        url={absoluteUrl(exerciseHref)}
+      />
+      {taskHref !== null && (
+        <ShareRow
+          label={taskLabel}
+          hint="genau so, wie sie gerade dasteht"
+          title={title}
+          url={absoluteUrl(taskHref)}
+        />
       )}
     </div>
   );

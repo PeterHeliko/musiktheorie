@@ -49,7 +49,7 @@ Fortschritt aller Besucher leer — der Umzugsplan steht in `CONCEPT.md` §7.
 ## Links
 
 Die Adresszeile zeigt immer den ganzen Zustand einer Übung. Wer sie kopiert, teilt genau
-das; der Knopf «Teilen» bietet die beiden üblichen Fälle an.
+das; unter ⚙ → «Teilen» stehen die beiden üblichen Fälle zum Kopieren bereit.
 
 ```
 /ueben/intervalle-hoeren/                                  Übung mit Vorgaben
@@ -98,6 +98,16 @@ Link / Speicher / Filterformular
 - **Notensatz nur, wo er gebraucht wird.** Die Übungsansicht samt VexFlow (gut 400 kB
   komprimiert) lädt erst, wenn eine Übung offen ist. Startseite und Tonhöhe kommen mit
   rund 30 kB aus.
+
+### Aufbau der Oberfläche
+
+- **Auswahl:** Startseite = Themen, ein Thema = seine Übungen (`/ueben/intervalle/`).
+  Listen nennen nur Titel; was eine Übung verlangt, steht in der Übung.
+- **Übung:** bildschirmfüllend, ohne Kopfzeile der Website. Leiste oben (✕ zurück zum
+  Thema, Titel, die wievielte Aufgabe bzw. «7/10», ⚙), die Aufgabe, und unten eine feste
+  Leiste mit Rückmeldung und Hauptknopf (Prüfen / Weiter).
+- **⚙ Einstellungen:** Übungsform, Filter, Zurücksetzen, Teilen. Änderungen gelten beim
+  Schliessen; ohne Änderung läuft die Aufgabe weiter.
 
 ### Tonhöhe (Versuch)
 

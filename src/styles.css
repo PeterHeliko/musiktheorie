@@ -1,195 +1,15 @@
 /*
- * Gestaltung der Übungsseite.
+ * Gestaltung der Website.
  *
  * `styles-base.css` bringt die Grundlagen mit: Farben, Notenbild, Antwort-
- * knöpfe, Werkzeugleiste der Noteneingabe. Was hier dazukommt, gehört allein
- * zum Üben — Auswahl der Übung, Filter, sofortige Rückmeldung, Runden.
+ * knöpfe, Werkzeugleiste der Noteneingabe. Was hier dazukommt: Listen zum
+ * Auswählen, die bildschirmfüllende Übungsansicht mit ihren zwei Leisten, das
+ * Einstellungsblatt, Rückmeldung, Runden, Tonhöhe.
  */
 
 @import './styles-base.css';
 
-/* ------------------------------------------------------------ Übungsauswahl */
-
-.mode-section {
-  margin-top: 28px;
-}
-
-.mode-section h2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.mode-section-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.mode-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-}
-
-.mode-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-  min-height: 44px;
-}
-
-.mode-card:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.mode-card:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
-}
-
-.mode-card-title {
-  font-weight: 600;
-}
-
-.mode-card-hint {
-  color: var(--ink-soft);
-  font-size: 0.87rem;
-  line-height: 1.35;
-}
-
-.mode-card-stats {
-  margin-top: 4px;
-  font-size: 0.8rem;
-  color: var(--accent);
-}
-
-.mode-footnote {
-  margin-top: 32px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  color: var(--ink-soft);
-  font-size: 0.85rem;
-}
-
-/* ----------------------------------------------------------------- Kopfzeile */
-
-.practice-header {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-}
-
-.practice-header h1 {
-  font-size: 1.35rem;
-  margin: 4px 0 12px;
-}
-
-.crumbs {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.85rem;
-}
-
-.crumb-section {
-  color: var(--ink-soft);
-}
-
-.stats-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  padding: 10px 14px;
-  background: var(--surface-alt);
-  border-radius: var(--radius);
-  font-size: 0.88rem;
-  color: var(--ink-soft);
-}
-
-.stats-bar strong {
-  color: var(--ink);
-}
-
-.stats-streak strong {
-  color: var(--good);
-}
-
-.stats-round {
-  margin-left: auto;
-}
-
-.session-switch {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-
 /* -------------------------------------------------------------------- Filter */
-
-.filter-panel {
-  margin-top: 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-.filter-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 12px 16px;
-  background: none;
-  border: 0;
-  font: inherit;
-  font-weight: 600;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  min-height: 44px;
-}
-
-.filter-toggle:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
-  border-radius: var(--radius);
-}
-
-.filter-toggle-icon {
-  color: var(--ink-soft);
-}
-
-.filter-summary {
-  margin-left: auto;
-  font-weight: 400;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-}
-
-.filter-body {
-  padding: 0 16px 16px;
-  border-top: 1px solid var(--line);
-}
 
 .filter-field {
   padding: 14px 0;
@@ -383,13 +203,11 @@
   margin: 0 0 10px;
 }
 
-.question-actions {
+/* Knopfzeile in der Leiste unten (.session-bar zieht die Trennlinie). */
+.session-actions {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
 }
 
 /*
@@ -401,7 +219,7 @@
  *
  * `.link-button` bleibt aussen vor: der ist absichtlich klein und leicht.
  */
-.question-actions button:not(.link-button),
+.session-actions button:not(.link-button),
 .round-actions button:not(.link-button),
 .notice button:not(.link-button) {
   font: inherit;
@@ -413,7 +231,7 @@
   cursor: pointer;
 }
 
-.question-actions button.primary,
+.session-actions button.primary,
 .round-actions button.primary,
 .notice button.primary {
   background: var(--accent);
@@ -422,13 +240,13 @@
   font-weight: 600;
 }
 
-.question-actions button:disabled,
+.session-actions button:disabled,
 .round-actions button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.question-actions button:not(.link-button):hover:not(:disabled),
+.session-actions button:not(.link-button):hover:not(:disabled),
 .round-actions button:not(.link-button):hover:not(:disabled),
 .notice button:not(.link-button):hover:not(:disabled) {
   filter: brightness(1.06);
@@ -437,50 +255,14 @@
 
 /* --------------------------------------------------------------- Rückmeldung */
 
+/* Ausführliche Rückmeldung unter der Aufgabe (mehrteilige Aufgaben, Diktat);
+   das Urteil selbst steht in der Leiste unten (.verdict). */
 .feedback {
   margin-top: 18px;
   padding: 14px 16px;
   border-radius: var(--radius);
-  border: 1px solid;
-}
-
-.feedback.is-correct {
-  background: var(--good-soft);
-  border-color: var(--good);
-}
-
-.feedback.is-partial {
-  background: var(--warn-soft);
-  border-color: #c98a12;
-}
-
-.feedback.is-wrong {
-  background: var(--bad-soft);
-  border-color: var(--bad);
-}
-
-.feedback-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.feedback-mark {
-  font-size: 1.15rem;
-}
-
-.is-correct > .feedback-head .feedback-mark {
-  color: var(--good);
-}
-
-.is-wrong > .feedback-head .feedback-mark {
-  color: var(--bad);
-}
-
-.feedback-score {
-  margin-left: auto;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
 }
 
 .feedback-list {
@@ -604,21 +386,6 @@
   border-color: var(--good);
 }
 
-/* ----------------------------------------------------------------- Fusszeile */
-
-.practice-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-}
-
 /* ------------------------------------------------------------------- Audio */
 
 /* Zweiter Abspielknopf («langsamer») — gleiche Form, weniger Gewicht. */
@@ -633,9 +400,6 @@
 }
 
 @media (max-width: 560px) {
-  .stats-round {
-    margin-left: 0;
-  }
 
   .question {
     padding: 16px;
@@ -675,35 +439,8 @@
   margin-right: auto;
 }
 
-/* Übungskarten sind Links — ohne Unterstreichung, mit der Fertigkeit oben. */
-a.mode-card {
-  text-decoration: none;
-}
-
-.mode-card-skill {
-  align-self: flex-start;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
 /* ---------------------------------------------------------------- Teilen */
 
-.practice-title {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.share {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.share-toggle,
 .share-copy {
   white-space: nowrap;
   font: inherit;
@@ -717,26 +454,9 @@ a.mode-card {
   cursor: pointer;
 }
 
-.share-toggle:hover,
 .share-copy:hover {
   border-color: var(--accent);
   color: var(--accent);
-}
-
-.share-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
-  width: min(440px, calc(100vw - 32px));
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 14px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(26, 29, 36, 0.14);
 }
 
 .share-row {
@@ -982,13 +702,6 @@ a.mode-card {
   .pitch-note {
     font-size: 3.4rem;
   }
-  .practice-title {
-    flex-direction: column;
-  }
-  .share-panel {
-    left: 0;
-    right: auto;
-  }
   /* iOS vergrössert die Seite beim Antippen jedes Felds unter 16 px. */
   .share-url {
     font-size: 16px;
@@ -1044,4 +757,303 @@ a.mode-card {
   min-width: 3.6em;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ Auswahllisten */
+
+/* Themen und Übungen: einfache Listen, eine Zeile je Eintrag. */
+.list-page {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.list-page h1 {
+  margin-bottom: 12px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.back-link:hover {
+  color: var(--accent);
+}
+
+.nav-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.nav-list:last-child {
+  margin-bottom: 0;
+}
+
+.nav-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.nav-list a::after {
+  content: '›';
+  color: var(--ink-soft);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.nav-list a:hover {
+  color: var(--accent);
+}
+
+.nav-list a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* ---------------------------------------------------------- Übungsansicht */
+
+/*
+ * Eine laufende Übung füllt den Bildschirm: Leiste oben, Aufgabe dazwischen,
+ * Leiste unten. Nur die Aufgabe scrollt — die beiden Leisten bleiben stehen,
+ * der Hauptknopf also immer an derselben Stelle.
+ */
+.session {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+/* Inhalt der Leisten und der Aufgabe: auf breiten Bildschirmen eine Spalte. */
+.session-column {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.session-top {
+  flex: none;
+  border-bottom: 1px solid var(--line);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.session-top-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 52px;
+}
+
+.session-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 -6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 1.3rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.session-icon:hover {
+  color: var(--ink);
+  background: var(--surface-alt);
+}
+
+.session-icon:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.session-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-progress {
+  flex: none;
+  padding: 0 6px;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.session-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 0 24px;
+}
+
+.session-loading {
+  padding: 24px 16px;
+}
+
+/* In der Übungsansicht ist die Aufgabe kein Kasten mehr — sie ist die Seite. */
+.session .question {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.session-bar {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.session-actions .primary {
+  min-width: 200px;
+}
+
+/* Eine Zeile Rückmeldung über dem Hauptknopf. */
+.verdict {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 2px 0 10px;
+  font-weight: 600;
+}
+
+.verdict-mark {
+  font-size: 1.15rem;
+}
+
+.verdict.is-correct {
+  color: var(--good);
+}
+
+.verdict.is-partial {
+  color: #8a6400;
+}
+
+.verdict.is-wrong {
+  color: var(--bad);
+}
+
+.verdict-score {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* ------------------------------------------------------- Einstellungsblatt */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.sheet-bar {
+  flex: none;
+  border-bottom: 1px solid var(--line);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.sheet-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+}
+
+.sheet-bar h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sheet-bar button {
+  font: inherit;
+  min-height: 40px;
+  padding: 6px 20px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+.sheet-section {
+  padding: 6px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet-section:last-child {
+  border-bottom: 0;
+}
+
+.sheet-section h3 {
+  margin: 14px 0 10px;
+  font-size: 0.88rem;
+}
+
+.share-links {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .list-page {
+    padding: 16px;
+  }
+  /* Auf dem Telefon füllt der Hauptknopf die Leiste: leichter zu treffen. */
+  .session-actions .primary {
+    flex: 1;
+    min-width: 0;
+  }
 }

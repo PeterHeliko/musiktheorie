@@ -1,12 +1,18 @@
 /**
  * Eine Übungsaufgabe: Anweisung, Hörbeispiel, Aufgabe, Rückmeldung.
  *
- * Gezeichnet wird von `SelectTaskView` und `NotationInput`. Beide bekommen nur
- * eine `Task` und wissen nichts vom Rest der Seite — der Rahmen drumherum
- * (Abspielknopf, Prüfen, Rückmeldung) gehört dieser Datei.
+ * Liefert die beiden unteren Teile der Übungsansicht:
+ *  - die Aufgabe (scrollt, falls sie länger ist als der Bildschirm), und
+ *  - die Leiste unten mit Rückmeldung und dem Hauptknopf (Prüfen / Weiter).
+ *    Sie steht fest am unteren Rand, auf dem Telefon also immer in
+ *    Daumenreichweite und immer an derselben Stelle.
+ *
+ * Gezeichnet wird die Aufgabe von `SelectTaskView` und `NotationInput`. Beide
+ * bekommen nur eine `Task` und wissen nichts vom Rest der Seite.
  */
 
-import { useMemo } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { PracticeAudioPlayer } from '../audio/PracticeAudioPlayer';
 import type { SelectTask, Task } from '../content/schema';
 import { eventsFor, tempoOf } from '../generators/index';
@@ -14,7 +20,7 @@ import type { Question } from '../generators/types';
 import { NotationInput } from '../music/notation-input/NotationInput';
 import { scoreTask, type TaskResult } from '../scoring';
 import { AnswerProvider, type AnswerStore } from '../state';
-import { Feedback } from './Feedback';
+import { FeedbackDetails, Verdict, hasDetails } from './Feedback';
 import { Score } from './Score';
 import { SelectTaskView } from './SelectTaskView';
 
@@ -51,6 +57,7 @@ export function QuestionView({
   onNext,
   canCheck,
   nextLabel,
+  notice,
 }: {
   question: Question;
   store: AnswerStore;
@@ -63,6 +70,8 @@ export function QuestionView({
   onNext: () => void;
   canCheck: boolean;
   nextLabel: string;
+  /** Hinweis über der Aufgabe, etwa zu einem veralteten Link. */
+  notice?: ComponentChildren;
 }) {
   // Die Klangereignisse hängen an der Aufgabe, nicht am Zustand — sonst
   // begänne die Wiedergabe bei jedem Tastendruck von vorn.
@@ -94,6 +103,22 @@ export function QuestionView({
       ? question.task.fields[0]
       : null;
 
+  const nextButton = useRef<HTMLButtonElement>(null);
+  const details = useRef<HTMLDivElement>(null);
+  const showDetails = result !== null && hasDetails(result, question.task);
+
+  // Nach dem Prüfen: «Weiter» bekommt den Fokus (Eingabetaste genügt), und
+  // eine ausführliche Rückmeldung wird ins Bild geholt, falls sie unterhalb
+  // des sichtbaren Bereichs liegt.
+  useEffect(() => {
+    if (!result) return;
+    nextButton.current?.focus({ preventScroll: true });
+    if (details.current) {
+      const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      details.current.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+    }
+  }, [result]);
+
   const answered = () => {
     onAnswered();
     if (!single || result) return;
@@ -104,77 +129,93 @@ export function QuestionView({
   };
 
   return (
-    <article class="question">
-      <p class="instruction" dangerouslySetInnerHTML={{ __html: instruction }} />
-      {hint && <p class="hint" dangerouslySetInnerHTML={{ __html: hint }} />}
+    <>
+      <main class="session-body">
+        <div class="session-column">
+          {notice}
+          <article class="question">
+            <p class="instruction" dangerouslySetInnerHTML={{ __html: instruction }} />
+            {hint && <p class="hint" dangerouslySetInnerHTML={{ __html: hint }} />}
 
-      {question.legend && (
-        <div class="legend">
-          {question.legend.map((entry) => (
-            <figure key={entry.label} class="legend-item">
-              <Score spec={entry.score} />
-              <figcaption>{entry.label}</figcaption>
-            </figure>
-          ))}
+            {question.legend && (
+              <div class="legend">
+                {question.legend.map((entry) => (
+                  <figure key={entry.label} class="legend-item">
+                    <Score spec={entry.score} />
+                    <figcaption>{entry.label}</figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+
+            {events && (
+              <PracticeAudioPlayer
+                events={events}
+                tempo={tempo}
+                maxPlays={question.maxPlays}
+                allowSlow={question.allowSlow}
+              />
+            )}
+
+            <AnswerProvider store={store} readOnly={result !== null} onChange={answered}>
+              {question.task.kind === 'select' ? (
+                <ol class="task-list">
+                  <SelectTaskView task={question.task} mutedFields={muted} />
+                </ol>
+              ) : question.task.kind === 'notation' ? (
+                <div class="question-notation">
+                  {/* Bei einer Noteneingabe steht im Prompt, WAS gesucht ist — das
+                      verlangte Intervall, der Name der Tonart. Ohne diese Zeile ist
+                      die Aufgabe nicht lösbar. */}
+                  {question.task.prompt && (
+                    <p class="task-prompt task-prompt-strong">{question.task.prompt}</p>
+                  )}
+                  <NotationInput task={question.task} />
+                </div>
+              ) : null}
+            </AnswerProvider>
+
+            {muted.length > 0 && question.waiver && (
+              <p class="waiver-note">
+                <span class="waiver-icon" aria-hidden="true">
+                  ⊘
+                </span>
+                {question.waiver.reason}
+              </p>
+            )}
+
+            {showDetails && (
+              <div ref={details}>
+                <FeedbackDetails result={result!} task={question.task} />
+              </div>
+            )}
+          </article>
         </div>
-      )}
+      </main>
 
-      {events && (
-        <PracticeAudioPlayer
-          events={events}
-          tempo={tempo}
-          maxPlays={question.maxPlays}
-          allowSlow={question.allowSlow}
-        />
-      )}
-
-      <AnswerProvider store={store} readOnly={result !== null} onChange={answered}>
-        {question.task.kind === 'select' ? (
-          <ol class="task-list">
-            <SelectTaskView task={question.task} mutedFields={muted} />
-          </ol>
-        ) : question.task.kind === 'notation' ? (
-          <div class="question-notation">
-            {/* Bei einer Noteneingabe steht im Prompt, WAS gesucht ist — das
-                verlangte Intervall, der Name der Tonart. Ohne diese Zeile ist
-                die Aufgabe nicht lösbar. */}
-            {question.task.prompt && (
-              <p class="task-prompt task-prompt-strong">{question.task.prompt}</p>
-            )}
-            <NotationInput task={question.task} />
-          </div>
-        ) : null}
-      </AnswerProvider>
-
-      {muted.length > 0 && question.waiver && (
-        <p class="waiver-note">
-          <span class="waiver-icon" aria-hidden="true">
-            ⊘
-          </span>
-          {question.waiver.reason}
-        </p>
-      )}
-
-      {result && <Feedback result={result} task={question.task} />}
-
-      <div class="question-actions">
-        {result ? (
-          <button type="button" class="primary" onClick={onNext} autofocus>
-            {nextLabel}
-          </button>
-        ) : (
-          <>
-            {!single && (
-              <button type="button" class="primary" onClick={check} disabled={!canCheck}>
-                Prüfen
+      <footer class="session-bar">
+        <div class="session-column">
+          {result && <Verdict result={result} task={question.task} />}
+          <div class="session-actions">
+            {result ? (
+              <button type="button" class="primary" onClick={onNext} ref={nextButton}>
+                {nextLabel}
               </button>
+            ) : (
+              <>
+                {!single && (
+                  <button type="button" class="primary" onClick={check} disabled={!canCheck}>
+                    Prüfen
+                  </button>
+                )}
+                <button type="button" class="link-button" onClick={onNext}>
+                  überspringen
+                </button>
+              </>
             )}
-            <button type="button" class="link-button" onClick={onNext}>
-              überspringen
-            </button>
-          </>
-        )}
-      </div>
-    </article>
+          </div>
+        </div>
+      </footer>
+    </>
   );
 }

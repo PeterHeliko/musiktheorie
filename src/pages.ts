@@ -12,13 +12,15 @@
  * ausliefert.
  */
 
-import { GENERATORS, generatorById } from './generators/index';
+import { GENERATORS, generatorById, topicsWithGenerators } from './generators/index';
+import { TOPICS, type TopicId } from './generators/types';
 
 export const SITE_NAME = 'Musiktheorie üben';
 
 export type Route =
   | { page: 'start' }
   | { page: 'ueben' }
+  | { page: 'thema'; topic: TopicId }
   | { page: 'uebung'; id: string }
   | { page: 'tonhoehe' }
   | { page: 'nicht-gefunden' };
@@ -37,6 +39,11 @@ export function pathOf(route: Route): string {
       return '';
     case 'ueben':
       return 'ueben/';
+    case 'thema':
+      // Gleiche Ebene wie die Übungen (/ueben/intervalle-hoeren/): die
+      // Übungsadressen sind schon geteilt und bleiben, wie sie sind. Themen-
+      // und Übungskennungen dürfen sich deshalb nie gleichen (Test).
+      return `ueben/${route.topic}/`;
     case 'uebung':
       return `ueben/${route.id}/`;
     case 'tonhoehe':
@@ -53,7 +60,11 @@ export function routeFromPath(path: string): Route {
   if (clean === 'ueben') return { page: 'ueben' };
   if (clean === 'werkzeuge/tonhoehe') return { page: 'tonhoehe' };
   const match = /^ueben\/([a-z0-9-]+)$/.exec(clean);
-  if (match && generatorById(match[1])) return { page: 'uebung', id: match[1] };
+  if (match) {
+    const topic = topicsWithGenerators().find((entry) => entry.id === match[1]);
+    if (topic) return { page: 'thema', topic: topic.id };
+    if (generatorById(match[1])) return { page: 'uebung', id: match[1] };
+  }
   return { page: 'nicht-gefunden' };
 }
 
@@ -76,11 +87,22 @@ export function metaFor(route: Route): PageMeta {
     case 'ueben':
       return {
         path,
-        title: 'Alle Übungen',
+        title: 'Übungen',
         description:
           'Alle Übungen nach Thema — Rhythmus, Intervalle, Tonleitern und Tonarten, ' +
           'Dreiklänge, Melodie. Jede Aufgabe wird neu gewürfelt.',
       };
+    case 'thema': {
+      const topic = TOPICS.find((entry) => entry.id === route.topic)!;
+      const titles = GENERATORS.filter((generator) => generator.topic === route.topic).map(
+        (generator) => generator.title,
+      );
+      return {
+        path,
+        title: topic.title,
+        description: `Übungen zum Thema ${topic.title}: ${titles.join(', ')}.`,
+      };
+    }
     case 'uebung': {
       const generator = generatorById(route.id);
       if (!generator) return metaFor({ page: 'nicht-gefunden' });
@@ -112,6 +134,7 @@ export function allPages(): PageMeta[] {
   const routes: Route[] = [
     { page: 'start' },
     { page: 'ueben' },
+    ...topicsWithGenerators().map((topic): Route => ({ page: 'thema', topic: topic.id })),
     ...GENERATORS.map((generator): Route => ({ page: 'uebung', id: generator.id })),
     { page: 'tonhoehe' },
   ];
