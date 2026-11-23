@@ -47,6 +47,7 @@ interface Filters extends FilterValues {
 export const gehoerIntervalle: Generator<Filters> = {
   id: 'intervalle-hoeren',
   topic: 'intervalle',
+  group: 'fein',
   skill: 'hoeren',
   version: 1,
   title: 'Intervalle hörend erkennen',

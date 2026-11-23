@@ -1,5 +1,7 @@
 /**
- * Intervalle — die beiden Richtungen derselben Fähigkeit.
+ * Intervalle fein bestimmen — die beiden Richtungen derselben Fähigkeit.
+ * Gefragt ist das ganze Intervall samt «klein», «gross», «rein» (die
+ * Grobbestimmung, nur die Grösse, steht in `intervalle-grob.ts`).
  *
  *  - `intervalle-bestimmen`: zwei Noten stehen da, das Intervall ist zu
  *    benennen.
@@ -25,6 +27,7 @@ import type { Rng } from './rng';
 import {
   ACCIDENTAL_OPTIONS,
   CLEF_OPTIONS,
+  LEDGER_ROOM,
   WIDTH_OPTIONS,
   candidatePitches,
   altersFor,
@@ -56,6 +59,7 @@ interface NamingFilters extends FilterValues {
 export const intervalleBestimmen: Generator<NamingFilters> = {
   id: 'intervalle-bestimmen',
   topic: 'intervalle',
+  group: 'fein',
   skill: 'erkennen',
   version: 1,
   title: 'Intervalle am Notenbild bestimmen',
@@ -109,9 +113,6 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
 // Intervalle notieren
 // ---------------------------------------------------------------------------
 
-/** Wie weit darf der Zielton über das System hinausragen? Wie im Eingabe-Widget. */
-const LEDGER_ROOM = 10;
-
 interface WritingFilters extends FilterValues {
   intervals: string[];
   direction: string;
@@ -123,6 +124,7 @@ interface WritingFilters extends FilterValues {
 export const intervalleNotieren: Generator<WritingFilters> = {
   id: 'intervalle-notieren',
   topic: 'intervalle',
+  group: 'fein',
   skill: 'notieren',
   version: 1,
   title: 'Intervalle notieren',
@@ -210,7 +212,7 @@ export const intervalleNotieren: Generator<WritingFilters> = {
     return {
       task: intervalWriting(
         taskId('in', rng),
-        label,
+        intervalFullName(interval),
         pitchKey(chosen.start),
         accepted.map(pitchKey),
         clef,

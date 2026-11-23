@@ -9,7 +9,7 @@
  * Seitenwechsel ohne Neuladen erledigt der Router.
  */
 
-import { topicsWithGenerators } from '../generators/index';
+import { topicSections, topicsWithGenerators } from '../generators/index';
 import { topicTitle, type TopicId } from '../generators/types';
 import { hrefFor } from '../router';
 
@@ -34,22 +34,30 @@ export function TopicList({ heading }: { heading: string }) {
   );
 }
 
-/** Ein Thema: seine Übungen, vom Erkennen über das Notieren zum Hören. */
+/**
+ * Ein Thema: seine Übungen, vom Erkennen über das Notieren zum Hören. Hat das
+ * Thema Gruppen (Intervalle: Grob- und Feinbestimmung), steht jede unter
+ * einem eigenen Zwischentitel.
+ */
 export function TopicPage({ topic }: { topic: TopicId }) {
-  const generators = topicsWithGenerators().find((entry) => entry.id === topic)?.generators ?? [];
   return (
     <div class="list-page">
       <a class="back-link" href={hrefFor({ page: 'start' })}>
         ‹ Alle Themen
       </a>
       <h1>{topicTitle(topic)}</h1>
-      <ul class="nav-list">
-        {generators.map((generator) => (
-          <li key={generator.id}>
-            <a href={hrefFor({ page: 'uebung', id: generator.id })}>{generator.title}</a>
-          </li>
-        ))}
-      </ul>
+      {topicSections(topic).map((section) => (
+        <section key={section.title ?? ''}>
+          {section.title && <h2 class="nav-heading">{section.title}</h2>}
+          <ul class="nav-list">
+            {section.generators.map((generator) => (
+              <li key={generator.id}>
+                <a href={hrefFor({ page: 'uebung', id: generator.id })}>{generator.title}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }

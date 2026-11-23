@@ -140,7 +140,12 @@ function Field({
     return (
       <fieldset class={`field field-buttons ${muted ? 'is-muted' : ''}`} disabled={locked}>
         {field.label && <legend>{field.label}</legend>}
-        <div class="button-grid" role="radiogroup" aria-label={field.label ?? 'Antwort'}>
+        <div
+          class={field.buttonLayout === 'sizes' ? 'button-grid size-grid' : 'button-grid'}
+          role="radiogroup"
+          aria-label={field.label ?? 'Antwort'}
+          style={field.buttonLayout === 'sizes' ? { '--count': String(options.length) } : undefined}
+        >
           {options.map((option) => (
             <button
               key={option.value}

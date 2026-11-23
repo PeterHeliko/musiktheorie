@@ -135,6 +135,18 @@ export const TOPICS = [
 
 export type TopicId = (typeof TOPICS)[number]['id'];
 
+/**
+ * Unterteilung eines Themas, wo eine flache Liste zu wenig sagt. Die Themen-
+ * seite zeigt die Gruppen als Zwischentitel, in dieser Reihenfolge; jede Übung
+ * eines solchen Themas nennt ihre Gruppe (`Generator.group`, Test).
+ */
+export const TOPIC_GROUPS: Partial<Record<TopicId, { id: string; title: string }[]>> = {
+  intervalle: [
+    { id: 'grob', title: 'Grobbestimmung' },
+    { id: 'fein', title: 'Feinbestimmung' },
+  ],
+};
+
 /** Die Spalten des Rasters: was die übende Person tut. */
 export type Skill = 'erkennen' | 'notieren' | 'klaviatur' | 'hoeren' | 'singen' | 'klopfen';
 
@@ -158,6 +170,8 @@ export interface Generator<F extends FilterValues = FilterValues> {
    */
   id: string;
   topic: TopicId;
+  /** Gruppe innerhalb des Themas, falls es welche hat (TOPIC_GROUPS). */
+  group?: string;
   skill: Skill;
   /**
    * Fassung der Aufgabenerzeugung. Ein Aufgabenlink stellt seine Aufgabe aus

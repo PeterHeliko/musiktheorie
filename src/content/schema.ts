@@ -118,8 +118,10 @@ export interface SelectField {
    * Besondere Anordnung des Knopfrasters. «intervals»: nach Intervallgrösse
    * gruppiert — hochkant zeilenweise (Sekunden, Terzen, …), quer in zwei
    * Reihen wie eine Klaviatur (kleine zwischen den grossen).
+   * «sizes»: die Intervallgrössen der Grobbestimmung — hochkant zwei je
+   * Zeile, quer alle in einer Reihe.
    */
-  buttonLayout?: 'intervals';
+  buttonLayout?: 'intervals' | 'sizes';
 }
 
 // ---------------------------------------------------------------------------
@@ -160,6 +162,11 @@ export interface NotationTask extends TaskBase {
   points: number;
   /** Zusätzliche Auswahlfelder, z.B. die Bezeichnung des gebildeten Akkords. */
   fields?: SelectField[];
+  /**
+   * Werkzeugleiste ohne Vorzeichen: es werden nur Stammtöne gesetzt. Für
+   * Aufgaben, in denen Vorzeichen gar nicht vorkommen (Grobbestimmung).
+   */
+  noAccidentals?: boolean;
 }
 
 export type NotationSolution =

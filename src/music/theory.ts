@@ -52,6 +52,11 @@ export function diatonicIndex(p: Pitch): number {
   return p.octave * 7 + stepIndex(p.step);
 }
 
+/** Der Stammton an einer diatonischen Position — Umkehrung von `diatonicIndex()`. */
+export function naturalAt(index: number): Pitch {
+  return { step: STEPS[((index % 7) + 7) % 7], alter: 0, octave: Math.floor(index / 7) };
+}
+
 // ---------------------------------------------------------------------------
 // Deutsche Tonnamen
 // ---------------------------------------------------------------------------

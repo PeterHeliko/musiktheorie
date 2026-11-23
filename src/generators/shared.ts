@@ -21,7 +21,6 @@ import type {
 import {
   STEPS,
   germanNoteName,
-  intervalFullName,
   midi,
   parseIntervalLabel,
   parsePitch,
@@ -243,7 +242,22 @@ const NAMING_SPACE: Record<string, NonNullable<ScoreSpec['space']>> = {
 };
 
 /**
- * Zwei Töne als Ganze auf einem System, darunter das Intervall-Knopfraster.
+ * Zwei Töne als Ganze auf einem System — das Notenbild der Intervall-
+ * bestimmung, grob wie fein. Grösser als die übrigen Notenbilder: zwei Töne in
+ * einem Akkord sind auf dem Telefon sonst schwer auseinanderzuhalten.
+ */
+function twoNoteScore(keys: [string, string], clef: 'treble' | 'bass', width: string): ScoreSpec {
+  return {
+    clef,
+    width: 150,
+    scale: 2,
+    space: NAMING_SPACE[width] ?? NAMING_SPACE.weit,
+    measures: [{ notes: [{ keys, duration: 'w' }] }],
+  };
+}
+
+/**
+ * Zwei Töne auf einem System, darunter das Intervall-Knopfraster.
  * Untereinander statt nebeneinander: das Raster braucht quer die ganze Breite.
  */
 export function intervalNaming(
@@ -257,15 +271,7 @@ export function intervalNaming(
   return {
     id,
     kind: 'select',
-    // Grösser als die übrigen Notenbilder: zwei Töne in einem Akkord sind
-    // auf dem Telefon sonst schwer auseinanderzuhalten.
-    score: {
-      clef,
-      width: 150,
-      scale: 2,
-      space: NAMING_SPACE[width] ?? NAMING_SPACE.weit,
-      measures: [{ notes: [{ keys, duration: 'w' }] }],
-    },
+    score: twoNoteScore(keys, clef, width),
     fields: [
       {
         id: 'a',
@@ -279,20 +285,57 @@ export function intervalNaming(
   };
 }
 
-/** Vorgegebener Startton, der zweite Ton wird gesetzt. */
+/**
+ * Grobbestimmung: dieselben zwei Töne, gefragt ist nur die Grösse.
+ * `allowed` = die eingestellten Grössen, als Antwortwerte («terz» …).
+ */
+export function intervalSizeNaming(
+  id: string,
+  keys: [string, string],
+  correct: string,
+  clef: 'treble' | 'bass',
+  allowed: readonly string[],
+  width = 'eng',
+): SelectTask {
+  return {
+    id,
+    kind: 'select',
+    score: twoNoteScore(keys, clef, width),
+    fields: [
+      {
+        id: 'a',
+        options: optionsFrom('intervalSize', allowed),
+        correct,
+        points: 2,
+        buttons: true,
+        buttonLayout: 'sizes',
+      },
+    ],
+  };
+}
+
+/** Wie weit darf der Zielton über das System hinausragen? Wie im Eingabe-Widget. */
+export const LEDGER_ROOM = 10;
+
+/**
+ * Vorgegebener Startton, der zweite Ton wird gesetzt. `prompt` nennt das
+ * verlangte Intervall («kleine Terz», bei der Grobbestimmung nur «Terz»).
+ */
 export function intervalWriting(
   id: string,
-  label: string,
+  prompt: string,
   start: string,
   accept: string[],
   clef: 'treble' | 'bass',
+  { noAccidentals = false }: { noAccidentals?: boolean } = {},
 ): NotationTask {
   return {
     id,
     kind: 'notation',
     mode: 'pitch',
-    prompt: intervalFullName(parseIntervalLabel(label)),
+    prompt,
     points: 2,
+    ...(noAccidentals ? { noAccidentals: true } : {}),
     // Schmal gezeichnet und stark vergrössert: die beiden Noten brauchen kaum
     // Abstand, aber jeder Linienabstand mehr Höhe macht das Setzen genauer.
     // Angezeigt etwa so breit wie zuvor (260 × 1,5).

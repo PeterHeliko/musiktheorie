@@ -862,6 +862,17 @@
   box-shadow: var(--focus);
 }
 
+/* Zwischentitel einer Themenseite mit Gruppen (Grob-/Feinbestimmung). */
+.nav-heading {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+
+.list-page section + section {
+  margin-top: 24px;
+}
+
 /* ---------------------------------------------------------- Übungsansicht */
 
 /*
@@ -1160,6 +1171,33 @@
   white-space: normal;
   /* Quer sind die Felder schmal: «Sekunde» darf getrennt werden, aber nicht
      mitten in einer Silbe (lang="de-CH" am <html>). */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+/* Grobbestimmung: hochkant zwei je Zeile, quer alle in einer Reihe. Quer so
+   breit wie die untere Reihe des Intervall-Rasters (ein Achtel), auch wenn
+   weniger Grössen eingestellt sind — dann mittig statt auseinandergezogen.
+   --count = Zahl der Knöpfe (SelectTaskView.tsx). */
+.size-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(min(var(--count), 2), minmax(0, 1fr));
+}
+
+@container (min-width: 600px) {
+  .size-grid {
+    gap: 8px 6px;
+    grid-template-columns: repeat(var(--count), calc((100% - 7 * 6px) / 8));
+    justify-content: center;
+  }
+}
+
+.size-grid .choice {
+  min-width: 0;
+  padding: 6px 4px;
+  line-height: 1.2;
+  white-space: normal;
   hyphens: auto;
   -webkit-hyphens: auto;
 }

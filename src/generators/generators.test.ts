@@ -20,12 +20,13 @@
 import { describe, expect, it } from 'vitest';
 import { GENERATORS, generatorById } from './index';
 import { makeRng } from './rng';
-import type { FilterValues, Question } from './types';
+import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
 import type { NotationTask, SelectTask, Task } from '../content/schema';
-import { resolveOptions } from '../content/options';
+import { INTERVAL_SIZE_OPTIONS, intervalSizeAnswer, resolveOptions } from '../content/options';
 import { fromPitch, scoreTask, type InputNote } from '../scoring';
 import {
   durationInQuarters,
+  intervalBetween,
   keySignatureSteps,
   measureCapacity,
   midi,
@@ -117,6 +118,20 @@ describe('Verzeichnis', () => {
   it('vergibt eindeutige Kennungen', () => {
     const ids = GENERATORS.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('ordnet jede Übung eines gegliederten Themas einer seiner Gruppen zu', () => {
+    for (const generator of GENERATORS) {
+      const groups = TOPIC_GROUPS[generator.topic];
+      if (groups) {
+        expect(
+          groups.map((group) => group.id),
+          `${generator.id}: Gruppe «${generator.group}» gibt es im Thema nicht`,
+        ).toContain(generator.group);
+      } else {
+        expect(generator.group, `${generator.id}: Thema ohne Gruppen`).toBeUndefined();
+      }
+    }
   });
 
   it('nennt für jeden Filter einen Vorgabewert', () => {
@@ -352,6 +367,70 @@ describe('Filter', () => {
         if (direction === 'up') expect(midi(target)).toBeGreaterThan(midi(start));
         else expect(midi(target)).toBeLessThan(midi(start));
       }
+    }
+  });
+
+  it('beschränkt die Grobbestimmung auf die angekreuzten Grössen', () => {
+    const wanted = ['terz', 'septime'];
+    const seen = answersFor(generate('intervalle-grob-bestimmen', { intervals: wanted }), 'a');
+    expect([...seen].sort()).toEqual([...wanted].sort());
+  });
+
+  it('stellt bei der Grobbestimmung nur Stammtöne mit der richtigen Grösse', () => {
+    for (const clef of ['treble', 'bass']) {
+      for (const width of ['eng', 'weit']) {
+        for (const question of generate('intervalle-grob-bestimmen', { clefs: [clef], width })) {
+          const task = question.task as SelectTask;
+          const [low, high] = task.score!.measures[0].notes[0].keys!.map(parsePitch);
+          expect(low.alter, 'Vorzeichen im Notenbild').toBe(0);
+          expect(high.alter, 'Vorzeichen im Notenbild').toBe(0);
+          expect(intervalSizeAnswer(intervalBetween(low, high).number)).toBe(task.fields[0].correct);
+        }
+      }
+    }
+  });
+
+  it('notiert bei der Grobbestimmung ohne Vorzeichen, in jeder Lage', () => {
+    for (const clef of ['treble', 'bass']) {
+      for (const width of ['eng', 'weit']) {
+        for (const question of generate('intervalle-grob-notieren', { clefs: [clef], width })) {
+          const task = question.task as NotationTask;
+          expect(task.noAccidentals, 'Werkzeugleiste ohne Vorzeichen').toBe(true);
+          const solution = task.solution;
+          if (solution.type !== 'pitch') throw new Error('keine Tonhöhenaufgabe');
+          const start = parsePitch(task.score.measures[0].notes[0].keys![0]);
+          expect(start.alter).toBe(0);
+          for (const key of solution.slots[0].accept) {
+            const target = parsePitch(key);
+            expect(target.alter, `${key} trägt ein Vorzeichen`).toBe(0);
+            expect(INTERVAL_SIZE_OPTIONS[intervalBetween(start, target).number - 1].label).toBe(task.prompt);
+          }
+        }
+      }
+    }
+  });
+
+  it('akzeptiert bei der Grobbestimmung mit fester Richtung nur diese eine Lösung', () => {
+    for (const direction of ['up', 'down'] as const) {
+      for (const question of generate('intervalle-grob-notieren', { direction, intervals: ['sekunde', 'sexte'] })) {
+        const task = question.task as NotationTask;
+        const solution = task.solution;
+        if (solution.type !== 'pitch') throw new Error('keine Tonhöhenaufgabe');
+        expect(solution.slots[0].accept).toHaveLength(1);
+        const start = parsePitch(task.score.measures[0].notes[0].keys![0]);
+        const target = parsePitch(solution.slots[0].accept[0]);
+        if (direction === 'up') expect(midi(target)).toBeGreaterThan(midi(start));
+        else expect(midi(target)).toBeLessThan(midi(start));
+      }
+    }
+  });
+
+  it('nimmt bei der Prime den Startton genau einmal als Lösung', () => {
+    for (const question of generate('intervalle-grob-notieren', { intervals: ['prime'] })) {
+      const task = question.task as NotationTask;
+      const solution = task.solution;
+      if (solution.type !== 'pitch') throw new Error('keine Tonhöhenaufgabe');
+      expect(solution.slots[0].accept).toEqual(task.score.measures[0].notes[0].keys);
     }
   });
 

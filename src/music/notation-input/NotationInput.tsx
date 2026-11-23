@@ -469,12 +469,15 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   return (
     <>
       <div class="toolbar toolbar-one-row">
-        <AccidentalPalette
-          value={alter}
-          onChange={changeAlter}
-          disabled={readOnly}
-          label={lone ? 'Vorzeichen' : 'Vorzeichen für den nächsten Ton'}
-        />
+        {/* Ohne Vorzeichen bleibt `alter` bei 0: gesetzt werden nur Stammtöne. */}
+        {!task.noAccidentals && (
+          <AccidentalPalette
+            value={alter}
+            onChange={changeAlter}
+            disabled={readOnly}
+            label={lone ? 'Vorzeichen' : 'Vorzeichen für den nächsten Ton'}
+          />
+        )}
         <ToolbarActions>
           <button type="button" class="tool tool-wide" onClick={() => update({})} disabled={readOnly}>
             Zurücksetzen

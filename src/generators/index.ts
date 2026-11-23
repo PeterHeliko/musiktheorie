@@ -18,9 +18,10 @@ import { gehoerIntervalle } from './gehoer-intervalle';
 import { gehoerTonleitern } from './gehoer-tonleitern';
 import { dreiklaengeBestimmen, dreiklaengeStufen } from './dreiklaenge';
 import { intervalleBestimmen, intervalleNotieren } from './intervalle';
+import { intervalleGrobBestimmen, intervalleGrobNotieren } from './intervalle-grob';
 import { rhythmusNotenwerte, rhythmusPausen } from './rhythmus';
 import { tonartenHalbtonschritte, tonartenVorzeichen, tonartenZuordnen } from './tonarten';
-import { TOPICS, type FilterValues, type Generator, type Question, type TopicId } from './types';
+import { TOPICS, TOPIC_GROUPS, type FilterValues, type Generator, type Question, type TopicId } from './types';
 
 /**
  * Die Filterwerte sind je Übung anders getypt. Für die Liste zählt nur der
@@ -30,6 +31,8 @@ import { TOPICS, type FilterValues, type Generator, type Question, type TopicId 
 export const GENERATORS: Generator<FilterValues>[] = [
   rhythmusNotenwerte,
   rhythmusPausen,
+  intervalleGrobBestimmen,
+  intervalleGrobNotieren,
   intervalleBestimmen,
   intervalleNotieren,
   gehoerIntervalle,
@@ -57,6 +60,26 @@ export function topicsWithGenerators(): {
     title: topic.title,
     generators: GENERATORS.filter((generator) => generator.topic === topic.id),
   })).filter((topic) => topic.generators.length > 0);
+}
+
+/**
+ * Die Übungen eines Themas, wie die Themenseite sie zeigt: nach Gruppen
+ * (TOPIC_GROUPS), oder als eine Liste ohne Zwischentitel, wenn das Thema
+ * keine Gruppen hat. Leere Gruppen fallen weg.
+ */
+export function topicSections(topic: TopicId): {
+  title: string | null;
+  generators: Generator<FilterValues>[];
+}[] {
+  const generators = GENERATORS.filter((generator) => generator.topic === topic);
+  const groups = TOPIC_GROUPS[topic];
+  if (!groups) return generators.length > 0 ? [{ title: null, generators }] : [];
+  return groups
+    .map((group) => ({
+      title: group.title,
+      generators: generators.filter((generator) => generator.group === group.id),
+    }))
+    .filter((section) => section.generators.length > 0);
 }
 
 export function generatorById(id: string): Generator<FilterValues> | undefined {

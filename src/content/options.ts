@@ -48,6 +48,36 @@ export const INTERVAL_OPTIONS: SelectOption[] = [
 ];
 
 /**
+ * Antwortmöglichkeiten der Grobbestimmung: nur die Grösse, ohne «klein»,
+ * «gross» oder «rein». Ausgeschriebene Werte statt Ziffern, damit der Link
+ * lesbar bleibt (`?intervalle=terz,quinte`). Reihenfolge = Ordnungszahl.
+ */
+export const INTERVAL_SIZE_OPTIONS: SelectOption[] = [
+  { value: 'prime', label: 'Prime' },
+  { value: 'sekunde', label: 'Sekunde' },
+  { value: 'terz', label: 'Terz' },
+  { value: 'quarte', label: 'Quarte' },
+  { value: 'quinte', label: 'Quinte' },
+  { value: 'sexte', label: 'Sexte' },
+  { value: 'septime', label: 'Septime' },
+  { value: 'oktave', label: 'Oktave' },
+];
+
+/** Ordnungszahl (1–8) → Antwortwert der Grobbestimmung. */
+export function intervalSizeAnswer(number: number): string {
+  const option = INTERVAL_SIZE_OPTIONS[number - 1];
+  if (!option) throw new Error(`Keine Intervallgrösse: Ordnungszahl ${number}`);
+  return option.value;
+}
+
+/** Antwortwert der Grobbestimmung → Ordnungszahl (1–8). */
+export function intervalSizeNumber(value: string): number {
+  const index = INTERVAL_SIZE_OPTIONS.findIndex((option) => option.value === value);
+  if (index < 0) throw new Error(`Unbekannte Intervallgrösse: «${value}»`);
+  return index + 1;
+}
+
+/**
  * Wandelt ein Intervallkürzel in den zugehörigen Antwortwert um.
  * «ü4» und «v5» werden beide zu «tritonus».
  */
@@ -89,6 +119,9 @@ function chordNameOptions(): SelectOption[] {
 export const OPTION_SETS: Record<string, SelectOption[]> = {
   /** Ausgeschriebene Intervallbezeichnung als Knopfraster. */
   interval: INTERVAL_OPTIONS,
+
+  /** Nur die Intervallgrösse (Grobbestimmung). */
+  intervalSize: INTERVAL_SIZE_OPTIONS,
 
   scaleType: [
     opt('dur', 'Dur'),

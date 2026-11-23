@@ -22,7 +22,7 @@ shareable link for every exercise.
 | Singing               | **Included.** The site listens and judges sung pitch: notes, intervals, chords, melodies (§6)      |
 | Site framework        | **B**: Vite + Preact single-page app, plus one generated HTML file per route (§9)                 |
 | Visual style          | As simple as possible, "zero nonsense". The current plain look stays. Design changes only after the user has chosen between options. |
-| Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
+| Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. A topic may split its list under subheadings (Intervalle: Grobbestimmung, Feinbestimmung). When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
 
 ---
@@ -168,13 +168,19 @@ planned yet.
 
 ### Intervalle
 
-| Übung                         | Fertigkeit |       |
-| ----------------------------- | ---------- | ----- |
-| Intervalle bestimmen          | Erkennen   | ✓     |
-| Intervalle notieren           | Notieren   | ✓     |
-| Intervalle auf der Klaviatur  | Klaviatur  |       |
-| Intervalle hören              | Hören      | ✓     |
-| Intervalle singen             | Singen     | ★     |
+Split into **Grobbestimmung** (size only: Prime … Oktave, no accidentals at all) and
+**Feinbestimmung** (the full name: klein/gross/rein …). The topic page shows them as two
+groups.
+
+| Übung                         | Fertigkeit | Gruppe |       |
+| ----------------------------- | ---------- | ------ | ----- |
+| Intervalle grob bestimmen     | Erkennen   | grob   | ✓     |
+| Intervalle grob notieren      | Notieren   | grob   | ✓     |
+| Intervalle bestimmen          | Erkennen   | fein   | ✓     |
+| Intervalle notieren           | Notieren   | fein   | ✓     |
+| Intervalle auf der Klaviatur  | Klaviatur  |        |       |
+| Intervalle hören              | Hören      | fein   | ✓     |
+| Intervalle singen             | Singen     |        | ★     |
 
 *Später:* über die Oktave hinaus, Komplementärintervalle.
 

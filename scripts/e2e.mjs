@@ -33,6 +33,8 @@ const slow = process.argv.includes('--slow');
 const MODES = {
   'notenwerte-zuordnen': 'Notenwerte und Pausenzeichen zuordnen',
   'pausen-ergaenzen': 'Fehlende Pausen ergänzen',
+  'intervalle-grob-bestimmen': 'Intervalle grob bestimmen',
+  'intervalle-grob-notieren': 'Intervalle grob notieren',
   'intervalle-bestimmen': 'Intervalle am Notenbild bestimmen',
   'intervalle-notieren': 'Intervalle notieren',
   'intervalle-hoeren': 'Intervalle hörend erkennen',
@@ -223,8 +225,19 @@ async function main() {
     const exerciseLinks = await page.locator('.nav-list a').allInnerTexts();
     check(
       exerciseLinks.join('|') ===
-        ['Intervalle am Notenbild bestimmen', 'Intervalle notieren', 'Intervalle hörend erkennen'].join('|'),
+        [
+          'Intervalle grob bestimmen',
+          'Intervalle grob notieren',
+          'Intervalle am Notenbild bestimmen',
+          'Intervalle notieren',
+          'Intervalle hörend erkennen',
+        ].join('|'),
       `die Liste nennt die vollen Titel, ohne Beschreibung (${exerciseLinks.join(', ')})`,
+    );
+    const groupHeadings = await page.locator('.list-page h2').allInnerTexts();
+    check(
+      groupHeadings.join('|') === 'Grobbestimmung|Feinbestimmung',
+      `gegliedert in Grob- und Feinbestimmung (${groupHeadings.join(', ')})`,
     );
     await page.screenshot({ path: join(SHOTS, '01-thema.png'), fullPage: true });
     await page.locator('.nav-list a', { hasText: 'Intervalle am Notenbild bestimmen' }).click();
@@ -518,6 +531,46 @@ async function main() {
     const ng2 = await centre(narrowPage, 'grosse Sekunde');
     check(Math.abs(nk2.y - ng2.y) < 2, 'schmales Querformat-Fenster: Zeilen wie hochkant');
     await narrow.close();
+
+    // ------------------------------------------------- Grobbestimmung
+    console.log('\nGrobbestimmung: nur die Grösse, keine Vorzeichen');
+    await page.goto(exercise('intervalle-grob-notieren'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.notation-input svg');
+    check(
+      (await page.locator('.toolbar button[aria-label^="Kreuz"]').count()) === 0,
+      'Notieren: keine Vorzeichen in der Werkzeugleiste',
+    );
+    await page.screenshot({ path: join(SHOTS, 'grob-notieren.png'), fullPage: true });
+
+    const sizeCentre = async (p, label) => {
+      const box = await p.locator('.size-grid .choice', { hasText: new RegExp(`^${label}$`) }).boundingBox();
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+    await page.goto(exercise('intervalle-grob-bestimmen'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.size-grid');
+    const sizeLabels = await page.locator('.size-grid .choice').allInnerTexts();
+    check(
+      sizeLabels.join('|') === 'Prime|Sekunde|Terz|Quarte|Quinte|Sexte|Septime|Oktave',
+      `Bestimmen: acht Grössen, Prime bis Oktave (${sizeLabels.join(', ')})`,
+    );
+    const widePrime = await sizeCentre(page, 'Prime');
+    const wideOctave = await sizeCentre(page, 'Oktave');
+    check(Math.abs(widePrime.y - wideOctave.y) < 2, 'quer: alle Grössen in einer Reihe');
+    await page.screenshot({ path: join(SHOTS, 'grob-bestimmen-quer.png'), fullPage: true });
+
+    const sizePhone = await browser.newContext({ ...devices['iPhone 13'] });
+    const sizePhonePage = await sizePhone.newPage();
+    await sizePhonePage.goto(exercise('intervalle-grob-bestimmen'), { waitUntil: 'networkidle' });
+    await sizePhonePage.waitForSelector('.size-grid');
+    const pPrime = await sizeCentre(sizePhonePage, 'Prime');
+    const pSecond = await sizeCentre(sizePhonePage, 'Sekunde');
+    const pThird = await sizeCentre(sizePhonePage, 'Terz');
+    check(
+      Math.abs(pPrime.y - pSecond.y) < 2 && pThird.y > pPrime.y && Math.abs(pThird.x - pPrime.x) < 2,
+      'hochkant: zwei Grössen je Zeile',
+    );
+    await sizePhonePage.screenshot({ path: join(SHOTS, 'telefon-grob-bestimmen.png') });
+    await sizePhone.close();
 
     // ------------------------------------------------- Erklärung
     console.log('\nErklärung nur hinter ⓘ');
