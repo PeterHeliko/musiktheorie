@@ -242,18 +242,32 @@ const NAMING_SPACE: Record<string, NonNullable<ScoreSpec['space']>> = {
 };
 
 /**
- * Zwei Töne als Ganze auf einem System — das Notenbild der Intervall-
- * bestimmung, grob wie fein. Grösser als die übrigen Notenbilder: zwei Töne in
- * einem Akkord sind auf dem Telefon sonst schwer auseinanderzuhalten.
+ * Notenbild der Grobbestimmung, je Lage. Ohne Vorzeichen reicht viel weniger
+ * Platz über und unter dem System, und rechts braucht es kaum mehr als die
+ * Noten — beides geht stattdessen in die Grösse.
+ *
+ * Platz gemessen an den gezeichneten Pixeln der äussersten Töne beider
+ * Schlüssel (Stand 2026-11: eng bis 20 über / 16 unter dem System — oben das
+ * d1 im Bassschlüssel, unten der Violinschlüssel selbst; weit bis 35 / 30),
+ * plus 1 Luft. Fest je Lage, wie bei der Feinbestimmung.
  */
-function twoNoteScore(keys: [string, string], clef: 'treble' | 'bass', width: string): ScoreSpec {
-  return {
-    clef,
-    width: 150,
-    scale: 2,
-    space: NAMING_SPACE[width] ?? NAMING_SPACE.weit,
-    measures: [{ notes: [{ keys, duration: 'w' }] }],
-  };
+const SIZE_SCORE = { width: 110, scale: 3 };
+const SIZE_SPACE: Record<string, NonNullable<ScoreSpec['space']>> = {
+  eng: { above: 21, below: 17 },
+  weit: { above: 36, below: 31 },
+};
+
+/**
+ * Zwei Töne als Ganze auf einem System — das Notenbild der Intervall-
+ * bestimmung. Grösser als die übrigen Notenbilder: zwei Töne in einem Akkord
+ * sind auf dem Telefon sonst schwer auseinanderzuhalten.
+ */
+function twoNoteScore(
+  keys: [string, string],
+  clef: 'treble' | 'bass',
+  { width, scale, space }: { width: number; scale: number; space: NonNullable<ScoreSpec['space']> },
+): ScoreSpec {
+  return { clef, width, scale, space, measures: [{ notes: [{ keys, duration: 'w' }] }] };
 }
 
 /**
@@ -271,7 +285,14 @@ export function intervalNaming(
   return {
     id,
     kind: 'select',
-    score: twoNoteScore(keys, clef, width),
+    // Breiter gezeichnet als bei der Grobbestimmung: links vor den Noten
+    // stehen bis zu zwei Doppelvorzeichen. Auf dem Telefon begrenzt die
+    // Bildschirmbreite die Grösse, nicht `scale`.
+    score: twoNoteScore(keys, clef, {
+      width: 150,
+      scale: 3,
+      space: NAMING_SPACE[width] ?? NAMING_SPACE.weit,
+    }),
     fields: [
       {
         id: 'a',
@@ -300,7 +321,7 @@ export function intervalSizeNaming(
   return {
     id,
     kind: 'select',
-    score: twoNoteScore(keys, clef, width),
+    score: twoNoteScore(keys, clef, { ...SIZE_SCORE, space: SIZE_SPACE[width] ?? SIZE_SPACE.weit }),
     fields: [
       {
         id: 'a',

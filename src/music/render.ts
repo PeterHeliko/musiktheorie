@@ -392,10 +392,14 @@ export function renderScore(container: HTMLDivElement, spec: ScoreSpec): Rendere
   // Ohne diese Attribute skaliert das Bild auf schmalen Bildschirmen nicht mit.
   svg.setAttribute('viewBox', `0 0 ${width} ${layout.height}`);
   svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
+  // Feste Breite, die nur schrumpft, wo der Platz fehlt. Nicht umgekehrt
+  // (width: 100% mit max-width): in einer Flex-Zeile wie .task-visual hat das
+  // Bild dann keine eigene Breite, und der Browser nimmt für ein SVG ohne
+  // Breitenangabe 300 px an — grössere Notenbilder blieben still bei 300.
   svg.removeAttribute('width');
   svg.removeAttribute('height');
-  svg.style.width = '100%';
-  svg.style.maxWidth = `${Math.round(width * (spec.scale ?? SCORE_SCALE))}px`;
+  svg.style.width = `${Math.round(width * (spec.scale ?? SCORE_SCALE))}px`;
+  svg.style.maxWidth = '100%';
   svg.style.height = 'auto';
 
   return { svg, width, height: layout.height, staves, bassStaves, notes };
