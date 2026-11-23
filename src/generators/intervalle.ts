@@ -171,11 +171,13 @@ export const intervalleNotieren: Generator<WritingFilters> = {
     const interval = parseIntervalLabel(label);
 
     // Der Zielton darf weiter aussen liegen als der Startton — dafür sind die
-    // Hilfslinien da. Er muss aber notierbar bleiben, also mit höchstens einem
-    // Doppelvorzeichen auskommen.
+    // Hilfslinien da. Setzen lässt er sich aber nur mit b, Kreuz oder ohne:
+    // Doppelvorzeichen kennt die Werkzeugleiste nicht. Ein Zielton, der eins
+    // bräuchte, ist deshalb nie eine Lösung.
     const reach = { low: window.low - LEDGER_ROOM, high: window.high + LEDGER_ROOM };
-    const usable = (pitch: Pitch | null): pitch is Pitch =>
-      pitch !== null && Math.abs(pitch.alter) <= 2 && midi(pitch) >= reach.low && midi(pitch) <= reach.high;
+    const inReach = (pitch: Pitch | null): pitch is Pitch =>
+      pitch !== null && midi(pitch) >= reach.low && midi(pitch) <= reach.high;
+    const usable = (pitch: Pitch | null): pitch is Pitch => inReach(pitch) && Math.abs(pitch.alter) <= 1;
 
     const starts = candidatePitches(window, altersFor(policy))
       .map((start) => ({
@@ -186,7 +188,11 @@ export const intervalleNotieren: Generator<WritingFilters> = {
       .filter(({ up, down }) => {
         if (direction === 'up') return usable(up);
         if (direction === 'down') return usable(down);
-        return usable(up) || usable(down);
+        // Bei freier Richtung keine Falle: wer in eine Richtung geht, die im
+        // System Platz hat, muss dort auch ankommen können. Sonst sucht man
+        // vergeblich nach dem Doppelkreuz, statt umzudrehen.
+        const targets = [up, down];
+        return targets.some(usable) && targets.every((target) => usable(target) || (target !== null && !inReach(target)));
       });
 
     insist(

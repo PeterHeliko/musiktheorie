@@ -24,6 +24,7 @@ import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
 import type { NotationTask, SelectTask, Task } from '../content/schema';
 import { INTERVAL_SIZE_OPTIONS, intervalSizeAnswer, resolveOptions } from '../content/options';
 import { fromPitch, scoreTask, type InputNote } from '../scoring';
+import { LEDGER_ROOM, windowFor } from './shared';
 import {
   durationInQuarters,
   intervalBetween,
@@ -366,6 +367,41 @@ describe('Filter', () => {
         const target = parsePitch(solution.slots[0].accept[0]);
         if (direction === 'up') expect(midi(target)).toBeGreaterThan(midi(start));
         else expect(midi(target)).toBeLessThan(midi(start));
+      }
+    }
+  });
+
+  it('verlangt beim Intervall-Notieren nie ein Doppelvorzeichen', () => {
+    // Die Werkzeugleiste kennt nur b, Kreuz und ohne. Bei freier Richtung
+    // darf auch die nicht gewertete Richtung keins brauchen: sonst sucht man
+    // dort vergeblich, statt umzudrehen.
+    for (const direction of ['frei', 'up', 'down']) {
+      for (const accidentals of ['stammton', 'einfach', 'alle']) {
+        for (const width of ['eng', 'weit']) {
+          for (const clef of ['treble', 'bass'] as const) {
+            const questions = generate('intervalle-notieren', { direction, accidentals, width, clefs: [clef] });
+            for (const question of questions) {
+              const task = question.task as NotationTask;
+              if (task.solution.type !== 'pitch') continue;
+              const accept = task.solution.slots[0].accept;
+              for (const key of accept) {
+                expect(Math.abs(parsePitch(key).alter), `${key} als Lösung`).toBeLessThanOrEqual(1);
+              }
+              if (direction !== 'frei' || accept.length === 2) continue;
+
+              // Die Gegenrichtung fehlt: dann nur, weil sie zu weit aus dem
+              // System führt, nicht wegen eines Doppelvorzeichens.
+              const startKey = task.score.measures[0].notes[0].keys![0];
+              const start = midi(parsePitch(startKey));
+              const other = 2 * start - midi(parsePitch(accept[0]));
+              const window = windowFor(clef, width);
+              expect(
+                other < window.low - LEDGER_ROOM || other > window.high + LEDGER_ROOM,
+                `${startKey}: Gegenrichtung zu ${accept[0]} fehlt`,
+              ).toBe(true);
+            }
+          }
+        }
       }
     }
   });
