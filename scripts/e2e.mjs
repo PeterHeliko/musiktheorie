@@ -600,6 +600,20 @@ async function main() {
     }
     await sizePhone.close();
 
+    // Quer gehaltenes Telefon: kaum Höhe. Die Antworten gehen vor, das
+    // Notenbild bekommt, was übrig bleibt.
+    const landscape = await browser.newContext({ ...devices['iPhone 13 landscape'], viewport: { width: 750, height: 340 } });
+    const landscapePage = await landscape.newPage();
+    for (const id of ['intervalle-grob-bestimmen', 'intervalle-bestimmen']) {
+      await landscapePage.goto(exercise(id, '?lage=weit'), { waitUntil: 'networkidle' });
+      await landscapePage.waitForSelector('.question svg');
+      const lastBox = await landscapePage.locator('.question .choice').last().boundingBox();
+      const barTop = (await landscapePage.locator('.session-bar').boundingBox()).y;
+      check(lastBox.y + lastBox.height <= barTop + 1, `${id}, quer, mit Hilfslinien: alle Knöpfe ohne Scrollen sichtbar`);
+      await landscapePage.screenshot({ path: join(SHOTS, `telefon-quer-${id}.png`) });
+    }
+    await landscape.close();
+
     // ------------------------------------------------- Erklärung
     console.log('\nErklärung nur hinter ⓘ');
     const explainContext = await browser.newContext();

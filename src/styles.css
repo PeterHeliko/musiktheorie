@@ -1212,10 +1212,11 @@
   display: flow-root;
 }
 
-/* Ein Notenbild, das den übrigen Platz füllt (ScoreSpec.fit), steht oben:
-   weniger Abstand zur Leiste, der Platz geht ins Bild. */
+/* Ein Notenbild, das den übrigen Platz füllt (ScoreSpec.fit): weniger
+   Abstand zu den Leisten oben und unten, der Platz geht ins Bild. */
 .session-body:has(.score-fit) {
   padding-top: 8px;
+  padding-bottom: 12px;
 }
 
 /* Die Aufgabe steht mittig über den Antworten. */

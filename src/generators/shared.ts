@@ -266,12 +266,11 @@ export function intervalSpace(clefs: readonly string[], width: string, policy: A
 }
 
 /**
- * Anzeigegrösse der Intervall-Notenbilder: dazwischen füllen sie die Höhe, die
- * die Übungsansicht übrig hat (ScoreSpec.fit). Unter 2 (System 80 px hoch)
- * wird lieber gescrollt; über 4 (160 px) wird es auf grossen Bildschirmen nur
- * noch riesig — Telefone bleiben ohnehin darunter.
+ * Höchste Anzeigegrösse der Intervall-Notenbilder (System 160 px hoch). Bis
+ * dahin füllen sie die Höhe, die die Übungsansicht neben den Antworten übrig
+ * hat (ScoreSpec.fit); darüber würde es auf grossen Bildschirmen nur riesig.
+ * Telefone bleiben ohnehin darunter. Gezeichnet wird zuerst 2-fach.
  */
-const INTERVAL_MIN_SCALE = 2;
 const INTERVAL_MAX_SCALE = 4;
 
 /**
@@ -290,8 +289,8 @@ function twoNoteScore(
   return {
     clef,
     width,
-    scale: INTERVAL_MIN_SCALE,
-    fit: { minScale: INTERVAL_MIN_SCALE, maxScale: INTERVAL_MAX_SCALE },
+    scale: 2,
+    fit: { maxScale: INTERVAL_MAX_SCALE },
     space,
     measures: [{ notes: [{ keys, duration: 'w' }] }],
   };

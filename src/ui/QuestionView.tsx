@@ -21,7 +21,7 @@ import { NotationInput } from '../music/notation-input/NotationInput';
 import { scoreTask, type TaskResult } from '../scoring';
 import { AnswerProvider, type AnswerStore } from '../state';
 import { FeedbackDetails, Verdict, hasDetails } from './Feedback';
-import { Score } from './Score';
+import { REFIT_EVENT, Score } from './Score';
 import { SelectTaskView } from './SelectTaskView';
 
 /**
@@ -108,6 +108,17 @@ export function QuestionView({
     question.task.kind === 'select' && question.task.fields.length === 1 && question.task.fields[0].buttons
       ? question.task.fields[0]
       : null;
+
+  // Die Erklärung steht über der Aufgabe: ein- oder ausgeblendet ändert sie den
+  // Platz, den ein Notenbild mit `fit` füllen darf.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    globalThis.dispatchEvent(new Event(REFIT_EVENT));
+  }, [showExplanation]);
 
   const nextButton = useRef<HTMLButtonElement>(null);
   const details = useRef<HTMLDivElement>(null);

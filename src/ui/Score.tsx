@@ -12,6 +12,13 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { ScoreSpec } from '../content/schema';
 import { renderScore, type RenderedScore } from '../music/render';
 
+/**
+ * Ereignis am Fenster: der Platz um die Notenbilder hat sich geändert, ohne
+ * dass das Fenster seine Grösse geändert hätte. Notenbilder mit `fit` messen
+ * dann neu.
+ */
+export const REFIT_EVENT = 'score-refit';
+
 export function Score({
   spec,
   onRendered,
@@ -33,14 +40,19 @@ export function Score({
 
     const fit = spec.fit;
     if (!fit) return;
-    // Neu gemessen wird beim Zeichnen und wenn sich das Fenster ändert
-    // (Drehen, Safaris ein- und ausfahrende Leisten) — nicht, wenn die Leiste
-    // unten nach dem Antworten höher wird: sonst schrumpfte das Bild mitten
-    // in der Rückmeldung.
+    // Neu gemessen wird beim Zeichnen, wenn sich das Fenster ändert (Drehen,
+    // Safaris ein- und ausfahrende Leisten) und wenn die Übung es meldet
+    // (REFIT_EVENT, etwa beim Ein- und Ausblenden der Erklärung) — nicht aber,
+    // wenn die Leiste unten nach dem Antworten höher wird: sonst schrumpfte
+    // das Bild mitten in der Rückmeldung.
     const refit = () => fitToRoom(element, fit);
     refit();
     globalThis.addEventListener('resize', refit);
-    return () => globalThis.removeEventListener('resize', refit);
+    globalThis.addEventListener(REFIT_EVENT, refit);
+    return () => {
+      globalThis.removeEventListener('resize', refit);
+      globalThis.removeEventListener(REFIT_EVENT, refit);
+    };
     // `signature` als Abhängigkeit: `spec` ist bei jedem Rendern ein neues
     // Objekt, der Inhalt aber meist identisch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,7 +63,7 @@ export function Score({
 
 /**
  * Grösse eines Notenbilds mit `fit`: so gross, dass der Rest der Aufgabe
- * gerade noch ohne Scrollen Platz hat, zwischen `minScale` und `maxScale`.
+ * gerade noch ohne Scrollen Platz hat, höchstens `maxScale`.
  *
  * Gerechnet wird in der scrollenden Mitte der Übungsansicht (.session-body):
  * deren Innenhöhe, abzüglich allem, was ausser dem Bild darin steht. Der Rest
@@ -59,11 +71,12 @@ export function Score({
  * der Spalte —, deshalb genügt ein Durchgang. Breiter als die Spalte wird das
  * Bild nie (max-width: 100%, render.ts). Ausserhalb der Übungsansicht bleibt
  * es bei `scale`.
+ *
+ * Eine Untergrenze gibt es nicht: die Antworten müssen immer ganz sichtbar
+ * sein, auch auf dem quer gehaltenen Telefon. Nur ein paar Pixel bleiben,
+ * damit das Bild nicht ganz verschwindet.
  */
-function fitToRoom(
-  container: HTMLDivElement,
-  { minScale, maxScale }: NonNullable<ScoreSpec['fit']>,
-): void {
+function fitToRoom(container: HTMLDivElement, { maxScale }: NonNullable<ScoreSpec['fit']>): void {
   const svg = container.querySelector('svg');
   const body = container.closest<HTMLElement>('.session-body');
   const column = body?.firstElementChild;
@@ -76,6 +89,6 @@ function fitToRoom(
   // Die Spalte umschliesst die Ränder ihres Inhalts (display: flow-root,
   // styles.css) — sonst fehlten sie hier.
   const others = column.getBoundingClientRect().height - svg.getBoundingClientRect().height;
-  const height = Math.min(Math.max(room - others, drawnHeight * minScale), drawnHeight * maxScale);
+  const height = Math.min(Math.max(room - others, 20), drawnHeight * maxScale);
   svg.style.width = `${Math.floor((height * drawnWidth) / drawnHeight)}px`;
 }
