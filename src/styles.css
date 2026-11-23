@@ -1102,12 +1102,13 @@
 
 /*
  * Nach dem Prüfen: die ganze Leiste in der Farbe des Urteils — auf einen Blick
- * zu sehen, auch ohne den Text zu lesen. Schrift weiss; die Knöpfe bleiben,
- * wie sie sind. Das Grün ist etwas heller als --good (Kontrast zu Weiss noch
- * 4,3:1, Rot und Ocker über 5:1).
+ * zu sehen, auch ohne den Text zu lesen. Die Knöpfe bleiben, wie sie sind.
+ * Schrift weiss auf Rot und Ocker (über 5:1); das leuchtende Grün ist zu hell
+ * für Weiss (1,9:1) und bekommt dunkle Schrift (8,8:1).
  */
 .session-bar.is-correct {
-  --bar: #238a57;
+  --bar: #00d903;
+  --bar-ink: var(--ink);
 }
 .session-bar.is-partial {
   --bar: #8a6400;
@@ -1121,7 +1122,7 @@
 }
 .session-bar.has-verdict .verdict,
 .session-bar.has-verdict .verdict-score {
-  color: #fff;
+  color: var(--bar-ink, #fff);
 }
 .session-bar.has-verdict .verdict-score {
   opacity: 0.85;
