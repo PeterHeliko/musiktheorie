@@ -36,7 +36,13 @@ export interface DetectOptions {
    * Periode. 0,1–0,15 ist der übliche Bereich.
    */
   threshold?: number;
-  /** Unterhalb dieser Lautstärke (RMS) gilt das Signal als Stille. */
+  /**
+   * Unterhalb dieser Lautstärke (RMS) gilt das Signal als Stille. Absichtlich
+   * nahe der digitalen Null: das Verfahren selbst hängt nicht von der
+   * Lautstärke ab, und auf iOS kommt Gesang ohne Sprachaufbereitung sehr leise
+   * an. Ob ein Fenster laut genug ist, entscheidet `NoiseGate` (level.ts) im
+   * Verhältnis zum Raum, nicht diese Zahl.
+   */
   minRms?: number;
 }
 
@@ -44,7 +50,7 @@ const DEFAULTS: Required<DetectOptions> = {
   minFrequency: 65,
   maxFrequency: 1100,
   threshold: 0.12,
-  minRms: 0.01,
+  minRms: 0.0002,
 };
 
 /**

@@ -49,8 +49,12 @@ async function open(): Promise<Microphone> {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        // Alle drei Aufbereitungen verfälschen die Tonhöhe oder schneiden
-        // gehaltene Töne ab — für Sprache gedacht, nicht für Gesang.
+        // Alle drei sind für Sprache gedacht, nicht für Gesang: Echo- und
+        // Rauschunterdrückung halten einen gehaltenen Ton für Störgeräusch und
+        // dämpfen ihn weg, die Pegelanpassung pumpt. Der Preis: ohne sie kommt
+        // das Signal je nach Gerät sehr leise an — auf iOS rund 20–30 dB
+        // leiser. Deshalb entscheidet `NoiseGate` relativ zum Raum, ob ein Ton
+        // da ist, und keine feste Lautstärkeschwelle.
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,

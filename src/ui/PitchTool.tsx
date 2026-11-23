@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { player } from '../audio/player';
 import { parsePitch, toGermanPitch } from '../music/theory';
 import { ANALYSIS_WINDOW, MicrophoneError, closeMicrophone, openMicrophone, type Microphone } from '../sing/microphone';
+import { NoiseGate, rms, toDb } from '../sing/level';
 import { DEFAULT_A4, midiFromFrequency, nameFromMidi, nearestNote, type NearestNote } from '../sing/notes';
 import { PitchSmoother, detectPitch } from '../sing/pitch';
 
@@ -29,7 +30,19 @@ interface Reading {
   note: NearestNote | null;
   frequency: number | null;
   clarity: number;
+  /** Eingangspegel in dBFS. */
+  levelDb: number;
+  /** Ab diesem Pegel gilt das Signal als Ton (dBFS). */
+  thresholdDb: number;
 }
+
+const SILENT_READING: Reading = {
+  note: null,
+  frequency: null,
+  clarity: 0,
+  levelDb: -Infinity,
+  thresholdDb: -Infinity,
+};
 
 interface Diagnostics {
   sampleRate: number;
@@ -39,12 +52,17 @@ interface Diagnostics {
   analysisMs: number;
   /** Auswertungen je Sekunde. */
   rate: number;
+  /** Lautester Pegel der letzten Sekunde, dBFS. */
+  peakDb: number;
+  /** Geschätztes Grundrauschen, dBFS. */
+  noiseDb: number;
+  thresholdDb: number;
 }
 
 export function PitchTool() {
   const [state, setState] = useState<'idle' | 'starting' | 'running' | 'error'>('idle');
   const [error, setError] = useState('');
-  const [reading, setReading] = useState<Reading>({ note: null, frequency: null, clarity: 0 });
+  const [reading, setReading] = useState<Reading>(SILENT_READING);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [a4, setA4] = useState(DEFAULT_A4);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -83,7 +101,7 @@ export function PitchTool() {
     stopLoop.current?.();
     stopLoop.current = null;
     await closeMicrophone();
-    setReading({ note: null, frequency: null, clarity: 0 });
+    setReading(SILENT_READING);
     setState('idle');
   };
 
@@ -141,6 +159,7 @@ export function PitchTool() {
           {note ? <NoteName name={note.name} /> : <span class="pitch-none">–</span>}
         </div>
         <CentsMeter cents={note?.cents ?? null} />
+        <LevelMeter levelDb={reading.levelDb} thresholdDb={reading.thresholdDb} active={running} />
         <div class="pitch-numbers">
           {reading.frequency !== null ? (
             <>
@@ -163,7 +182,11 @@ export function PitchTool() {
         <summary>So probierst du es aus</summary>
         <ol>
           <li>Mikrofon einschalten und erlauben.</li>
-          <li>Einen Ton lang aushalten, etwa auf «a» oder «u». Die Anzeige sollte ruhig stehen.</li>
+          <li>Einen Moment still sein: die Seite lernt, wie laut der Raum ist.</li>
+          <li>
+            Einen Ton lang aushalten, etwa auf «a» oder «u». Der Pegel sollte deutlich über die
+            Marke gehen und die Anzeige ruhig stehen.
+          </li>
           <li>Langsam nach oben und unten gleiten: die Kurve sollte ohne Sprünge folgen.</li>
           <li>
             «Referenzton» antippen, während das Mikrofon an ist. Auf manchen Telefonen wird die
@@ -214,6 +237,36 @@ function CentsMeter({ cents }: { cents: number | null }) {
 }
 
 /** `pitchKey` in wissenschaftlicher Schreibweise wie überall im Code: «a4» = a¹ = 440 Hz. */
+/** Anzeigebereich des Pegelmessers. Darunter ist Stille, darüber übersteuert es. */
+const LEVEL_MIN_DB = -90;
+const LEVEL_MAX_DB = -10;
+
+function levelPercent(db: number): number {
+  if (!Number.isFinite(db)) return 0;
+  return Math.max(0, Math.min(100, ((db - LEVEL_MIN_DB) / (LEVEL_MAX_DB - LEVEL_MIN_DB)) * 100));
+}
+
+/**
+ * Wie laut kommt das Mikrofon an — und wo liegt die Schwelle? Hilft beim
+ * Ausprobieren: wer singt und keinen Ausschlag über die Marke sieht, ist zu
+ * leise oder zu weit weg, nicht falsch.
+ */
+function LevelMeter({ levelDb, thresholdDb, active }: { levelDb: number; thresholdDb: number; active: boolean }) {
+  const above = levelDb > thresholdDb;
+  return (
+    <div class="level-meter" aria-hidden="true">
+      <span class="cents-label">Pegel</span>
+      <div class="level-track">
+        {active && <div class={`level-fill ${above ? 'is-above' : ''}`} style={{ width: `${levelPercent(levelDb)}%` }} />}
+        {active && Number.isFinite(thresholdDb) && (
+          <div class="level-threshold" style={{ left: `${levelPercent(thresholdDb)}%` }} />
+        )}
+      </div>
+      <span class="cents-label level-value">{active && Number.isFinite(levelDb) ? `${Math.round(levelDb)} dB` : ''}</span>
+    </div>
+  );
+}
+
 function ReferenceButton({ pitchKey }: { pitchKey: string }) {
   const pitch = parsePitch(pitchKey);
   return (
@@ -236,6 +289,11 @@ function DiagnosticsView({ diagnostics }: { diagnostics: Diagnostics }) {
       <dl class="diagnostics">
         <dt>Abtastrate</dt>
         <dd>{diagnostics.sampleRate} Hz</dd>
+        <dt>Pegel</dt>
+        <dd>
+          lautester der letzten Sekunde {formatDb(diagnostics.peakDb)}, Grundrauschen{' '}
+          {formatDb(diagnostics.noiseDb)}, Schwelle {formatDb(diagnostics.thresholdDb)}
+        </dd>
         <dt>Auswertung</dt>
         <dd>
           {diagnostics.analysisMs.toFixed(2)} ms je Fenster, {Math.round(diagnostics.rate)} pro Sekunde
@@ -255,6 +313,10 @@ function DiagnosticsView({ diagnostics }: { diagnostics: Diagnostics }) {
       </dl>
     </details>
   );
+}
+
+function formatDb(db: number): string {
+  return Number.isFinite(db) ? `${Math.round(db)} dBFS` : '–';
 }
 
 // ---------------------------------------------------------------------------
@@ -281,6 +343,10 @@ function runLoop(
   const { analyser, context } = microphone;
   const buffer = new Float32Array(ANALYSIS_WINDOW);
   const smoother = new PitchSmoother();
+  // Ob ein Ton da ist, entscheidet der Pegel im Verhältnis zum Raum — nicht
+  // eine feste Schwelle. Auf iOS kommt das Mikrofon sehr leise an.
+  const gate = new NoiseGate();
+  let peak = 0;
   const history: Point[] = [];
   let centre: number | null = null;
   let frame = 0;
@@ -295,9 +361,14 @@ function runLoop(
     const now = performance.now();
     analyser.getFloatTimeDomainData(buffer);
     const t0 = performance.now();
-    const estimate = detectPitch(buffer, context.sampleRate);
+    const level = rms(buffer);
+    const open = gate.update(level, now);
+    // Unter der Schwelle gar nicht erst suchen: spart Rechenzeit und
+    // verhindert, dass Raumgeräusche als Ton erscheinen.
+    const estimate = open ? detectPitch(buffer, context.sampleRate) : null;
     analysisTotal += performance.now() - t0;
     analysisCount++;
+    peak = Math.max(peak, level);
 
     const frequency = smoother.push(estimate);
     const midi = frequency !== null ? midiFromFrequency(frequency, a4.current) : null;
@@ -315,6 +386,8 @@ function runLoop(
         note: frequency !== null ? nearestNote(frequency, a4.current) : null,
         frequency,
         clarity: estimate?.clarity ?? 0,
+        levelDb: toDb(level),
+        thresholdDb: toDb(gate.threshold),
       });
     }
     if (now - windowStart > 1000) {
@@ -324,7 +397,11 @@ function runLoop(
         baseLatency: typeof context.baseLatency === 'number' ? context.baseLatency : null,
         analysisMs: analysisTotal / analysisCount,
         rate: (analysisCount * 1000) / (now - windowStart),
+        peakDb: toDb(peak),
+        noiseDb: gate.noiseFloor !== null ? toDb(gate.noiseFloor) : -Infinity,
+        thresholdDb: toDb(gate.threshold),
       });
+      peak = 0;
       analysisTotal = 0;
       analysisCount = 0;
       windowStart = now;

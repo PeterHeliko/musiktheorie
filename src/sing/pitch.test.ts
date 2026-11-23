@@ -96,7 +96,24 @@ describe('detectPitch', () => {
 
   it('meldet Stille als keinen Ton', () => {
     expect(detectPitch(new Float32Array(WINDOW), 48000)).toBeNull();
-    expect(detectPitch(signal(440, 48000, sine, { amplitude: 0.002 }), 48000)).toBeNull();
+    // −80 dBFS: unter allem, was ein Mikrofon bei Gesang liefert.
+    expect(detectPitch(signal(440, 48000, sine, { amplitude: 0.0001 }), 48000)).toBeNull();
+  });
+
+  it('erkennt auch sehr leise Töne — so kommt Gesang auf iOS an', () => {
+    // Spitze 0,003 ≈ −50 dBFS, also rund 40 dB leiser als die Tests oben.
+    for (const frequency of [110, 220, 440]) {
+      const estimate = detectPitch(signal(frequency, 48000, saw, { amplitude: 0.003 }), 48000);
+      expect(estimate, `${frequency} Hz`).not.toBeNull();
+      expect(Math.abs(cents(estimate!.frequency, frequency)), `${frequency} Hz`).toBeLessThan(5);
+    }
+  });
+
+  it('misst unabhängig von der Lautstärke', () => {
+    const loud = detectPitch(signal(196, 48000, saw, { amplitude: 0.4 }), 48000)!;
+    const quiet = detectPitch(signal(196, 48000, saw, { amplitude: 0.004 }), 48000)!;
+    expect(Math.abs(cents(quiet.frequency, loud.frequency))).toBeLessThan(0.1);
+    expect(Math.abs(quiet.clarity - loud.clarity)).toBeLessThan(0.001);
   });
 
   it('meldet reines Rauschen als keinen oder einen unklaren Ton', () => {

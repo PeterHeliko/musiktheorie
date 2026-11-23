@@ -325,6 +325,9 @@ their own range.
 
 - **iOS Safari.** While the microphone is open, iOS can lower playback volume or change the
   audio route. Test on real iPhones early.
+- **iOS input level** (confirmed in the Phase 0 test). With voice processing off, the
+  microphone signal arrives very quietly. Never judge singing against a fixed level; compare
+  it to the room noise (`NoiseGate`), and keep pitch detection level-independent.
 - **Safari permission prompts.** Safari asks for microphone permission again after every
   full page load. This is one reason the site should change pages without reloading (§9).
 - **Noisy rooms and detector octave errors.** Mitigated by the clarity threshold and
@@ -536,9 +539,12 @@ New:
   included.
 - **Done when** `training`'s exercises run on `github.io`, every exercise state is a link,
   and we know whether pitch detection holds up on phones.
-- **Status 2026-11-23:** built and verified locally (unit tests, build, browser checks incl.
-  a fake microphone). Open: the first deploy, and testing `/werkzeuge/tonhoehe/` on real
-  phones, iPhone included.
+- **Status 2026-11-23:** deployed to `peterheliko.github.io/musiktheorie/`.
+  - The microphone works on iOS, but the input level is very low: without voice processing,
+    iOS delivers the raw signal some 20–30 dB quieter than desktop browsers.
+  - Fixed by deciding "tone or room" relative to the learned room noise instead of a fixed
+    level (`src/sing/level.ts`), and by adding a level meter.
+  - Open: retest on the iPhone.
 
 ### Phase 1 — musicca's shape (first public release)
 

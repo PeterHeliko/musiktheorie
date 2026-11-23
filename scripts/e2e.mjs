@@ -69,7 +69,12 @@ async function scoreFingerprint(page) {
   return svgs.join('').replace(/\sid="[^"]*"/g, '');
 }
 
-/** Ein Mikrofonsignal als WAV: obertonreicher Ton, wie eine Stimme. */
+/**
+ * Ein Mikrofonsignal als WAV, so leise wie auf einem iPhone ohne
+ * Sprachaufbereitung: erst eine Sekunde Raumrauschen (rund −75 dBFS), dann ein
+ * obertonreicher Ton wie eine Stimme, Spitze etwa −33 dBFS. Mit der früheren
+ * festen Schwelle von −40 dBFS RMS wäre dieser Ton als Stille durchgefallen.
+ */
 function writeToneWav(path, frequency, seconds = 4, sampleRate = 48000) {
   const count = Math.round(seconds * sampleRate);
   const buffer = Buffer.alloc(44 + count * 2);
@@ -86,13 +91,23 @@ function writeToneWav(path, frequency, seconds = 4, sampleRate = 48000) {
   buffer.writeUInt16LE(16, 34);
   buffer.write('data', 36);
   buffer.writeUInt32LE(count * 2, 40);
+  const leadIn = sampleRate; // eine Sekunde nur Raum
+  let seed = 12345;
+  const noise = () => {
+    seed = (seed * 1103515245 + 12345) >>> 0;
+    return seed / 0xffffffff - 0.5;
+  };
   for (let i = 0; i < count; i++) {
     let value = 0;
-    // Grundton plus fünf Obertöne mit abnehmender Stärke.
-    for (let harmonic = 1; harmonic <= 6; harmonic++) {
-      value += Math.sin((2 * Math.PI * frequency * harmonic * i) / sampleRate) / harmonic;
+    if (i >= leadIn) {
+      // Grundton plus fünf Obertöne mit abnehmender Stärke.
+      for (let harmonic = 1; harmonic <= 6; harmonic++) {
+        value += Math.sin((2 * Math.PI * frequency * harmonic * i) / sampleRate) / harmonic;
+      }
+      value *= 0.014;
     }
-    buffer.writeInt16LE(Math.round(value * 0.25 * 32767), 44 + i * 2);
+    value += noise() * 0.0006;
+    buffer.writeInt16LE(Math.round(value * 32767), 44 + i * 2);
   }
   writeFileSync(path, buffer);
 }
@@ -462,8 +477,9 @@ async function main() {
 
   // ---------------------------------------------------------- Tonhöhe
   // Eigener Browser: Chromium liest eine WAV-Datei als Mikrofon. 196 Hz mit
-  // Obertönen = g (kleines g), ähnlich obertonreich wie eine Stimme.
-  console.log('\nTonhöhe mit künstlichem Mikrofon');
+  // Obertönen = g (kleines g), ähnlich obertonreich wie eine Stimme — und so
+  // leise, wie ein iPhone das Mikrofon liefert.
+  console.log('\nTonhöhe mit künstlichem, leisem Mikrofon (wie auf iOS)');
   const wav = join(tmpdir(), `musiktheorie-e2e-${process.pid}.wav`);
   writeToneWav(wav, 196);
   const micBrowser = await chromium.launch({
@@ -501,15 +517,21 @@ async function main() {
     } catch {
       heard = (await micPage.locator('.pitch-note').innerText()).trim();
     }
-    check(heard === 'g', `erkennt 196 Hz als «g» (angezeigt: «${heard}»)`);
+    check(heard === 'g', `erkennt den leisen Ton 196 Hz als «g» (angezeigt: «${heard}»)`);
+    check(
+      (await micPage.locator('.level-fill.is-above').count()) === 1,
+      'der Pegelmesser zeigt den Ton über der Schwelle',
+    );
     const numbers = await micPage.locator('.pitch-numbers').innerText();
     const hz = Number(/([\d.]+) Hz/.exec(numbers)?.[1]);
     check(Math.abs(hz - 196) < 1.5, `misst die Frequenz genau (${numbers})`);
     await micPage.locator('.tool-help summary', { hasText: 'Technische Angaben' }).click();
+    const diagnostics = await micPage.locator('.diagnostics').innerText();
     check(
-      (await micPage.locator('.diagnostics').innerText()).includes('ms je Fenster'),
+      diagnostics.includes('ms je Fenster') && diagnostics.includes('Grundrauschen'),
       'zeigt die technischen Angaben für den Gerätetest',
     );
+    console.log(`       ${diagnostics.split('\n').find((line) => line.includes('Grundrauschen'))}`);
     await micPage.screenshot({ path: join(SHOTS, 'tonhoehe.png'), fullPage: true });
     await micPage.locator('button:has-text("Mikrofon ausschalten")').click();
     check(

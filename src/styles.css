@@ -999,3 +999,49 @@ a.mode-card {
   color: var(--ink-soft);
   padding: 24px 0;
 }
+
+/* Pegelmesser unter der Cent-Anzeige. */
+.level-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  margin: 0 auto 8px;
+}
+
+.level-track {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.level-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--line-strong);
+}
+
+.level-fill.is-above {
+  background: var(--accent);
+}
+
+.level-threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink-soft);
+}
+
+.level-value {
+  min-width: 3.6em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
