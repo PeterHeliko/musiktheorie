@@ -35,7 +35,7 @@ const MODES = {
   'pausen-ergaenzen': 'Fehlende Pausen ergänzen',
   'intervalle-grob-bestimmen': 'Intervalle grob bestimmen',
   'intervalle-grob-notieren': 'Intervalle grob notieren',
-  'intervalle-bestimmen': 'Intervalle am Notenbild bestimmen',
+  'intervalle-bestimmen': 'Intervalle fein bestimmen',
   'intervalle-notieren': 'Intervalle notieren',
   'intervalle-hoeren': 'Intervalle hörend erkennen',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
@@ -228,7 +228,7 @@ async function main() {
         [
           'Intervalle grob bestimmen',
           'Intervalle grob notieren',
-          'Intervalle am Notenbild bestimmen',
+          'Intervalle fein bestimmen',
           'Intervalle notieren',
           'Intervalle hörend erkennen',
         ].join('|'),
@@ -240,12 +240,12 @@ async function main() {
       `gegliedert in Grob- und Feinbestimmung (${groupHeadings.join(', ')})`,
     );
     await page.screenshot({ path: join(SHOTS, '01-thema.png'), fullPage: true });
-    await page.locator('.nav-list a', { hasText: 'Intervalle am Notenbild bestimmen' }).click();
+    await page.locator('.nav-list a', { hasText: 'Intervalle fein bestimmen' }).click();
     await page.waitForSelector('.question');
     check(page.url().startsWith(exercise('intervalle-bestimmen')), 'eine Übung öffnet sich');
     check(await page.evaluate(() => window.__ohneNeuladen === true), 'alles ohne die Seite neu zu laden');
     check(
-      (await page.title()) === 'Intervalle am Notenbild bestimmen · Musiktheorie üben',
+      (await page.title()) === 'Intervalle fein bestimmen · Musiktheorie üben',
       'der Titel im Tab folgt',
     );
     check((await page.locator('.site-header').count()) === 0, 'in der Übung ist die Kopfzeile der Website weg');

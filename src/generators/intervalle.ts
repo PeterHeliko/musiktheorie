@@ -46,7 +46,7 @@ import { multi, single, type FilterValues, type Generator, type Question } from 
 const ALL_INTERVALS = INTERVAL_OPTIONS.map((option) => option.value);
 
 // ---------------------------------------------------------------------------
-// Intervalle am Notenbild bestimmen
+// Intervalle fein bestimmen
 // ---------------------------------------------------------------------------
 
 interface NamingFilters extends FilterValues {
@@ -62,7 +62,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
   group: 'fein',
   skill: 'erkennen',
   version: 1,
-  title: 'Intervalle am Notenbild bestimmen',
+  title: 'Intervalle fein bestimmen',
   instruction: 'Bestimme das Intervall.',
 
   filters: [

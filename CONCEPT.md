@@ -176,7 +176,7 @@ groups.
 | ----------------------------- | ---------- | ------ | ----- |
 | Intervalle grob bestimmen     | Erkennen   | grob   | ✓     |
 | Intervalle grob notieren      | Notieren   | grob   | ✓     |
-| Intervalle bestimmen          | Erkennen   | fein   | ✓     |
+| Intervalle fein bestimmen     | Erkennen   | fein   | ✓     |
 | Intervalle notieren           | Notieren   | fein   | ✓     |
 | Intervalle auf der Klaviatur  | Klaviatur  |        |       |
 | Intervalle hören              | Hören      | fein   | ✓     |
