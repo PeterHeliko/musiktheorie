@@ -16,9 +16,9 @@ import type { NotationTask, ScoreSpec, Task } from '../content/schema';
 import type { TaskResult } from '../scoring';
 import { Score } from './Score';
 
-type Grade = 'correct' | 'partial' | 'wrong';
+export type Grade = 'correct' | 'partial' | 'wrong';
 
-function gradeOf(result: TaskResult): Grade {
+export function gradeOf(result: TaskResult): Grade {
   if (result.earned >= result.possible - 1e-9) return 'correct';
   return result.earned > 1e-9 ? 'partial' : 'wrong';
 }

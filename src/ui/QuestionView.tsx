@@ -20,7 +20,7 @@ import type { Question } from '../generators/types';
 import { NotationInput } from '../music/notation-input/NotationInput';
 import { scoreTask, type TaskResult } from '../scoring';
 import { AnswerProvider, type AnswerStore } from '../state';
-import { FeedbackDetails, Verdict, hasDetails } from './Feedback';
+import { FeedbackDetails, Verdict, gradeOf, hasDetails } from './Feedback';
 import { REFIT_EVENT, Score } from './Score';
 import { SelectTaskView } from './SelectTaskView';
 
@@ -224,8 +224,9 @@ export function QuestionView({
 
       {/* Schmal: Rückmeldung mittig über dem Knopf. Breit: Rückmeldung links,
           Knöpfe rechts (Container-Query in styles.css). Der Hauptknopf steht
-          zuletzt, also ganz rechts. */}
-      <footer class="session-bar">
+          zuletzt, also ganz rechts. Nach dem Prüfen färbt sich die ganze
+          Leiste nach dem Urteil (styles.css). */}
+      <footer class={`session-bar ${result ? `has-verdict is-${gradeOf(result)}` : ''}`}>
         <div class="session-column">
           <div class="bar-content">
             {result && <Verdict result={result} task={question.task} />}

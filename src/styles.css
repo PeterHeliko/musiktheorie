@@ -1100,6 +1100,52 @@
   color: var(--ink-soft);
 }
 
+/*
+ * Nach dem Prüfen: die ganze Leiste in der Farbe des Urteils — auf einen Blick
+ * zu sehen, auch ohne den Text zu lesen. Schrift weiss (Kontrast zu allen drei
+ * Farben über 5:1), der Hauptknopf kehrt sich um: weiss mit farbiger Schrift,
+ * ein blauer Knopf auf Grün oder Rot würde sich beissen.
+ */
+.session-bar.is-correct {
+  --bar: var(--good);
+}
+.session-bar.is-partial {
+  --bar: #8a6400;
+}
+.session-bar.is-wrong {
+  --bar: var(--bad);
+}
+.session-bar.has-verdict {
+  background: var(--bar);
+  border-top-color: var(--bar);
+}
+.session-bar.has-verdict .verdict,
+.session-bar.has-verdict .verdict-score {
+  color: #fff;
+}
+.session-bar.has-verdict .verdict-score {
+  opacity: 0.85;
+}
+.session-bar.has-verdict .session-actions button.primary {
+  background: #fff;
+  border-color: #fff;
+  color: var(--bar);
+}
+/* Nur mit echtem Zeiger: auf dem Telefon bliebe der Hover-Zustand nach dem
+   Tippen auf «Prüfen» am darunter erscheinenden «Weiter» hängen. */
+.session-bar.has-verdict .session-actions button.primary:hover:not(:disabled) {
+  filter: none;
+}
+@media (hover: hover) {
+  .session-bar.has-verdict .session-actions button.primary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.9);
+  }
+}
+.session-bar.has-verdict .session-actions button.primary:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
 .notice-actions {
   display: flex;
   flex-wrap: wrap;
