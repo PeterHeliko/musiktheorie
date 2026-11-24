@@ -8,6 +8,7 @@
  * ergeben dieselben Aufgaben.
  */
 
+import { navigate } from '../router';
 import type { TaskResult } from '../scoring';
 
 export interface RoundEntry {
@@ -20,11 +21,18 @@ export function RoundSummary({
   onRepeat,
   onRepeatWrong,
   onBack,
+  inCourse,
 }: {
   entries: RoundEntry[];
   onRepeat: () => void;
   onRepeatWrong: (seeds: number[]) => void;
+  /** Zum Thema — im Kurs zum Kurs. */
   onBack: () => void;
+  /**
+   * Die Runde war ein Schritt eines Kurses. Dann geht es zuerst weiter im
+   * Kurs; null beim letzten Schritt.
+   */
+  inCourse?: { nextHref: string | null } | null;
 }) {
   const correct = entries.filter((entry) => isPerfect(entry.result)).length;
   const wrong = entries.filter((entry) => !isPerfect(entry.result));
@@ -41,7 +49,8 @@ export function RoundSummary({
       </p>
 
       {wrong.length === 0 ? (
-        <p class="notice notice-good">Alles richtig. Zeit für einen engeren Filter?</p>
+        // Im Kurs sind die Filter fest; der Rat passt dort nicht.
+        <p class="notice notice-good">{inCourse ? 'Alles richtig.' : 'Alles richtig. Zeit für einen engeren Filter?'}</p>
       ) : (
         <>
           <h3>Diese Aufgaben sassen noch nicht</h3>
@@ -65,23 +74,48 @@ export function RoundSummary({
         </>
       )}
 
-      <div class="round-actions">
-        {wrong.length > 0 && (
+      {inCourse ? (
+        <div class="round-actions">
           <button
             type="button"
             class="primary"
-            onClick={() => onRepeatWrong(wrong.map((entry) => entry.seed))}
+            onClick={() => (inCourse.nextHref ? navigate(inCourse.nextHref) : onBack())}
           >
-            Falsche wiederholen ({wrong.length})
+            {inCourse.nextHref ? 'Nächste Übung' : 'Zum Kurs'}
           </button>
-        )}
-        <button type="button" class={wrong.length > 0 ? '' : 'primary'} onClick={onRepeat}>
-          Neue Runde
-        </button>
-        <button type="button" class="link-button" onClick={onBack}>
-          Übung wechseln
-        </button>
-      </div>
+          {wrong.length > 0 && (
+            <button type="button" onClick={() => onRepeatWrong(wrong.map((entry) => entry.seed))}>
+              Falsche wiederholen ({wrong.length})
+            </button>
+          )}
+          <button type="button" onClick={onRepeat}>
+            Neue Runde
+          </button>
+          {inCourse.nextHref && (
+            <button type="button" class="link-button" onClick={onBack}>
+              Zum Kurs
+            </button>
+          )}
+        </div>
+      ) : (
+        <div class="round-actions">
+          {wrong.length > 0 && (
+            <button
+              type="button"
+              class="primary"
+              onClick={() => onRepeatWrong(wrong.map((entry) => entry.seed))}
+            >
+              Falsche wiederholen ({wrong.length})
+            </button>
+          )}
+          <button type="button" class={wrong.length > 0 ? '' : 'primary'} onClick={onRepeat}>
+            Neue Runde
+          </button>
+          <button type="button" class="link-button" onClick={onBack}>
+            Übung wechseln
+          </button>
+        </div>
+      )}
     </div>
   );
 }

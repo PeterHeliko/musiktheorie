@@ -27,9 +27,24 @@
  *  - «endlos»: eine Aufgabe nach der anderen; oben steht, die wievielte.
  *  - «Runde»: eine feste Anzahl, danach eine Auswertung. Alle Aufgaben einer
  *    Runde stammen aus EINEM Startwert, damit ein Link die ganze Runde trägt.
+ *
+ * Als Schritt eines Kurses (`…&kurs=<id>&schritt=2`, siehe `courses.ts`)
+ * läuft die Übung als Runde mit den Einstellungen des Kurses: ✕ führt zum
+ * Kurs zurück, ⚙ zeigt keine Filter, und eine fertige Runde hakt den Schritt
+ * ab und bietet den nächsten an. Kennt dieses Gerät den Kurs nicht, ist es
+ * einfach die Übung.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import {
+  courseTitle,
+  decodeCourse,
+  decodePlace,
+  placeSuffix,
+  stepKey,
+  stepQuery,
+  type CoursePlace,
+} from '../courses';
 import { freshSeed, roundSeeds, withoutRepeats } from '../generators/fresh';
 import { makeRng, randomSeed } from '../generators/rng';
 import type { FilterValues, Generator, Personal, Question } from '../generators/types';
@@ -38,9 +53,11 @@ import type { TaskResult } from '../scoring';
 import { hrefFor, navigate, replaceQuery } from '../router';
 import {
   clearFilters,
+  findCourse,
   loadFilters,
   loadPersonal,
   loadSession,
+  markStepDone,
   recordResult,
   saveFilters,
   savePersonal,
@@ -74,6 +91,52 @@ interface Start {
   outdated: boolean;
 }
 
+/** Die Übung als Schritt eines Kurses auf diesem Gerät. */
+export interface InCourse {
+  /** Kennung des Kurses im Speicher. */
+  id: string;
+  title: string;
+  /** Adresse der Kursseite. */
+  href: string;
+  /** Schlüssel des Schritts, für «erledigt». */
+  key: string;
+  /** Kursbezug für die Adresszeile dieser Übung. */
+  place: CoursePlace;
+  /** Adresse des nächsten Schritts; null beim letzten. */
+  nextHref: string | null;
+}
+
+/**
+ * Gehört diese Übung zu einem Kurs? Nur, wenn dieses Gerät den Kurs kennt und
+ * er genau diesen Schritt hat — dieselbe Übung, dieselben Einstellungen,
+ * dieselbe Rundengrösse. Wurde der Kurs inzwischen umgestellt, wird der
+ * Schritt an seiner neuen Stelle gesucht.
+ */
+function findInCourse(generator: Generator<FilterValues>, search: string, start: Start): InCourse | null {
+  const place = decodePlace(search);
+  if (!place || start.session.mode !== 'runde') return null;
+  const stored = findCourse(place.course);
+  if (!stored) return null;
+  const course = decodeCourse(stored.link);
+  const key = stepKey({ exercise: generator.id, filters: start.filters, round: start.session.size });
+  let index = place.step - 1;
+  if (!course.steps[index] || stepKey(course.steps[index]) !== key) {
+    index = course.steps.findIndex((step) => stepKey(step) === key);
+  }
+  if (index < 0) return null;
+  const next = course.steps[index + 1];
+  return {
+    id: stored.id,
+    title: courseTitle(course),
+    href: hrefFor({ page: 'kurs' }, stored.link),
+    key,
+    place: { course: stored.id, step: index + 1 },
+    nextHref: next
+      ? hrefFor({ page: 'uebung', id: next.exercise }, stepQuery(next, { course: stored.id, step: index + 2 }))
+      : null,
+  };
+}
+
 function startState(generator: Generator<FilterValues>, search: string): Start {
   const link = decodeLink(generator, search);
   const stored = loadSession(generator.id);
@@ -102,6 +165,7 @@ export function ExercisePage({
 }) {
   // Nur beim Öffnen gelesen; danach führt die Seite die Adresse selbst nach.
   const start = useMemo(() => startState(generator, search), []);
+  const inCourse = useMemo(() => findInCourse(generator, search, start), []);
 
   const [filters, setFilters] = useState<FilterValues>(start.filters);
   const [session, setSession] = useState<SessionSettings>(start.session);
@@ -155,9 +219,12 @@ export function ExercisePage({
       ? encodeLink(generator, { filters, round: inRound ? session.size : null, seed: taskSeed })
       : null;
 
+  // Im Kurs bleibt der Kursbezug in der Adresse — nur dort, nicht in den
+  // Links zum Teilen: die Kennung gilt nur auf diesem Gerät.
+  const placeQuery = inCourse ? placeSuffix(inCourse.place) : '';
   useEffect(() => {
-    replaceQuery(pageHref + (taskQuery ?? exerciseQuery));
-  }, [pageHref, taskQuery, exerciseQuery]);
+    replaceQuery(pageHref + withPlace(taskQuery ?? exerciseQuery, placeQuery));
+  }, [pageHref, taskQuery, exerciseQuery, placeQuery]);
 
   // Wer die Singübung verlässt, schaltet das Mikrofon aus — das Aufnahme-
   // zeichen des Browsers soll nicht weiterleuchten.
@@ -198,13 +265,17 @@ export function ExercisePage({
     (next: { filters: FilterValues; session: SessionSettings; personal?: Personal }) => {
       const canonical = canonicalFilters(generator, next.filters);
       setFilters(canonical);
-      if (JSON.stringify(canonical) === JSON.stringify(canonicalFilters(generator, generator.defaults))) {
-        clearFilters(generator.id);
-      } else {
-        saveFilters(generator.id, canonical);
-      }
       setSession(next.session);
-      saveSession(generator.id, next.session);
+      // Im Kurs gehören Filter und Runde dem Kurs, nicht der übenden Person:
+      // ihre eigenen gespeicherten Einstellungen bleiben, wie sie sind.
+      if (!inCourse) {
+        if (JSON.stringify(canonical) === JSON.stringify(canonicalFilters(generator, generator.defaults))) {
+          clearFilters(generator.id);
+        } else {
+          saveFilters(generator.id, canonical);
+        }
+        saveSession(generator.id, next.session);
+      }
       const own = next.personal ?? personal;
       if (next.personal) {
         setPersonal(next.personal);
@@ -213,7 +284,7 @@ export function ExercisePage({
       setOutdated(false);
       restart(canonical, next.session, own);
     },
-    [generator, restart, personal],
+    [generator, restart, personal, inCourse],
   );
 
   const repeatWrong = useCallback(
@@ -245,6 +316,8 @@ export function ExercisePage({
     setExplain(false);
     if (inRound && round.length >= roundTarget) {
       setSummary(round);
+      // Erledigt heisst: die Runde ist fertig — wie gut, zählt nicht (Entscheid 2026-11-24).
+      if (inCourse) markStepDone(inCourse.id, inCourse.key);
       return;
     }
     if (queue.length > 0) {
@@ -254,10 +327,11 @@ export function ExercisePage({
       return;
     }
     setCurrent(build(generator, filters, freshSeed(generator, filters, personal, current.question, randomSeed), personal));
-  }, [queue, inRound, round, roundTarget, generator, filters, personal, current.question]);
+  }, [queue, inRound, round, roundTarget, generator, filters, personal, current.question, inCourse]);
 
   // ---------------------------------------------------------------- Ansicht
-  const topicHref = hrefFor({ page: 'thema', topic: generator.topic });
+  /** Wohin ✕ führt: zum Kurs, sonst zum Thema. */
+  const backHref = inCourse ? inCourse.href : hrefFor({ page: 'thema', topic: generator.topic });
   const instruction = current.question?.instruction ?? generator.instruction;
   const hint = current.question?.hint ?? generator.hint;
 
@@ -290,7 +364,8 @@ export function ExercisePage({
             entries={summary}
             onRepeat={() => restart(filters, session, personal)}
             onRepeatWrong={repeatWrong}
-            onBack={() => navigate(topicHref)}
+            onBack={() => navigate(backHref)}
+            inCourse={inCourse}
           />
         </div>
       </main>
@@ -301,17 +376,26 @@ export function ExercisePage({
         <div class="session-column">
           <div class="notice notice-warning">
             <p>{current.error}</p>
-            <div class="notice-actions">
-              <button type="button" class="primary" onClick={() => setSettingsOpen(true)}>
-                Einstellungen ändern
-              </button>
-              <button
-                type="button"
-                onClick={() => applySettings({ filters: generator.defaults, session })}
-              >
-                Auf Vorgabe zurücksetzen
-              </button>
-            </div>
+            {inCourse ? (
+              // Die Einstellungen gehören dem Kurs; ändern lassen sie sich hier nicht.
+              <div class="notice-actions">
+                <button type="button" class="primary" onClick={() => navigate(inCourse.href)}>
+                  Zurück zum Kurs
+                </button>
+              </div>
+            ) : (
+              <div class="notice-actions">
+                <button type="button" class="primary" onClick={() => setSettingsOpen(true)}>
+                  Einstellungen ändern
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applySettings({ filters: generator.defaults, session })}
+                >
+                  Auf Vorgabe zurücksetzen
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -340,7 +424,7 @@ export function ExercisePage({
     <div class="session">
       <header class="session-top">
         <div class="session-column session-top-inner">
-          <a class="session-icon" href={topicHref} aria-label="Übung schliessen">
+          <a class="session-icon" href={backHref} aria-label={inCourse ? 'Zurück zum Kurs' : 'Übung schliessen'}>
             <CloseIcon />
           </a>
           <h1 class="session-title">{generator.title}</h1>
@@ -379,6 +463,7 @@ export function ExercisePage({
           session={session}
           personal={personal}
           taskHref={taskQuery !== null ? pageHref + taskQuery : null}
+          inCourse={inCourse}
           onClose={(changes) => {
             setSettingsOpen(false);
             if (changes) applySettings(changes);
@@ -387,6 +472,12 @@ export function ExercisePage({
       )}
     </div>
   );
+}
+
+/** Abfrageteil plus Kursbezug («&kurs=…»); der Kursbezug allein beginnt mit «?». */
+function withPlace(query: string, place: string): string {
+  if (!place) return query;
+  return query ? query + place : `?${place.slice(1)}`;
 }
 
 /**

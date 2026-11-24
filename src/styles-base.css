@@ -1003,6 +1003,12 @@ tr.is-manual .detail-label {
   cursor: pointer;
   white-space: nowrap;
 }
+a.link-button {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
 .link-button:hover {
   background: var(--accent-soft);
   border-color: var(--accent);

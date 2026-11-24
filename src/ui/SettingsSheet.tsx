@@ -27,6 +27,7 @@ export function SettingsSheet({
   session,
   personal,
   taskHref,
+  inCourse,
   onClose,
 }: {
   generator: Generator<FilterValues>;
@@ -36,6 +37,12 @@ export function SettingsSheet({
   personal: Personal;
   /** Link zur laufenden Aufgabe bzw. Runde; null, wenn es keinen gibt. */
   taskHref: string | null;
+  /**
+   * Die Übung ist ein Schritt dieses Kurses. Übungsform und Filter gehören
+   * dann dem Kurs und stehen nicht zur Wahl; «Frei üben» öffnet dieselbe
+   * Übung ausserhalb des Kurses.
+   */
+  inCourse?: { title: string } | null;
   /** Mit den neuen Werten — oder null, wenn sich nichts geändert hat. */
   onClose: (next: { filters: FilterValues; session: SessionSettings; personal: Personal } | null) => void;
 }) {
@@ -80,6 +87,11 @@ export function SettingsSheet({
       seed: null,
     });
 
+  // «Frei üben»: dieselbe Übung mit den Einstellungen des Kurses, ohne Ende
+  // und ohne Kursbezug — dort lässt sich wieder alles einstellen.
+  const freeHref =
+    hrefFor({ page: 'uebung', id: generator.id }) + encodeLink(generator, { filters, round: null, seed: null });
+
   return (
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <header class="sheet-bar">
@@ -93,51 +105,65 @@ export function SettingsSheet({
 
       <div class="sheet-body">
         <div class="session-column">
-          <section class="sheet-section">
-            <div class="filter-field">
-              <div class="filter-label">Übungsform</div>
-              <div class="filter-options" role="radiogroup" aria-label="Übungsform">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={draftSession.mode === 'endlos'}
-                  class={`filter-chip ${draftSession.mode === 'endlos' ? 'is-selected' : ''}`}
-                  onClick={() => setDraftSession({ ...draftSession, mode: 'endlos' })}
-                >
-                  Üben ohne Ende
-                </button>
-                {ROUND_SIZES.map((size) => {
-                  const active = draftSession.mode === 'runde' && draftSession.size === size;
-                  return (
+          {inCourse ? (
+            <section class="sheet-section">
+              <h3>Kurs «{inCourse.title}»</h3>
+              <p class="share-hint">Übungsform und Einstellungen gehören zum Kurs.</p>
+              <p class="course-free">
+                <a class="link-button" href={freeHref}>
+                  Frei üben
+                </a>
+              </p>
+            </section>
+          ) : (
+            <>
+              <section class="sheet-section">
+                <div class="filter-field">
+                  <div class="filter-label">Übungsform</div>
+                  <div class="filter-options" role="radiogroup" aria-label="Übungsform">
                     <button
-                      key={size}
                       type="button"
                       role="radio"
-                      aria-checked={active}
-                      class={`filter-chip ${active ? 'is-selected' : ''}`}
-                      onClick={() => setDraftSession({ mode: 'runde', size })}
+                      aria-checked={draftSession.mode === 'endlos'}
+                      class={`filter-chip ${draftSession.mode === 'endlos' ? 'is-selected' : ''}`}
+                      onClick={() => setDraftSession({ ...draftSession, mode: 'endlos' })}
                     >
-                      Runde à {size}
+                      Üben ohne Ende
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
+                    {ROUND_SIZES.map((size) => {
+                      const active = draftSession.mode === 'runde' && draftSession.size === size;
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          class={`filter-chip ${active ? 'is-selected' : ''}`}
+                          onClick={() => setDraftSession({ mode: 'runde', size })}
+                        >
+                          Runde à {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
 
-          <section class="sheet-section">
-            <FilterFields filters={generator.filters} values={draftFilters} onChange={setDraftFilters} />
-            <div class="filter-actions">
-              <button
-                type="button"
-                class="link-button"
-                disabled={isDefault}
-                onClick={() => setDraftFilters(generator.defaults)}
-              >
-                Auf Vorgabe zurücksetzen
-              </button>
-            </div>
-          </section>
+              <section class="sheet-section">
+                <FilterFields filters={generator.filters} values={draftFilters} onChange={setDraftFilters} />
+                <div class="filter-actions">
+                  <button
+                    type="button"
+                    class="link-button"
+                    disabled={isDefault}
+                    onClick={() => setDraftFilters(generator.defaults)}
+                  >
+                    Auf Vorgabe zurücksetzen
+                  </button>
+                </div>
+              </section>
+            </>
+          )}
 
           {generator.skill === 'singen' && (
             <section class="sheet-section">
@@ -158,13 +184,15 @@ export function SettingsSheet({
             </section>
           )}
 
-          <AddToCourse
-            step={{
-              exercise: generator.id,
-              filters: canonicalFilters(generator, draftFilters),
-              round: draftSession.mode === 'runde' ? draftSession.size : DEFAULT_ROUND,
-            }}
-          />
+          {!inCourse && (
+            <AddToCourse
+              step={{
+                exercise: generator.id,
+                filters: canonicalFilters(generator, draftFilters),
+                round: draftSession.mode === 'runde' ? draftSession.size : DEFAULT_ROUND,
+              }}
+            />
+          )}
 
           <section class="sheet-section">
             <h3>Teilen</h3>

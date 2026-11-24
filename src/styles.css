@@ -1076,6 +1076,11 @@
   margin: 0;
 }
 
+/* Einstellungsblatt im Kurs: «Frei üben» unter dem Satz, ohne Trennlinie. */
+.course-free {
+  margin: 12px 0 0;
+}
+
 /* ---------------------------------------------------------- Übungsansicht */
 
 /*

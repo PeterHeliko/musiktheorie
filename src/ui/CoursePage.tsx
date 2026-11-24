@@ -97,7 +97,8 @@ function stepHref(step: CourseStep, course: string, index: number): string {
 
 function StepLink({ step, href, done }: { step: CourseStep; href: string; done: boolean }) {
   const generator = generatorById(step.exercise)!;
-  const settings = [...describeSettings(generator, step.filters), `${step.round} Aufgaben`].join(' · ');
+  const tasks = `${step.round} ${step.round === 1 ? 'Aufgabe' : 'Aufgaben'}`;
+  const settings = [...describeSettings(generator, step.filters), tasks].join(' · ');
   return (
     <a href={href}>
       <span class="nav-label">
