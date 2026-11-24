@@ -926,8 +926,13 @@ async function main() {
       'noch einmal antippen nimmt die Taste weg',
     );
     await keyAt(page, root + 4).click();
+    const tonesBeforeCheck = await page.evaluate(() => window.__tones.length);
     await checkButton.click();
     await page.waitForSelector('.verdict');
+    check(
+      await eventually(page, (before) => window.__tones.length >= before + 3, tonesBeforeCheck),
+      'nach dem Prüfen erklingt der Akkord, alle drei Töne zusammen',
+    );
     check(
       (await page.locator('.verdict-text').innerText()) === 'Richtig' &&
         (await page.locator('.question .piano-key[data-state="right"]').count()) === 3,

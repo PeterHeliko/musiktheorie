@@ -15,6 +15,9 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { PracticeAudioPlayer } from '../audio/PracticeAudioPlayer';
+import { player, samplesFor } from '../audio/player';
+import { DEFAULT_TEMPO, type AudioEvent } from '../content/audio';
+import { parsePitch } from '../music/theory';
 import type { SelectTask, Task } from '../content/schema';
 import { eventsFor, tempoOf } from '../generators/index';
 import type { Question } from '../generators/types';
@@ -87,6 +90,26 @@ export function QuestionView({
   // begänne die Wiedergabe bei jedem Tastendruck von vorn.
   const events = useMemo(() => eventsFor(question), [question]);
   const tempo = useMemo(() => tempoOf(question), [question]);
+
+  /**
+   * Nach dem Prüfen erklingt einmal das gefragte Intervall oder der gefragte
+   * Akkord, alle Töne zusammen (Entscheid 2026-11-24). Geladen wird gleich
+   * mit der Aufgabe, damit er ohne Verzögerung kommt; mit der nächsten
+   * Aufgabe verstummt er.
+   */
+  const afterSound = useMemo<AudioEvent[] | null>(
+    () => (question.afterSound ? [{ pitches: question.afterSound.map(parsePitch), quarters: 3 }] : null),
+    [question],
+  );
+  useEffect(() => {
+    if (!afterSound) return;
+    player.preload(samplesFor(afterSound));
+    return () => player.stop();
+  }, [afterSound]);
+  useEffect(() => {
+    if (!result || !afterSound) return;
+    player.play(afterSound, DEFAULT_TEMPO).catch((error) => console.warn('Wiedergabe fehlgeschlagen:', error));
+  }, [result]);
 
   /**
    * Felder, die durch die bisher gegebene Antwort gegenstandslos sind.

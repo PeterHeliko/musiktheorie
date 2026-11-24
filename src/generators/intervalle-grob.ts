@@ -115,6 +115,7 @@ export const intervalleGrobBestimmen: Generator<NamingFilters> = {
         sizes,
         { clefs, width },
       ),
+      afterSound: [pitchKey(low), pitchKey(high)],
     };
   },
 };
@@ -203,6 +204,7 @@ export const intervalleGrobNotieren: Generator<WritingFilters> = {
       task: intervalWriting(taskId('gn', rng), label, pitchKey(chosen.start), keys, clef, {
         noAccidentals: true,
       }),
+      afterSound: [pitchKey(chosen.start), keys[0]],
       instruction:
         direction === 'frei'
           ? 'Ergänze zum vorgegebenen Ton den zweiten Ton des verlangten Intervalls. Entscheide selbst, ob du auf- oder abwärts gehst.'

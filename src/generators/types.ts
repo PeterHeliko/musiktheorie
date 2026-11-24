@@ -69,6 +69,13 @@ export interface Question {
    * `instruction`.
    */
   context?: string;
+  /**
+   * Was nach dem Prüfen einmal zusammen erklingt (Entscheid 2026-11-24): das
+   * gefragte Intervall oder der gefragte Akkord, wo das Hören nicht die
+   * Übung ist — so lernt das Ohr mit. Vorher bleibt es still, sonst liesse
+   * sich die Antwort hören statt lesen oder abzählen. Tonhöhen wie «c4».
+   */
+  afterSound?: string[];
   /** Abspiellimit; weglassen = unbegrenzt (die Übungs-Vorgabe). */
   maxPlays?: number;
   /** «langsamer»-Knopf anbieten (Diktat). */

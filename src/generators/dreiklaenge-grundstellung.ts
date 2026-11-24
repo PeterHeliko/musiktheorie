@@ -156,7 +156,12 @@ export const dreiklaengeBenennen: Generator<NamingFilters> = {
         names: staffRootNames(policy),
       }),
     };
-    return { task, hint: namingHint(qualities), instruction: askInstruction(ask, 'des Dreiklangs') };
+    return {
+      task,
+      afterSound: stack.map(pitchKey),
+      hint: namingHint(qualities),
+      instruction: askInstruction(ask, 'des Dreiklangs'),
+    };
   },
 };
 
@@ -214,7 +219,7 @@ export const dreiklaengeNotieren: Generator<WritingFilters> = {
       },
       solution: { type: 'chord', rule, example: { upper: stack.map(pitchKey) } },
     };
-    return { task };
+    return { task, afterSound: stack.map(pitchKey) };
   },
 };
 
@@ -285,6 +290,7 @@ export const dreiklaengeKlaviaturBenennen: Generator<KeyNamingFilters> = {
     };
     return {
       task,
+      afterSound: stack.map(pitchKey),
       instruction: askInstruction(ask, 'des Dreiklangs auf den markierten Tasten'),
       hint: qualities.includes('sus4') ? `${this.hint} Bei sus4 sind es 5 + 2.` : undefined,
     };
@@ -347,7 +353,7 @@ export const dreiklaengeKlaviaturSpielen: Generator<KeyPlayingFilters> = {
       describe: { by: 'chord' },
       points: 2,
     };
-    return { task };
+    return { task, afterSound: stack.map(pitchKey) };
   },
 };
 

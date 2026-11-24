@@ -1215,6 +1215,61 @@ describe('Dreiklänge', () => {
   });
 });
 
+describe('Klang nach dem Prüfen', () => {
+  const WITH_SOUND = [
+    'intervalle-grob-bestimmen',
+    'intervalle-grob-notieren',
+    'intervalle-grob-klaviatur-benennen',
+    'intervalle-grob-klaviatur-spielen',
+    'intervalle-bestimmen',
+    'intervalle-notieren',
+    'intervalle-klaviatur-benennen',
+    'intervalle-klaviatur-spielen',
+    'dreiklaenge-bestimmen',
+    'dreiklaenge-notieren',
+    'dreiklaenge-klaviatur-benennen',
+    'dreiklaenge-klaviatur-spielen',
+    'umkehrungen-benennen',
+    'umkehrungen-notieren',
+    'umkehrungen-klaviatur-benennen',
+    'umkehrungen-klaviatur-spielen',
+  ];
+
+  it('lässt bei Intervallen und Dreiklängen das Gefragte erklingen, sonst nichts', () => {
+    for (const generator of GENERATORS) {
+      const questions = generate(generator.id, {}, 20);
+      if (!WITH_SOUND.includes(generator.id)) {
+        expect(questions.every((q) => q.afterSound === undefined), generator.id).toBe(true);
+        continue;
+      }
+      const sizes = generator.id.startsWith('intervalle') ? [2] : [3, 4];
+      for (const question of questions) expect(sizes, generator.id).toContain(question.afterSound!.length);
+    }
+  });
+
+  it('spielt im Notenbild genau die gezeigten Töne, auf der Klaviatur die markierten', () => {
+    for (const question of generate('umkehrungen-benennen', { withBass: true }, 20)) {
+      const measure = (question.task as SelectTask).score!.measures[0];
+      expect(question.afterSound).toEqual([...measure.bass![0].keys!, ...measure.notes[0].keys!]);
+    }
+    for (const question of generate('intervalle-klaviatur-benennen', {}, 20)) {
+      expect(question.afterSound!.map((key) => midi(parsePitch(key)))).toEqual((question.task as SelectTask).keyboard!.marked);
+    }
+  });
+
+  it('spielt beim Notieren und Spielen eine richtige Lösung', () => {
+    for (const question of generate('intervalle-notieren', {}, 50)) {
+      const task = question.task as NotationTask;
+      const slot = task.solution.type === 'pitch' ? task.solution.slots[0] : null;
+      expect(slot!.accept).toContain(question.afterSound![1]);
+    }
+    for (const question of generate('umkehrungen-klaviatur-spielen', { ask: ['inv', 'pos'], withBass: true }, 50)) {
+      const keys = question.afterSound!.map((key) => midi(parsePitch(key)));
+      expect(scoreTask(question.task, { keys }).earned).toBe(question.task.kind === 'keyboard' ? question.task.points : -1);
+    }
+  });
+});
+
 describe('Keine Wiederholung', () => {
   const personal = { voice: 'mittel' as const };
 

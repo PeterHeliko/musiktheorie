@@ -219,7 +219,7 @@ export const umkehrungenBenennen: Generator<NamingFilters> = {
         position,
       }),
     };
-    return { task, instruction: instructionFor(choice.ask, 'des Dreiklangs') };
+    return { task, afterSound: voicing.all.map(pitchKey), instruction: instructionFor(choice.ask, 'des Dreiklangs') };
   },
 };
 
@@ -295,7 +295,11 @@ export const umkehrungenKlaviaturBenennen: Generator<KeyNamingFilters> = {
         position,
       }),
     };
-    return { task, instruction: instructionFor(choice.ask, 'des Dreiklangs auf den markierten Tasten') };
+    return {
+      task,
+      afterSound: voicing.all.map(pitchKey),
+      instruction: instructionFor(choice.ask, 'des Dreiklangs auf den markierten Tasten'),
+    };
   },
 };
 
@@ -401,7 +405,7 @@ export const umkehrungenKlaviaturSpielen: Generator<KeyPlayingFilters> = {
       describe: { by: 'chord' },
       points: 2,
     };
-    return { task, instruction: playInstruction(choice.ask) };
+    return { task, afterSound: voicing.all.map(pitchKey), instruction: playInstruction(choice.ask) };
   },
 };
 
@@ -512,7 +516,7 @@ export const umkehrungenNotieren: Generator<WritingFilters> = {
         },
       },
     };
-    return { task, instruction: writeInstruction(choice.ask) };
+    return { task, afterSound: voicing.all.map(pitchKey), instruction: writeInstruction(choice.ask) };
   },
 };
 

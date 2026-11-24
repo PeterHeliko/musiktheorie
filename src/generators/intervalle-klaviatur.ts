@@ -11,9 +11,10 @@
  *    Schreibweise, deshalb gibt es hier nur die Antworten des Rasters —
  *    übermässige Quarte und verminderte Quinte sind derselbe Tritonus.
  *
- * Benennen: zwei Tasten tragen einen Punkt, gefragt ist das Intervall. Die
- * Klaviatur bleibt dabei stumm (Entscheid 2026-11-23): geübt wird das
- * Abzählen, nicht das Gehör.
+ * Benennen: zwei Tasten tragen einen Punkt, gefragt ist das Intervall. Bis
+ * zum Prüfen bleibt die Klaviatur stumm (Entscheid 2026-11-23): geübt wird
+ * das Abzählen, nicht das Gehör. Danach erklingt das Intervall einmal
+ * zusammen (`Question.afterSound`, Entscheid 2026-11-24).
  *
  * Spielen: eine Taste trägt einen Punkt, dazu das verlangte Intervall.
  * Angetippt wird die Zieltaste — sie erklingt — und «Prüfen» gibt sie ab.
@@ -33,11 +34,16 @@ import { INTERVAL_KEYBOARD, isWhiteKey, keysBetween, whiteIndex, whiteKeyAt } fr
 import { intervalBetween, midi, parseIntervalLabel, parsePitch, transposeByInterval } from '../music/theory';
 import { pitchFromMidi } from '../sing/notes';
 import type { Rng } from './rng';
-import { insist, intervalField, intervalLabelsFor, intervalSizeField, taskId } from './shared';
+import { insist, intervalField, intervalLabelsFor, intervalSizeField, pitchKey, taskId } from './shared';
 import { multi, single, type FilterValues, type Generator, type Question } from './types';
 
 const ALL_KEYS = keysBetween(INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high);
 const WHITE_KEYS = ALL_KEYS.filter(isWhiteKey);
+
+/** Tasten als Tonhöhen, so wie sie nach dem Prüfen erklingen. */
+function sounding(keys: number[]): string[] {
+  return keys.map((key) => pitchKey(pitchFromMidi(key)));
+}
 
 function onKeyboard(key: number): boolean {
   return key >= INTERVAL_KEYBOARD.low && key <= INTERVAL_KEYBOARD.high;
@@ -152,7 +158,7 @@ export const intervalleGrobKlaviaturBenennen: Generator<GrobNamingFilters> = {
       keyboard: { ...INTERVAL_KEYBOARD, marked: [low, high] },
       fields: [intervalSizeField(size, sizes)],
     };
-    return { task };
+    return { task, afterSound: sounding([low, high]) };
   },
 };
 
@@ -208,6 +214,7 @@ export const intervalleGrobKlaviaturSpielen: Generator<GrobPlayingFilters> = {
     };
     return {
       task,
+      afterSound: sounding([chosen.start, accept[0]]),
       instruction: playInstruction(direction),
       context: playContext(direction, number),
     };
@@ -279,7 +286,7 @@ export const intervalleKlaviaturBenennen: Generator<FeinNamingFilters> = {
       keyboard: { ...INTERVAL_KEYBOARD, marked: [low, high] },
       fields: [intervalField(value, intervals)],
     };
-    return { task };
+    return { task, afterSound: sounding([low, high]) };
   },
 };
 
@@ -341,6 +348,7 @@ export const intervalleKlaviaturSpielen: Generator<FeinPlayingFilters> = {
     };
     return {
       task,
+      afterSound: sounding([chosen.start, accept[0]]),
       instruction: playInstruction(direction),
       context: playContext(direction, semitones === 0 ? 1 : 2),
     };

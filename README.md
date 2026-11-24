@@ -114,6 +114,12 @@ Link / Speicher / Filterformular
   nur «✓ Richtig» oder «✗ Falsch» (`showsSolution` in `src/ui/Feedback.tsx`). In Worten
   steht sie nur, wo die Aufgabe sie (noch) nicht zeigt: Auswahllisten, Diktat, Vorzeichen,
   Pausen. Bildschirmleser bekommen sie immer in Worten.
+- **Klang nach dem Prüfen:** Bei Intervallen und Dreiklängen in Noten, beim Notieren und auf der
+  Klaviatur erklingt nach dem Prüfen einmal das Gefragte, alle Töne zusammen
+  (`Question.afterSound`). Vorher bleibt es still: die Antwort soll gelesen oder abgezählt
+  werden, nicht gehört. Einzelne Töne klingen nicht nach.
+- **Nie zweimal dieselbe Aufgabe hintereinander** (`src/generators/fresh.ts`): neu gewürfelt
+  wird über den Startwert, Runden aus ihrem Startwert — Links bleiben reproduzierbar.
 - **⚙ Einstellungen:** Übungsform, Filter, Zurücksetzen, Teilen. Änderungen gelten beim
   Schliessen; ohne Änderung läuft die Aufgabe weiter.
 
@@ -124,7 +130,7 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 (`src/music/piano.ts`).
 
 - **Benennen** (`SelectTask.keyboard`): markierte Tasten, darunter die gewohnten
-  Antwortknöpfe. Stumm.
+  Antwortknöpfe. Stumm bis zum Prüfen.
 - **Spielen** (`KeyboardTask`): Antippen wählt eine Taste und lässt sie klingen, «Prüfen»
   gibt sie ab. Falsch gespielt, ist die richtige Taste grün umrandet.
 - **Akkord spielen** (`KeyboardTask.chord`): jedes Antippen nimmt eine Taste dazu oder weg.

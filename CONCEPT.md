@@ -24,6 +24,8 @@ shareable link for every exercise.
 | Visual style          | As simple as possible, "zero nonsense". The current plain look stays. Design changes only after the user has chosen between options. |
 | Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. A topic may split its list under subheadings (Intervalle: Grobbestimmung, Feinbestimmung). When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
+| Sound after checking  | Intervals and triads where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. (2026-11-24) |
+| No repeats            | Never the same question twice in a row, in any exercise; re-drawn via the seed, so task and round links stay reproducible (2026-11-24) |
 | Feedback              | **Show, don't say.** The task shows the solution itself: outlined answer button, outlined key, green note in the staff (beside a wrong one). The bottom bar then says only «✓ Richtig» / «✗ Falsch». Words only where the task can't show it yet; screen readers always get words. |
 
 ---
@@ -200,8 +202,8 @@ add the group, e.g. «Intervalle notieren (Grobbestimmung)».
 
 On the keyboard (two octaves, c to h¹, no labels): Grobbestimmung uses white keys only, since a
 black key has no size (c–dis is a Sekunde, c–es a Terz). Feinbestimmung counts semitones;
-with no spelling, ü4 and v5 are both «Tritonus», as on the answer grid. *Benennen* is silent,
-so it trains counting, not hearing. *Spielen*: a tapped key sounds and is selected; «Prüfen»
+with no spelling, ü4 and v5 are both «Tritonus», as on the answer grid. *Benennen* is silent until
+checked, so it trains counting, not hearing. *Spielen*: a tapped key sounds and is selected; «Prüfen»
 submits it. Marks are fills: given keys blue, the tapped key light blue.
 
 *Später:* über die Oktave hinaus, Komplementärintervalle.

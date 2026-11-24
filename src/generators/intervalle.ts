@@ -105,6 +105,7 @@ export const intervalleBestimmen: Generator<NamingFilters> = {
         intervals,
         { clefs, width, policy },
       ),
+      afterSound: [pitchKey(pair.low), pitchKey(pair.high)],
     };
   },
 };
@@ -223,6 +224,7 @@ export const intervalleNotieren: Generator<WritingFilters> = {
         accepted.map(pitchKey),
         clef,
       ),
+      afterSound: [pitchKey(chosen.start), pitchKey(accepted[0])],
       instruction:
         direction === 'frei'
           ? 'Ergänze zum vorgegebenen Ton den zweiten Ton des verlangten Intervalls. Entscheide selbst, ob es sinnvoller ist, auf- oder abwärts zu gehen.'
