@@ -33,6 +33,8 @@ import {
   buildChord,
   chordName,
   chordSingTask,
+  metronomeOf,
+  withTempo,
   chordSpace,
   grandSpace,
   QUALITY_OPTION,
@@ -667,7 +669,8 @@ export const umkehrungenSingen: Generator<SingingFilters> = {
       clef,
       range,
       tolerance,
+      tempo: metronomeOf(values),
     });
-    return { task, instruction: singInstruction(choice.ask) };
+    return { task, instruction: withTempo(task, singInstruction(choice.ask)) };
   },
 };

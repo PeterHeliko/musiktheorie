@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { HOLD_MS, HoldDetector, type HeldNote } from './hold';
-import { judgeSequence, judgeSung, rolesOf, type SingGoal } from './judge';
+import { beatPitch, judgeSequence, judgeSung, judgeTimed, rolesOf, type SingGoal, type TimedFrame } from './judge';
 
 /** Messung alle 1000/60 ms, wie beim Bildaufbau. */
 const FRAME = 1000 / 60;
@@ -259,5 +259,37 @@ describe('judgeSequence', () => {
     expect(verdict.roles[2]).toBe('repeat');
     // Die Oktave am Schluss: c, in jeder Oktave.
     expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69, 71, 48]).correct).toBe(true);
+  });
+});
+
+describe('im Tempo', () => {
+  // Ein Schlag von 1000 ms ab 0; alle 20 ms ein Messpunkt.
+  const frames = (value: (time: number) => number | null): TimedFrame[] =>
+    Array.from({ length: 50 }, (_, index) => ({ time: index * 20, midi: value(index * 20) }));
+
+  it('nimmt den Median im Kern des Schlags, ohne Einsatz und Ende', () => {
+    // Der Einsatz rutscht von unten herein, am Ende geht es schon weiter.
+    const sung = frames((time) => (time < 200 ? 58 : time > 920 ? 67 : 62.1));
+    expect(beatPitch(sung, 0, 1000)).toBeCloseTo(62.1);
+  });
+
+  it('nennt einen Schlag stumm, wenn im Kern zu wenig gesungen wurde', () => {
+    expect(beatPitch(frames(() => null), 0, 1000)).toBeNull();
+    expect(beatPitch(frames((time) => (time > 700 ? 62 : null)), 0, 1000)).toBeNull();
+    expect(beatPitch(frames((time) => (time > 450 ? 62 : null)), 0, 1000)).toBe(62);
+    expect(beatPitch([], 0, 1000)).toBeNull();
+  });
+
+  it('wertet jeden Schlag für sich, in jeder Oktave, und geht weiter', () => {
+    const goal = { reference: 62, targets: [62, 66, 69], tolerance: 50 };
+    expect(judgeTimed(goal, [62, 54, 81])).toMatchObject({ done: true, correct: true });
+    const missed = judgeTimed(goal, [62, null, 69]);
+    expect(missed).toMatchObject({ done: true, correct: false, missing: [1], roles: ['right', 'missing', 'right'] });
+    const wrong = judgeTimed(goal, [62, 67, 69]);
+    expect(wrong.correct).toBe(false);
+    expect(wrong.wrong).toMatchObject([{ index: 1, expected: 1 }]);
+    expect(judgeTimed(goal, [62, 66])).toMatchObject({ done: false, reached: 2 });
+    // Den ersten Ton muss man im Tempo mitsingen.
+    expect(judgeTimed(goal, [null, 66, 69]).correct).toBe(false);
   });
 });

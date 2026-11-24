@@ -314,15 +314,35 @@ Rules (decided 2026-11-24):
 | Tonart den Vorzeichen zuordnen        | Erkennen   | ✓   |
 | Halbtonschritte markieren             | Erkennen   | ✓   |
 | Stufen bestimmen                      | Erkennen   | ✓   |
-| Tonleiter notieren                    | Notieren   |     |
-| Tonleiter auf der Klaviatur           | Klaviatur  |     |
-| Tonleitern hören (Dur, Moll ×3)       | Hören      | ✓   |
-| Tonleitern singen (Dur, Moll)         | Singen     | ★   |
+| Tonleitern notieren                   | Notieren   | ✓   |
+| Tonleitern auf Klaviatur markieren    | Klaviatur  | ✓   |
+| Tonleitern hörend erkennen            | Hören      | ✓   |
+| Tonleitern singen                     | Singen     | ✓ ★ |
 | Paralleltonart, Quintenzirkel         | Erkennen   |     |
 
 Stufen bestimmen moved here from Dreiklänge (2026-11-24): Stufen need the keys.
 
-*Später:* Pentatonik, Blues, Kirchentonarten.
+Rules (decided 2026-11-24):
+
+- **Nine scale types:** Dur, Moll natürlich, harmonisch, melodisch, and the Kirchentonarten
+  dorisch, phrygisch, lydisch, mixolydisch, lokrisch (ionisch and äolisch are Dur and Moll
+  natürlich). The Kirchentonarten can be switched on everywhere, off by default.
+- **Melodisch Moll descends natural,** in sound and in notation; hearing it downward accepts
+  both answers.
+- **«Höchstens n Vorzeichen»** means the key: for Moll the natural form's, for a
+  Kirchentonart its parent major key's. Scales needing a double accidental are skipped.
+- **Tonart zuordnen:** a Tonnamen-Raster per asked key (Dur, Moll or both), tonic only.
+- **Vorzeichen setzen** uses the new note editor; after checking, each accidental is green or
+  red, and a wrong set gets the right one green beside it.
+- **Tonleitern notieren:** the tonic is given, the other seven notes go into fixed slots, with
+  accidentals before the notes (no key signature). Each note scores on its own; after
+  checking, the whole scale stands green in a second staff below.
+- **Klaviatur markieren:** the tonic key is blue; tap the other tones up to the octave (down
+  from the upper tonic). Right is exactly that set of keys.
+- **Singen:** like Dreiklänge singen, eight notes; the solution plays the scale without a
+  final cluster.
+
+*Später:* Pentatonik, Blues.
 
 ### Melodie
 
@@ -397,8 +417,15 @@ microphone ─▶ pitch detector ─▶ smoothing ─▶ note segments ─▶ co
 held within tolerance for ~0.8 s. Rhythm is not judged. This is forgiving, and right for
 single notes, intervals, chords and scales.
 
-**Im Tempo** (melodies, later). After a count-in, the learner sings along to a click. Each
-note is judged by how much of its duration is within tolerance.
+**Wrong notes in a sequence** (decided 2026-11-24): a wrong note is marked red and the same
+note is still asked; the sequence ends once every note was sung right, and counts as wrong if
+any note was wrong first. Sequences have no «Ohne Fehlerurteil»; Intervalle singen keeps it.
+
+**Im Tempo** (sequences: a setting «Metronom» 60/80/100, off by default, built 2026-11-24;
+melodies later). After the first tone sounds, four clicks count in; then each beat has one
+note of the sequence, the first included. Each beat is judged on its own by the median pitch
+in its middle (`judgeTimed`); time does not wait, a wrong or silent beat stays wrong. For
+melodies, each note will be judged by how much of its duration is within tolerance.
 
 **Filters**, so part of the shared link:
 

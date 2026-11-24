@@ -223,6 +223,14 @@ auf, nach einem Fehler ginge es sonst nur daneben weiter. Zu Ende ist es, wenn a
 richtig gesungen sind; dann steht vor jedem Ton, der zuerst falsch kam, der falsche rot, und
 das Urteil ist «Falsch». «Ohne Fehlerurteil» gibt es deshalb nur beim Intervall.
 
+**Metronom** (alle Tonfolgen, Einstellung 60/80/100, aus als Vorgabe; `SingTask.tempo`):
+nach dem ersten Ton zählen vier Schläge ein, dann ist auf jeden Schlag ein Ton der Folge dran,
+der erste eingeschlossen. Jeder Schlag wird für sich bewertet, nach dem Median der Tonhöhe in
+seiner Mitte (`beatPitch`, `judgeTimed`); die Zeit wartet nicht — ein falscher oder stummer
+Schlag bleibt falsch, und der nächste ist dran. Die Kurve färbt jeden Schlag, die Zeile darunter
+zählt ein und mit. Wann der erste Schlag zu hören ist, meldet der Abspieler (`onStart`, samt
+Ausgabeverzögerung).
+
 `/ueben/septakkorde-singen/` und `/ueben/septakkorde-umkehrungen-singen/` gehen genauso, mit
 vier Tönen. Ein grosser Durseptakkord umfasst elf Halbtöne und passt nicht in jede Stimmlage;
 er ragt dann höchstens zwei Halbtöne hinaus (`SING_REACH`), bei Dreiklängen einen.
@@ -269,6 +277,10 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   übrigen Töne bis zur Oktave werden angetippt (dazu oder weg, sie klingen); den Grundton
   tippt man nicht an. Richtig ist genau diese Menge, die Reihenfolge zählt nicht. Nach dem
   Prüfen ist jede getippte Taste grün oder rot, jede fehlende grün umrandet.
+- **Tonleitern singen:** wie Dreiklänge singen, mit acht Tönen; abwärts ab dem oberen
+  Grundton. Nach dem Urteil stehen die eigenen Töne an ihren Plätzen (grün, oder der falsche
+  rot) und die ganze Leiter grün darunter; «Abspielen» spielt sie ohne Zusammenklang
+  (`SingTask.melodic`).
 - **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den
   Tönen (eine Spalte je Stammton, ♯ oben, ♭ unten), auf den Knöpfen nur der Grundton — Dur
   gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein.

@@ -22,6 +22,8 @@ import {
   SING_HINT,
   STAFF_WINDOWS,
   chordSingTask,
+  metronomeOf,
+  withTempo,
   chordSpace,
   octavePlacements,
   placeInVoice,
@@ -465,7 +467,8 @@ export const septakkordeSingen: Generator<SingingFilters> = {
       range,
       tolerance,
       reach: SING_REACH,
+      tempo: metronomeOf(values),
     });
-    return { task };
+    return { task, ...(task.tempo ? { instruction: withTempo(task, this.instruction) } : {}) };
   },
 };

@@ -305,3 +305,59 @@ describe('Tonleitern auf Klaviatur markieren', () => {
     }
   });
 });
+
+describe('Tonleitern singen', () => {
+  it('singt die acht Töne der Leiter in der Stimmlage, ab dem vorgespielten Grundton', () => {
+    for (const voice of ['hoch', 'mittel', 'tief'] as const) {
+      const generator = generatorById('tonleitern-singen')!;
+      for (let seed = 1; seed <= 40; seed++) {
+        const question = generator.generate(
+          { ...generator.defaults, scales: SCALE_TYPES, maxAccidentals: 7, directions: ['up', 'down'] },
+          makeRng(seed),
+          { voice },
+        );
+        const task = question.task as import('../content/schema').SingTask;
+        expect(task.sequence).toHaveLength(8);
+        expect(task.melodic).toBe(true);
+        expect(task.tempo).toBeUndefined();
+        expect(task.reference).toBe(task.sequence![0]);
+        const values = task.sequence!.map((key) => midi(parsePitch(key)));
+        expect(Math.abs(values[7] - values[0])).toBe(12);
+        // Richtig gesungen, eine Oktave tiefer: richtig.
+        expect(scoreTask(task, { notes: values.map((value) => value - 12) }).earned).toBe(task.points);
+      }
+    }
+  });
+
+  it('stellt mit Metronom das Tempo ein und bewertet Schlag für Schlag', () => {
+    for (const question of generate('tonleitern-singen', { metronome: '80' }, 10)) {
+      const task = question.task as import('../content/schema').SingTask;
+      expect(task.tempo).toBe(80);
+      expect(question.instruction).toMatch(/Metronom/);
+      const values = task.sequence!.map((key) => midi(parsePitch(key)));
+      expect(scoreTask(task, { notes: [], beats: values }).earned).toBe(task.points);
+      expect(scoreTask(task, { notes: [], beats: [...values.slice(0, 7), null] }).earned).toBe(0);
+    }
+  });
+});
+
+describe('Metronom beim Singen', () => {
+  it('gibt es bei allen Tonfolgen, aus als Vorgabe', () => {
+    for (const id of [
+      'dreiklaenge-singen',
+      'umkehrungen-singen',
+      'septakkorde-singen',
+      'septakkorde-umkehrungen-singen',
+      'tonleitern-singen',
+    ]) {
+      const generator = generatorById(id)!;
+      expect(generator.defaults.metronome).toBe('aus');
+      expect(generator.filters.some((filter) => filter.key === 'untilRight')).toBe(false);
+      const [plain] = generate(id, {}, 1);
+      expect((plain.task as import('../content/schema').SingTask).tempo).toBeUndefined();
+      const [timed] = generate(id, { metronome: '60' }, 1);
+      expect((timed.task as import('../content/schema').SingTask).tempo).toBe(60);
+      expect(timed.instruction).toMatch(/Metronom/);
+    }
+  });
+});

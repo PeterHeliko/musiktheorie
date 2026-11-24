@@ -61,7 +61,7 @@ import {
 import { intervalleSingen } from './intervalle-singen';
 import { rhythmusNotenwerte, rhythmusPausen } from './rhythmus';
 import { tonartenHalbtonschritte, tonartenVorzeichen, tonartenZuordnen } from './tonarten';
-import { tonleiternKlaviatur, tonleiternNotieren } from './tonleitern';
+import { tonleiternKlaviatur, tonleiternNotieren, tonleiternSingen } from './tonleitern';
 import { notenBenennen, notenSchreiben, toeneKlaviaturBenennen, toeneKlaviaturSpielen } from './toene';
 import { TOPICS, TOPIC_GROUPS, type FilterValues, type Generator, type Question, type TopicId } from './types';
 
@@ -118,6 +118,7 @@ export const GENERATORS: Generator<FilterValues>[] = [
   tonleiternNotieren,
   tonleiternKlaviatur,
   gehoerTonleitern,
+  tonleiternSingen,
   gehoerDiktat,
 ];
 

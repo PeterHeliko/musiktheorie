@@ -275,6 +275,19 @@ export interface SingTask extends TaskBase {
   /** So weit darf der gesungene Ton danebenliegen (Cent). */
   tolerance: number;
   /**
+   * Nach dem Urteil spielt «Abspielen» die Folge nur nacheinander, ohne
+   * Zusammenklang — bei einer Tonleiter wäre er ein Cluster.
+   */
+  melodic?: boolean;
+  /**
+   * Mit Metronom, in Schlägen pro Minute (Entscheid 2026-11-24): nach dem
+   * Ausgangston wird eingezählt, dann ist auf jeden Schlag ein Ton der Folge
+   * dran, der erste eingeschlossen. Jeder Schlag wird für sich bewertet
+   * (`judgeTimed`); die Zeit wartet nicht. Ohne: Ton für Ton, wie lange man
+   * braucht (`judgeSequence`).
+   */
+  tempo?: number;
+  /**
    * «Ohne Fehlerurteil»: falsche Töne beenden die Aufgabe nicht, gesungen
    * wird bis zum richtigen (sing/judge.ts).
    */

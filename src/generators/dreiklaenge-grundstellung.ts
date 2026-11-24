@@ -30,6 +30,8 @@ import {
   chordFields,
   chordName,
   chordSingTask,
+  metronomeOf,
+  withTempo,
   chordSpace,
   chosenQualities,
   octavePlacements,
@@ -465,7 +467,8 @@ export const dreiklaengeSingen: Generator<SingingFilters> = {
       clef,
       range,
       tolerance,
+      tempo: metronomeOf(values),
     });
-    return { task };
+    return { task, ...(task.tempo ? { instruction: withTempo(task, this.instruction) } : {}) };
   },
 };

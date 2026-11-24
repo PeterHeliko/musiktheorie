@@ -45,6 +45,9 @@ import {
   judgeNote,
   judgeSequence,
   judgeSung,
+  judgeTimed,
+  beatPitch,
+  type TimedFrame,
   rolesOf,
   type SequenceGoal,
   type SequenceVerdict,
@@ -75,6 +78,9 @@ import { Score } from './Score';
 const REFERENCE_TEMPO = 60;
 const REFERENCE_QUARTERS = 1;
 const REFERENCE_RELEASE = 0.25;
+
+/** So viele Schläge zählt das Metronom ein, bevor der erste Ton dran ist. */
+const COUNT_IN = 4;
 
 /** So viele Sekunden zeigt die Kurve. */
 const HISTORY_SECONDS = 6;
@@ -110,12 +116,29 @@ export function SingTaskView({ task }: { task: SingTask }) {
    */
   const solution = useMemo<AudioEvent[]>(() => {
     const tones = sequence ?? [reference, target];
-    return [
-      ...tones.map((pitch) => ({ pitches: [pitch], quarters: 1 })),
-      { pitches: [], quarters: 0.5 },
-      { pitches: tones, quarters: 3 },
-    ];
+    const apart = tones.map((pitch) => ({ pitches: [pitch], quarters: 1 }));
+    // Eine Tonleiter zusammen wäre ein Cluster: dann nur nacheinander.
+    if (task.melodic) return apart;
+    return [...apart, { pitches: [], quarters: 0.5 }, { pitches: tones, quarters: 3 }];
   }, [task]);
+
+  /**
+   * Mit Metronom (`task.tempo`): nach dem Ausgangston COUNT_IN Schläge
+   * Einzählen, dann einer je Ton der Folge. `timeline` hält fest, wann der
+   * erste Ton dran ist (Zeit von performance.now()); bis das Metronom läuft,
+   * ist es null. Ein neuer Durchgang (Abspielen) beginnt eine neue Zeitachse.
+   */
+  const tempo = sequence ? (task.tempo ?? null) : null;
+  const beatMs = tempo ? 60_000 / tempo : 0;
+  const clicks = useMemo<AudioEvent[]>(
+    () =>
+      tempo && sequence
+        ? Array.from({ length: COUNT_IN + sequence.length }, () => ({ pitches: [reference], quarters: 1, click: true }))
+        : [],
+    [task],
+  );
+  const timeline = useRef<{ start: number } | null>(null);
+  const [clock, setClock] = useState<number | null>(null);
 
   const [mic, setMic] = useState<MicState>(() => (openedMicrophone() ? 'on' : 'off'));
   const [micError, setMicError] = useState('');
@@ -148,11 +171,28 @@ export function SingTaskView({ task }: { task: SingTask }) {
     setPlaying(true);
     setPlayFailed(false);
     const judged = phaseRef.current === 'done';
-    if (!judged) setPhase('playing');
+    if (!judged) {
+      setPhase('playing');
+      // Im Tempo beginnt jeder Durchgang von vorn.
+      timeline.current = null;
+      if (tempo) {
+        setProgress(null);
+        setClock(null);
+      }
+    }
     try {
       await (judged
         ? player.play(solution, DEFAULT_TEMPO)
         : player.play(events, REFERENCE_TEMPO, { finalRelease: REFERENCE_RELEASE }));
+      if (!judged && tempo && mounted.current && token === playToken.current) {
+        // Einzählen und Schläge; zugehört wird schon während des Einzählens.
+        const metronome = player.play(clicks, tempo, {
+          finalRelease: 0.05,
+          onStart: (at) => (timeline.current = { start: at + COUNT_IN * beatMs }),
+        });
+        setPhase('listening');
+        await metronome;
+      }
     } catch (error) {
       console.warn('Wiedergabe fehlgeschlagen:', error);
       if (mounted.current) setPlayFailed(true);
@@ -160,12 +200,12 @@ export function SingTaskView({ task }: { task: SingTask }) {
     if (!mounted.current || token !== playToken.current) return;
     setPlaying(false);
     if (phaseRef.current === 'playing') setPhase('listening');
-  }, [events, solution]);
+  }, [events, solution, clicks]);
 
   // Neue Aufgabe bei offenem Mikrofon: gleich abspielen, wenn der Browser es
   // zulässt. Sonst sofort zuhören — der Knopf spielt den Ton auf Wunsch.
   useEffect(() => {
-    player.preload(samplesFor([...events, ...solution]));
+    player.preload(samplesFor([...events, ...solution, ...clicks]));
     if (mic !== 'on') return;
     let cancelled = false;
     void player.canPlayWithoutGesture().then((allowed) => {
@@ -219,6 +259,36 @@ export function SingTaskView({ task }: { task: SingTask }) {
     // die Antwort schon da. «Ohne Fehlerurteil» zeigt sie gleich, und das
     // Bild beginnt so, dass alle zu sehen sind.
     const centreOf = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    if (tempo && sequenceGoal) {
+      // Im Tempo: jeder Schlag für sich (judgeTimed); die Zeit wartet nicht.
+      let beats: (number | null)[] = [];
+      let run: { start: number } | null = null;
+      return listenInTempo(microphone, {
+        canvas,
+        phase: phaseRef,
+        timeline,
+        beatMs,
+        count: sequenceGoal.targets.length,
+        startLines: [referenceLine],
+        endLines: allLines,
+        centre: goal.reference,
+        onClock: setClock,
+        onBeat: (step, pitch) => {
+          if (run !== timeline.current) {
+            run = timeline.current;
+            beats = [];
+          }
+          beats[step] = pitch;
+          const verdict = judgeTimed(sequenceGoal, beats);
+          setProgress(verdict);
+          return verdict.roles[step] === 'right' ? 'right' : 'wrong';
+        },
+        onDone: () => {
+          setPhase('done');
+          setAnswer(task.id, { notes: [], beats: beats.slice() });
+        },
+      });
+    }
     return listen(microphone, {
       canvas,
       phase: phaseRef,
@@ -260,7 +330,9 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const sung = answer<SingAnswer>(task.id)?.notes;
   const score = useMemo(() => {
     if (sequence && sequenceGoal) {
-      const verdict = sung ? judgeSequence(sequenceGoal, sung) : null;
+      const beats = answer<SingAnswer>(task.id)?.beats;
+      const verdict = beats ? judgeTimed(sequenceGoal, beats) : sung ? judgeSequence(sequenceGoal, sung) : null;
+      if (verdict?.done && task.melodic) return attemptScore(task, verdict);
       return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, progress);
     }
     if (!sung) return task.score;
@@ -268,13 +340,30 @@ export function SingTaskView({ task }: { task: SingTask }) {
     return verdict.note === null ? task.score : verdictScore(task, target, verdict);
   }, [task, sung, progress]);
 
+  /**
+   * Eine Tonleiter mit Fehlern: die ganze Leiter grün in einem zweiten
+   * System darunter, Ton unter Ton — wie beim Notieren. Vor jeden Ton einen
+   * falschen zu setzen, machte acht Töne zu sechzehn.
+   */
+  const solutionBelow = useMemo<ScoreSpec | null>(() => {
+    if (!task.melodic || !sequence || !sequenceGoal) return null;
+    const beats = answer<SingAnswer>(task.id)?.beats;
+    const verdict = beats ? judgeTimed(sequenceGoal, beats) : sung ? judgeSequence(sequenceGoal, sung) : null;
+    if (!verdict?.done || verdict.correct) return null;
+    const [measure] = task.score.measures;
+    const notes = sequence.map((pitch): NoteSpec => ({ keys: [pitchKey(pitch)], duration: 'w', mark: 'correct' }));
+    return { ...task.score, measures: [{ ...measure, notes }] };
+  }, [task, sung]);
+
   const status =
     phase === 'playing'
       ? 'Hör zu …'
       : phase !== 'listening'
         ? ''
-        : sequence
-          ? sequenceStatus(progress, sequence.length)
+        : sequence && tempo
+          ? tempoStatus(clock, sequence.length)
+          : sequence
+            ? sequenceStatus(progress, sequence.length)
           : heardReference
             ? 'Ausgangston erkannt.'
             : 'Jetzt singen.';
@@ -283,6 +372,11 @@ export function SingTaskView({ task }: { task: SingTask }) {
     <div class="sing-task">
       {task.prompt && <p class="task-prompt task-prompt-strong">{task.prompt}</p>}
       <Score spec={score} />
+      {solutionBelow && (
+        <div class="score-solution" role="img" aria-label={`Lösung: ${sequence!.map(toGermanPitch).join(', ')}`}>
+          <Score spec={solutionBelow} />
+        </div>
+      )}
 
       <div class="audio-player">
         <button
@@ -383,6 +477,13 @@ function verdictScore(task: SingTask, target: Pitch, verdict: SungVerdict): Scor
   };
 }
 
+/** Die Zeile unter der Kurve im Tempo: einzählen, dann der wievielte Ton. */
+function tempoStatus(clock: number | null, length: number): string {
+  if (clock === null || clock < -COUNT_IN) return 'Gleich wird eingezählt …';
+  if (clock < 0) return `Einzählen: ${COUNT_IN + clock + 1}`;
+  return `Ton ${Math.min(clock + 1, length)} von ${length}`;
+}
+
 /** Die Zeile unter der Kurve während einer Tonfolge. */
 function sequenceStatus(progress: SequenceVerdict | null, length: number): string {
   if (!progress) return 'Jetzt singen.';
@@ -412,9 +513,9 @@ function lastWrongs(verdict: SequenceVerdict): Map<number, SequenceVerdict['wron
 
 /**
  * Das System während einer Tonfolge: jeder richtig gesungene Ton steht grün
- * an seinem Platz, in der notierten Lage; wo gerade falsch gesungen wurde,
- * steht der falsche rot. Die übrigen Plätze sind noch leer (chordSingTask
- * hält sie von Anfang an frei).
+ * an seinem Platz, in der notierten Lage; wo falsch gesungen wurde, steht der
+ * falsche rot. Die übrigen Plätze sind noch leer (chordSingTask hält sie von
+ * Anfang an frei).
  */
 function progressScore(task: SingTask, progress: SequenceVerdict | null): ScoreSpec {
   if (!progress || (progress.right.length === 0 && progress.wrong.length === 0)) return task.score;
@@ -424,15 +525,41 @@ function progressScore(task: SingTask, progress: SequenceVerdict | null): ScoreS
   const [measure] = task.score.measures;
   const notes = measure.notes.map((note, step): NoteSpec => {
     if (done.has(step)) return step === 0 ? { ...note, mark: 'correct' } : { keys: [task.sequence![step]], duration: 'w', mark: 'correct' };
+    // Ton für Ton ist das nur der gerade verlangte; im Tempo jeder verpasste.
     const wrong = wrongs.get(step);
-    if (wrong && step === progress.reached && step > 0) {
-      return { keys: [pitchKey(wrongPitch(sequence[step], wrong))], duration: 'w', mark: 'wrong' };
-    }
-    return note;
+    if (!wrong) return note;
+    if (step === 0) return { ...note, mark: 'wrong' };
+    return { keys: [pitchKey(wrongPitch(sequence[step], wrong))], duration: 'w', mark: 'wrong' };
   });
   const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
   const shown = notes.flatMap((note) => (note.keys ?? []).map(parsePitch));
   const needed = staffSpace(clef, shown);
+  const before = task.score.space ?? needed;
+  return {
+    ...task.score,
+    space: { above: Math.max(before.above, needed.above), below: Math.max(before.below, needed.below) },
+    measures: [{ ...measure, notes }],
+  };
+}
+
+/**
+ * Eine gesungene Tonleiter nach dem Urteil, jeder Ton an seinem Platz: grün,
+ * wenn er auf Anhieb stimmte; rot (der letzte falsche), wenn vorher falsch
+ * gesungen wurde; leer, wenn im Tempo nichts kam. Die Lösung steht darunter.
+ */
+function attemptScore(task: SingTask, verdict: SequenceVerdict): ScoreSpec {
+  const sequence = task.sequence!.map(parsePitch);
+  const right = new Set(verdict.right.map((entry) => entry.step));
+  const wrongs = lastWrongs(verdict);
+  const [measure] = task.score.measures;
+  const notes = measure.notes.map((note, step): NoteSpec => {
+    const wrong = wrongs.get(step);
+    if (wrong) return { keys: [pitchKey(wrongPitch(sequence[step], wrong))], duration: 'w', mark: 'wrong' };
+    if (!right.has(step)) return step === 0 ? note : { ...note, annotation: undefined };
+    return { keys: [task.sequence![step]], duration: 'w', mark: 'correct' };
+  });
+  const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+  const needed = staffSpace(clef, notes.flatMap((note) => (note.keys ?? []).map(parsePitch)));
   const before = task.score.space ?? needed;
   return {
     ...task.score,
@@ -605,6 +732,126 @@ function listen(
   };
 
   // Steht die Kurve still, zeichnet sie sich nach dem Drehen neu.
+  const onResize = () => {
+    if (stopped) render();
+  };
+  globalThis.addEventListener('resize', onResize);
+  handle = requestAnimationFrame(tick);
+  return () => {
+    stopped = true;
+    cancelAnimationFrame(handle);
+    globalThis.removeEventListener('resize', onResize);
+  };
+}
+
+/**
+ * Zuhören im Tempo: wie `listen`, aber statt gehaltener Töne zählen die
+ * Schläge. Ist ein Schlag vorbei, wird er bewertet (`beatPitch`, über
+ * `onBeat`), und die Kurve färbt ihn grün oder rot; nach dem letzten bleibt
+ * sie stehen. `onClock` meldet den laufenden Schlag (negativ = Einzählen).
+ */
+function listenInTempo(
+  microphone: Microphone,
+  {
+    canvas,
+    phase,
+    timeline,
+    beatMs,
+    count,
+    startLines,
+    endLines,
+    centre: startCentre,
+    onClock,
+    onBeat,
+    onDone,
+  }: {
+    canvas: { current: HTMLCanvasElement | null };
+    phase: { current: Phase };
+    timeline: { current: { start: number } | null };
+    beatMs: number;
+    count: number;
+    startLines: CurveLine[];
+    endLines: CurveLine[];
+    centre: number;
+    onClock: (beat: number | null) => void;
+    onBeat: (step: number, pitch: number | null) => 'right' | 'wrong';
+    onDone: () => void;
+  },
+): () => void {
+  const { analyser, context } = microphone;
+  const buffer = new Float32Array(ANALYSIS_WINDOW);
+  const smoother = new PitchSmoother();
+  const gate = new NoiseGate();
+  const history: CurvePoint[] = [];
+  let frames: (CurvePoint & TimedFrame)[] = [];
+  let lines = startLines;
+  let centre = startCentre;
+  let lastNow = performance.now();
+  let handle = 0;
+  let stopped = false;
+  let run: { start: number } | null = null;
+  let judged = 0;
+  let shownBeat: number | null = null;
+
+  const render = () => {
+    const element = canvas.current;
+    if (!element) return;
+    const semitones = Math.max(
+      MIN_SEMITONES,
+      Math.min(MAX_SEMITONES, Math.round(element.clientHeight / PIXELS_PER_SEMITONE)),
+    );
+    drawCurve(element, history, { now: lastNow, seconds: HISTORY_SECONDS, centre, semitones, lines });
+  };
+
+  const tick = () => {
+    if (stopped) return;
+    const now = performance.now();
+    lastNow = now;
+    analyser.getFloatTimeDomainData(buffer);
+    const open = gate.update(rms(buffer), now);
+    const listening = phase.current === 'listening';
+    const frequency = smoother.push(open && listening ? detectPitch(buffer, context.sampleRate) : null);
+    const value = frequency !== null ? midiFromFrequency(frequency) : null;
+    const point: CurvePoint & TimedFrame = { time: now, midi: value };
+    history.push(point);
+    while (history.length > 0 && history[0].time < now - HISTORY_SECONDS * 1000) history.shift();
+    if (value !== null) centre += (value - centre) * 0.05;
+
+    const line = timeline.current;
+    if (line !== run) {
+      // Ein neuer Durchgang: alles von vorn.
+      run = line;
+      judged = 0;
+      frames = [];
+    }
+    const beat = line && listening ? Math.floor((now - line.start) / beatMs) : null;
+    if (beat !== shownBeat) {
+      shownBeat = beat;
+      onClock(beat);
+    }
+    if (line && listening) {
+      if (now >= line.start - beatMs) frames.push(point);
+      while (judged < count && now >= line.start + (judged + 1) * beatMs) {
+        const from = line.start + judged * beatMs;
+        const mark = onBeat(judged, beatPitch(frames, from, beatMs));
+        for (const frame of frames) {
+          if (frame.midi !== null && frame.time >= from && frame.time < from + beatMs) frame.mark = mark;
+        }
+        judged++;
+        if (judged === count) {
+          lines = endLines;
+          stopped = true;
+          render();
+          onDone();
+          return;
+        }
+      }
+    }
+
+    render();
+    handle = requestAnimationFrame(tick);
+  };
+
   const onResize = () => {
     if (stopped) render();
   };

@@ -78,6 +78,7 @@ const MODES = {
   'tonleitern-notieren': 'Tonleitern notieren',
   'tonleitern-klaviatur': 'Tonleitern auf Klaviatur markieren',
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
+  'tonleitern-singen': 'Tonleitern singen',
   melodiediktat: 'Rhythmus- und Melodiediktat',
 };
 const MODE_IDS = Object.keys(MODES);
@@ -1640,6 +1641,38 @@ async function main() {
       `E-Dur mit g begonnen: das g rot an seinem Platz, kein Urteil, es geht weiter (${chordStaff.join(', ')}; «${missed}»)`,
     );
     await singPage.screenshot({ path: join(SHOTS, 'dreiklaenge-singen-falsch.png') });
+
+    // Tonleitern singen mit Metronom: G-Dur aufwärts (feste Aufgabe), nach
+    // dem g wird eingezählt, dann ist auf jeden Schlag ein Ton dran. Das g
+    // passt nur auf den ersten und letzten — die Zeit wartet nicht, die
+    // Aufgabe endet nach acht Schlägen mit «Falsch», und die ganze Leiter
+    // steht grün in einem zweiten System darunter.
+    console.log('\nTonleitern singen mit Metronom');
+    await singPage.goto(
+      `${BASE}ueben/tonleitern-singen/?tonleitern=dur&max-vorzeichen=1&metronom=100&aufgabe=5&v=1`,
+      { waitUntil: 'networkidle' },
+    );
+    check((await singPage.locator('.sing-task .task-prompt').innerText()) === 'G-Dur aufwärts', 'nennt die Tonleiter');
+    await singPage.locator('.sing-mic button').click();
+    let counting = '';
+    try {
+      await singPage.waitForFunction(() => document.querySelector('.sing-status')?.textContent?.startsWith('Einzählen'), null, {
+        timeout: 8000,
+      });
+      counting = await singPage.locator('.sing-status').innerText();
+    } catch {
+      counting = '';
+    }
+    check(counting !== '', `nach dem Grundton wird eingezählt («${counting}»)`);
+    await singPage.waitForSelector('.verdict', { timeout: 15_000 });
+    const solutionNotes = await singPage
+      .locator('.sing-task .score-solution svg .vf-stavenote')
+      .evaluateAll((notes) => notes.filter((note) => note.outerHTML.includes('#00d903')).length);
+    check(
+      (await singPage.locator('.verdict-text').innerText()) === 'Falsch' && solutionNotes === 8,
+      `nach acht Schlägen: Falsch, die Leiter grün darunter (${solutionNotes} Töne)`,
+    );
+    await singPage.screenshot({ path: join(SHOTS, 'tonleitern-singen-metronom.png') });
 
     // «Ohne Fehlerurteil»: das falsche g beendet die Aufgabe nicht.
     await singPage.goto(

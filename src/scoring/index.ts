@@ -19,7 +19,7 @@ import type {
   TextTableTask,
 } from '../content/schema';
 import { keyNames, whiteIndex } from '../music/piano';
-import { judgeSequence, judgeSung } from '../sing/judge';
+import { judgeSequence, judgeSung, judgeTimed } from '../sing/judge';
 import { describeChordRule, describeKeys, describeNotes, judgeChordKeys, judgeChordNotes } from './chord';
 import { nameFromMidi, pitchFromMidi } from '../sing/notes';
 import {
@@ -402,6 +402,8 @@ function scoreTextTable(task: TextTableTask, answer: TextTableAnswer | undefined
 /** Die gehaltenen Töne in der gesungenen Reihenfolge, MIDI mit Nachkommastellen. */
 export interface SingAnswer {
   notes: number[];
+  /** Im Tempo: die Tonhöhe je Schlag, null = stumm (`judgeTimed`). */
+  beats?: (number | null)[];
 }
 
 /** «e1», «e1, 20 Cent zu tief». Kleine Abweichungen sind keine Rede wert. */
@@ -416,18 +418,20 @@ function describeSung(name: string, cents: number | null): string {
  */
 function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswer | undefined): Detail[] {
   const targets = sequence.map(parsePitch);
-  const verdict = judgeSequence(
-    { reference: midi(parsePitch(task.reference)), targets: targets.map(midi), tolerance: task.tolerance },
-    answer?.notes ?? [],
-  );
+  const goal = { reference: midi(parsePitch(task.reference)), targets: targets.map(midi), tolerance: task.tolerance };
+  const timed = task.tempo !== undefined;
+  const verdict = timed ? judgeTimed(goal, answer?.beats ?? []) : judgeSequence(goal, answer?.notes ?? []);
   // In der gesungenen Reihenfolge: richtige Töne heissen wie notiert, in der
-  // gesungenen Oktave; falsche, wie man sie meist liest.
+  // gesungenen Oktave; falsche, wie man sie meist liest; stumme Schläge «—».
   const sung = verdict.roles.flatMap((role, index) => {
     if (role === 'right') {
       const { step, verdict: note } = verdict.right.find((entry) => entry.index === index)!;
       return [toGermanPitch({ ...targets[step], octave: targets[step].octave + note.octaveShift })];
     }
-    return role === 'wrong' ? [`${nameFromMidi(Math.round(answer!.notes[index]))} (falsch)`] : [];
+    if (role === 'missing') return ['—'];
+    if (role !== 'wrong') return [];
+    const note = verdict.wrong.find((entry) => entry.index === index)!.note;
+    return [`${nameFromMidi(Math.round(note))} (falsch)`];
   });
   return [
     {

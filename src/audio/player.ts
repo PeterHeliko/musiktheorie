@@ -213,7 +213,18 @@ export class SamplePlayer {
   async play(
     events: AudioEvent[],
     tempo: number,
-    { finalRelease = FINAL_RELEASE }: { finalRelease?: number } = {},
+    {
+      finalRelease = FINAL_RELEASE,
+      onStart,
+    }: {
+      finalRelease?: number;
+      /**
+       * Sagt, wann das erste Ereignis zu hören ist, in der Zeit von
+       * `performance.now()` — fürs Singen im Tempo, das die Schläge des
+       * Metronoms mit dem Mikrofon vergleicht.
+       */
+      onStart?: (at: number) => void;
+    } = {},
   ): Promise<void> {
     this.stop();
     await this.ensure(samplesFor(events));
@@ -226,6 +237,9 @@ export class SamplePlayer {
     const secondsPerQuarter = 60 / tempo;
     const start = context.currentTime + SCHEDULE_LEAD;
     const sources: AudioBufferSourceNode[] = [];
+    // Zu hören ist es erst nach der Ausgabeverzögerung (wo der Browser sie kennt).
+    const latency = (context as AudioContext & { outputLatency?: number }).outputLatency ?? context.baseLatency ?? 0;
+    onStart?.(performance.now() + (start - context.currentTime + latency) * 1000);
 
     let offset = 0;
     events.forEach((event, index) => {

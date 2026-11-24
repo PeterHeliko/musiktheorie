@@ -51,6 +51,7 @@ export const PARAM_NAMES: Record<string, string> = {
   limitPlays: 'begrenzt',
   maxAccidentals: 'max-vorzeichen',
   maxLeap: 'sprung',
+  metronome: 'metronom',
   playback: 'wiedergabe',
   positions: 'lagen',
   qualities: 'geschlechter',

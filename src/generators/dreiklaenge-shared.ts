@@ -570,9 +570,34 @@ export const SING_FILTERS: FilterSpec[] = [
     options: TOLERANCE_OPTIONS,
     hint: 'So weit darf jeder gesungene Ton danebenliegen.',
   },
+  {
+    kind: 'single',
+    key: 'metronome',
+    label: 'Metronom',
+    options: [
+      { value: 'aus', label: 'aus' },
+      { value: '60', label: '60' },
+      { value: '80', label: '80' },
+      { value: '100', label: '100' },
+    ],
+    hint: 'Schläge pro Minute. Mit Metronom wird nach dem ersten Ton eingezählt, dann singst du auf jeden Schlag einen Ton. Die Zeit wartet nicht: ein falscher Ton bleibt falsch, und es geht weiter.',
+  },
 ];
 
-export const SING_DEFAULTS = { clefs: ['treble'], tolerance: '50' };
+export const SING_DEFAULTS = { clefs: ['treble'], tolerance: '50', metronome: 'aus' };
+
+/** Das eingestellte Metronom in Schlägen pro Minute, oder undefined ohne. */
+export function metronomeOf(values: FilterValues): number | undefined {
+  const tempo = Number(single(values, 'metronome', 'aus'));
+  return Number.isFinite(tempo) && tempo > 0 ? tempo : undefined;
+}
+
+/** Die Anweisung, mit Metronom ergänzt: dort zählt auch der erste Ton. */
+export function withTempo(task: SingTask, instruction: string): string {
+  return task.tempo
+    ? `${instruction} Mit Metronom: nach dem ersten Ton wird eingezählt, dann singst du auf jeden Schlag einen Ton — auch den ersten. Die Zeit wartet nicht.`
+    : instruction;
+}
 
 /** Zeichenbreite je weiterer Ganze im System der Singübung, wie in SingTaskView. */
 export const SUNG_NOTE_ROOM = 50;
@@ -601,10 +626,12 @@ export function chordSingTask(
   id: string,
   prompt: string,
   stack: Pitch[],
-  { clef, range, tolerance, reach = 1 }: {
+  { clef, range, tolerance, reach = 1, tempo }: {
     clef: 'treble' | 'bass';
     range: Window;
     tolerance: number;
+    /** Mit Metronom, Schläge pro Minute (`metronomeOf`). */
+    tempo?: number;
     /**
      * So viele Halbtöne darf placeInVoice die Stimmlage überschreiten: bei
      * Dreiklängen einen, beim grossen Durseptakkord (elf Halbtöne) zwei.
@@ -633,6 +660,7 @@ export function chordSingTask(
     target: pitchKey(stack[stack.length - 1]),
     sequence: stack.map(pitchKey),
     tolerance,
+    ...(tempo ? { tempo } : {}),
     points: 2,
   };
 }

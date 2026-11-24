@@ -37,6 +37,8 @@ import {
   SING_HINT,
   STAFF_WINDOWS,
   chordSingTask,
+  metronomeOf,
+  withTempo,
   chordSpace,
   grandSpace,
   placeInVoice,
@@ -702,8 +704,8 @@ export const septUmkehrungenSingen: Generator<SingingFilters> = {
       taskId('susi', rng),
       umkehrungPrompt(chord[0], quality, choice, inversion, position, wording),
       stack,
-      { clef, range, tolerance, reach: SING_REACH },
+      { clef, range, tolerance, reach: SING_REACH, tempo: metronomeOf(values) },
     );
-    return { task, instruction: singInstruction(choice.ask) };
+    return { task, instruction: withTempo(task, singInstruction(choice.ask)) };
   },
 };

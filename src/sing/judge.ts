@@ -136,7 +136,7 @@ export interface SequenceGoal {
 }
 
 /** Wie ein gehaltener Ton in der Folge zählt. */
-export type SequenceRole = 'right' | 'wrong' | 'repeat' | 'after';
+export type SequenceRole = 'right' | 'wrong' | 'repeat' | 'after' | 'missing';
 
 export interface SequenceVerdict {
   /** Alle Töne der Folge sind richtig gesungen — die Aufgabe ist zu Ende. */
@@ -213,4 +213,78 @@ export function judgeSequence(goal: SequenceGoal, notes: readonly number[]): Seq
   });
 
   return { done, correct: done && wrong.length === 0, roles, right, reached: at, wrong };
+}
+
+// ---------------------------------------------------------------------------
+// Im Tempo (mit Metronom)
+// ---------------------------------------------------------------------------
+
+/** Ein Messpunkt: Zeit (ms) und Tonhöhe, null = nichts Klares gesungen. */
+export interface TimedFrame {
+  time: number;
+  midi: number | null;
+}
+
+/**
+ * Welcher Teil eines Schlags zählt: ohne den Einsatz (der Ton braucht einen
+ * Moment, bis er steht, und die Erkennung hinkt nach) und ohne das Ende (da
+ * geht es schon zum nächsten).
+ */
+export const BEAT_CORE = { from: 0.25, to: 0.9 };
+
+/** So viel des Kerns muss gesungen sein, sonst gilt der Schlag als stumm. */
+export const BEAT_VOICED = 0.4;
+
+/**
+ * Die Tonhöhe eines Schlags: der Median der gesungenen Werte in seinem Kern.
+ * Null, wenn dort zu wenig gesungen wurde.
+ */
+export function beatPitch(frames: readonly TimedFrame[], start: number, length: number): number | null {
+  const from = start + length * BEAT_CORE.from;
+  const to = start + length * BEAT_CORE.to;
+  const core = frames.filter((frame) => frame.time >= from && frame.time <= to);
+  const voiced = core.flatMap((frame) => (frame.midi === null ? [] : [frame.midi])).sort((a, b) => a - b);
+  if (core.length === 0 || voiced.length < core.length * BEAT_VOICED) return null;
+  const middle = Math.floor(voiced.length / 2);
+  return voiced.length % 2 ? voiced[middle] : (voiced[middle - 1] + voiced[middle]) / 2;
+}
+
+/**
+ * Das Urteil im Tempo: Schlag für Schlag, jeder gegen seinen Ton der Folge,
+ * in jeder Oktave. Ein falscher oder stummer Schlag bleibt falsch, und der
+ * nächste ist trotzdem dran — die Zeit wartet nicht. Den vorgespielten
+ * ersten Ton singt man hier mit: auf den ersten Schlag.
+ *
+ * Dasselbe Format wie `judgeSequence`, damit Ansicht und Bewertung beides
+ * gleich zeigen; `index` ist hier der Schlag. Stumme Schläge stehen in
+ * `missing` und haben die Rolle «missing».
+ */
+export function judgeTimed(
+  goal: SequenceGoal,
+  beats: readonly (number | null)[],
+): SequenceVerdict & { missing: number[] } {
+  const roles: SequenceRole[] = [];
+  const right: SequenceVerdict['right'] = [];
+  const wrong: SequenceVerdict['wrong'] = [];
+  const missing: number[] = [];
+  beats.slice(0, goal.targets.length).forEach((note, step) => {
+    if (note === null) {
+      roles.push('missing');
+      missing.push(step);
+      return;
+    }
+    const verdict = judgeNote({ reference: goal.reference, target: goal.targets[step], tolerance: goal.tolerance }, note);
+    roles.push(verdict.correct ? 'right' : 'wrong');
+    (verdict.correct ? right : wrong).push({ step, index: step, note, verdict, expected: step });
+  });
+  const done = roles.length === goal.targets.length;
+  return {
+    done,
+    correct: done && wrong.length === 0 && missing.length === 0,
+    roles,
+    right,
+    reached: roles.length,
+    wrong,
+    missing,
+  };
 }

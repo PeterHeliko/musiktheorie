@@ -20,9 +20,28 @@ import {
   type ScaleType,
 } from '../music/scales';
 import { midi, type Pitch } from '../music/theory';
+import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
+import {
+  SING_DEFAULTS,
+  SING_FILTERS,
+  SING_HINT,
+  chordSingTask,
+  metronomeOf,
+  placeInVoice,
+  withTempo,
+} from './dreiklaenge-shared';
 import type { Rng } from './rng';
 import { CLEF_OPTIONS, insist, pitchKey, taskId } from './shared';
-import { multi, range, type FilterSpec, type FilterValues, type Generator, type Question } from './types';
+import {
+  multi,
+  range,
+  single,
+  type FilterSpec,
+  type FilterValues,
+  type Generator,
+  type Personal,
+  type Question,
+} from './types';
 
 /** Die Einstellung «Welche Tonleitern?», mit den Kirchentonarten. */
 export const SCALE_FILTER: FilterSpec = {
@@ -245,5 +264,70 @@ export const tonleiternKlaviatur: Generator<KeyboardFilters> = {
       points: 2,
     };
     return { task };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Tonleitern singen
+// ---------------------------------------------------------------------------
+
+interface SingingFilters extends FilterValues {
+  scales: string[];
+  maxAccidentals: number;
+  directions: string[];
+  clefs: string[];
+  tolerance: string;
+  metronome: string;
+}
+
+/**
+ * Wie Dreiklänge singen (Entscheid 2026-11-24): der Grundton erklingt und
+ * steht im System, Platz für alle acht Töne; gesungen wird Ton für Ton, jeder
+ * in beliebiger Oktave. Ein falscher Ton steht rot an seinem Platz, und es
+ * geht weiter, bis der richtige kommt (`judgeSequence`). Mit Metronom ein Ton
+ * je Schlag (`judgeTimed`). Abwärts beginnt die Leiter auf dem oberen
+ * Grundton. Nach dem Urteil spielt «Abspielen» die Leiter, ohne Zusammenklang.
+ */
+export const tonleiternSingen: Generator<SingingFilters> = {
+  id: 'tonleitern-singen',
+  topic: 'tonleitern',
+  skill: 'singen',
+  version: 1,
+  title: 'Tonleitern singen',
+  instruction: 'Du hörst den Grundton. Singe die Tonleiter Ton für Ton; den Grundton darfst du mitsingen.',
+  hint: SING_HINT,
+
+  filters: [SCALE_FILTER, MAX_ACCIDENTALS_FILTER, DIRECTION_FILTER, ...SING_FILTERS],
+
+  defaults: {
+    scales: DEFAULT_SCALES,
+    maxAccidentals: 4,
+    directions: ['up'],
+    ...SING_DEFAULTS,
+  },
+
+  generate(values, rng: Rng, personal?: Personal): Question {
+    const choice = pickScale(values, rng);
+    const clef = rng.pick(multi(values, 'clefs', this.defaults.clefs)) as 'treble' | 'bass';
+    const tolerance = Number(single(values, 'tolerance', '50'));
+    const voiceRange = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
+
+    // Art, Grundton und Richtung stehen fest, bevor die Stimmlage zählt:
+    // derselbe Aufgabenlink fragt bei allen dieselbe Leiter, in der eigenen Lage.
+    const pitches = scalePitches(choice.tonic, choice.type, choice.direction);
+    const placed = placeInVoice(rng, pitches, voiceRange);
+    const problem = checkScale(placed, choice.type, choice.direction);
+    insist(problem === null, `${scalePrompt(choice)}: ${problem}`);
+
+    const task = {
+      ...chordSingTask(taskId('tls', rng), scalePrompt(choice), placed, {
+        clef,
+        range: voiceRange,
+        tolerance,
+        tempo: metronomeOf(values),
+      }),
+      melodic: true,
+    };
+    return { task, ...(task.tempo ? { instruction: withTempo(task, this.instruction) } : {}) };
   },
 };
