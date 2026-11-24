@@ -1384,6 +1384,16 @@ async function main() {
     });
     check(drawn > 50, `zeichnet die gesungene Linie grün (${drawn} Pixel)`);
     await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-richtig.png') });
+    const solutionButton = singPage.locator('.sing-task .play-button');
+    check(
+      (await solutionButton.getAttribute('aria-label')) === 'Lösung abspielen',
+      'nach dem Urteil spielt «Abspielen» die Lösung',
+    );
+    await solutionButton.click();
+    check(
+      await eventually(singPage, () => document.querySelector('.sing-task .play-button')?.getAttribute('aria-label') === 'Lösung läuft'),
+      'und sie läuft',
+    );
 
     // Neu geladen ist das Mikrofon wieder zu. Danach, mit «Weiter», bleibt es offen.
     await singPage.goto(`${BASE}ueben/intervalle-singen/?intervalle=k3&richtung=auf&aufgabe=1&v=2`, {

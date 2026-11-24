@@ -23,13 +23,16 @@
  * beendet die Aufgabe (mit «Ohne Fehlerurteil» nicht). Die Regeln stehen in
  * `judgeSequence`.
  *
+ * Nach dem Urteil spielt «Abspielen» die ganze Lösung: Ausgangs- und
+ * Zielton bzw. alle Töne der Folge einzeln, dann zusammen.
+ *
  * Das Mikrofon bleibt über die Aufgaben hinweg offen; geschlossen wird es
  * beim Verlassen der Übung (ExercisePage).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { player, samplesFor } from '../audio/player';
-import type { AudioEvent } from '../content/audio';
+import { DEFAULT_TEMPO, type AudioEvent } from '../content/audio';
 import type { NoteSpec, ScoreSpec, SingTask } from '../content/schema';
 import { pitchKey } from '../generators/shared';
 import { staffSpace } from '../music/staff-space';
@@ -100,6 +103,18 @@ export function SingTaskView({ task }: { task: SingTask }) {
   /** Welche Töne der Folge schon richtig gesungen sind (0 = der vorgespielte). */
   const [sungSteps, setSungSteps] = useState<number[]>([]);
   const events = useMemo<AudioEvent[]>(() => [{ pitches: [reference], quarters: REFERENCE_QUARTERS }], [task]);
+  /**
+   * Nach dem Urteil spielt «Abspielen» die ganze Lösung: die Töne einzeln,
+   * wie sie zu singen waren, dann zusammen — wie in den Hörübungen.
+   */
+  const solution = useMemo<AudioEvent[]>(() => {
+    const tones = sequence ?? [reference, target];
+    return [
+      ...tones.map((pitch) => ({ pitches: [pitch], quarters: 1 })),
+      { pitches: [], quarters: 0.5 },
+      { pitches: tones, quarters: 3 },
+    ];
+  }, [task]);
 
   const [mic, setMic] = useState<MicState>(() => (openedMicrophone() ? 'on' : 'off'));
   const [micError, setMicError] = useState('');
@@ -131,9 +146,12 @@ export function SingTaskView({ task }: { task: SingTask }) {
     const token = ++playToken.current;
     setPlaying(true);
     setPlayFailed(false);
-    if (phaseRef.current !== 'done') setPhase('playing');
+    const judged = phaseRef.current === 'done';
+    if (!judged) setPhase('playing');
     try {
-      await player.play(events, REFERENCE_TEMPO, { finalRelease: REFERENCE_RELEASE });
+      await (judged
+        ? player.play(solution, DEFAULT_TEMPO)
+        : player.play(events, REFERENCE_TEMPO, { finalRelease: REFERENCE_RELEASE }));
     } catch (error) {
       console.warn('Wiedergabe fehlgeschlagen:', error);
       if (mounted.current) setPlayFailed(true);
@@ -141,12 +159,12 @@ export function SingTaskView({ task }: { task: SingTask }) {
     if (!mounted.current || token !== playToken.current) return;
     setPlaying(false);
     if (phaseRef.current === 'playing') setPhase('listening');
-  }, [events]);
+  }, [events, solution]);
 
   // Neue Aufgabe bei offenem Mikrofon: gleich abspielen, wenn der Browser es
   // zulässt. Sonst sofort zuhören — der Knopf spielt den Ton auf Wunsch.
   useEffect(() => {
-    player.preload(samplesFor(events));
+    player.preload(samplesFor([...events, ...solution]));
     if (mic !== 'on') return;
     let cancelled = false;
     void player.canPlayWithoutGesture().then((allowed) => {
@@ -274,7 +292,15 @@ export function SingTaskView({ task }: { task: SingTask }) {
           class={`play-button ${playing ? 'is-playing' : ''}`}
           onClick={() => void play()}
           disabled={playing}
-          aria-label={playing ? 'Ausgangston läuft' : 'Ausgangston abspielen'}
+          aria-label={
+            phase === 'done'
+              ? playing
+                ? 'Lösung läuft'
+                : 'Lösung abspielen'
+              : playing
+                ? 'Ausgangston läuft'
+                : 'Ausgangston abspielen'
+          }
         >
           <span class="play-icon" aria-hidden="true">
             {playing ? '❚❚' : '▶'}
