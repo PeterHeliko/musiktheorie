@@ -126,6 +126,10 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
   Antwortknöpfe. Stumm.
 - **Spielen** (`KeyboardTask`): Antippen wählt eine Taste und lässt sie klingen, «Prüfen»
   gibt sie ab. Falsch gespielt, ist die richtige Taste grün umrandet.
+- **Akkord spielen** (`KeyboardTask.chord`): jedes Antippen nimmt eine Taste dazu oder weg.
+  Richtig ist jede Lage mit allen Akkordtönen, keinem anderen, und — wo verlangt — dem
+  richtigen tiefsten und höchsten Ton (`src/scoring/chord.ts`). Falsch gespielt, ist eine
+  richtige Lage in der Nähe grün umrandet.
 - Markiert wird mit Füllung: vorgegebene Tasten blau, die gewählte hellblau, nach dem
   Prüfen grün oder rot wie die Antwortknöpfe. Nicht spielbare Tasten (schwarz in der
   Grobbestimmung) sehen aus wie alle anderen.

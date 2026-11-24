@@ -65,3 +65,46 @@ export const KEY_NAMES: string[] = [...new Set(keysBetween(60, 71).flatMap(keyNa
 export function keysNamed(name: string, low: number, high: number): number[] {
   return keysBetween(low, high).filter((key) => keyNames(key).includes(name));
 }
+
+/**
+ * Richtige Lagen eines Akkords auf den Tasten `low` bis `high` — so zeigt die
+ * Klaviatur nach einem Fehler, wie es richtig gewesen wäre.
+ *
+ * `classes` sind die Akkordtöne als Tonklassen (0 = c … 11 = h), `lowest`
+ * und `highest` die Indizes der Töne, die unten bzw. oben liegen müssen.
+ * Zuerst drei Töne eng; geht das nicht (Umkehrung und Lage, die eng nicht
+ * zusammenpassen), ein Basston unter drei engen Tönen.
+ */
+export function chordExamples(
+  classes: readonly number[],
+  { lowest, highest }: { lowest?: number; highest?: number },
+  low: number,
+  high: number,
+): number[][] {
+  const above = (from: number, member: number) => {
+    let key = from + 1;
+    while (((key % 12) + 12) % 12 !== classes[member]) key++;
+    return key;
+  };
+  /** Drei Töne eng, ab einer Taste dieses Akkordglieds. */
+  const stacks = (order: number[]) =>
+    keysBetween(low, high)
+      .filter((key) => key % 12 === classes[order[0]])
+      .map((start) => order.slice(1).reduce((keys, member) => [...keys, above(keys[keys.length - 1], member)], [start]))
+      .filter((keys) => keys[keys.length - 1] <= high);
+
+  const rotations = [0, 1, 2].map((shift) => [0, 1, 2].map((index) => (index + shift) % 3));
+  const close = rotations
+    .filter((order) => (lowest === undefined || order[0] === lowest) && (highest === undefined || order[2] === highest))
+    .flatMap(stacks);
+  if (close.length > 0 || lowest === undefined) return close;
+
+  return rotations
+    .filter((order) => highest === undefined || order[2] === highest)
+    .flatMap(stacks)
+    .flatMap((upper) => {
+      let bass = upper[0] - 3;
+      while (bass >= low && bass % 12 !== classes[lowest]) bass--;
+      return bass >= low ? [[bass, ...upper]] : [];
+    });
+}

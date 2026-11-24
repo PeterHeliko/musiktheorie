@@ -74,7 +74,7 @@ function correctAnswerFor(task: Task): unknown {
     // Erst den Ausgangston nachsingen (erlaubt), dann genau den Zielton.
     return { notes: [midi(parsePitch(task.reference)), midi(parsePitch(task.target))] };
   }
-  if (task.kind === 'keyboard') return { keys: [task.accept[0]] };
+  if (task.kind === 'keyboard') return { keys: task.chord ? task.accept : [task.accept[0]] };
   if (task.kind !== 'notation') return {};
 
   const fields = Object.fromEntries((task.fields ?? []).map((f) => [f.id, f.correct]));
@@ -1008,6 +1008,53 @@ describe('Dreiklänge', () => {
         const augmented = [...classes].some((pc) => classes.has((pc + 4) % 12) && classes.has((pc + 8) % 12));
         expect(augmented, id).toBe(false);
       }
+    }
+  });
+
+  it('verlangt beim Spielen in Grundstellung den genannten Akkord, Grundton unten', () => {
+    const NAMES: Record<string, string> = { dur: '-Dur', moll: '-Moll', vermindert: ' vermindert', uebermaessig: ' übermässig', sus4: 'sus4' };
+    const seen = new Set<string>();
+    for (const question of generate('dreiklaenge-klaviatur-spielen', { sus4: true })) {
+      const task = question.task as KeyboardTask;
+      const quality = Object.keys(NAMES).find((key) => task.prompt!.endsWith(NAMES[key]))!;
+      seen.add(quality);
+      expect([task.accept[1] - task.accept[0], task.accept[2] - task.accept[0]], task.prompt).toEqual(SEMITONES[quality]);
+      expect(task.chord!.lowest).toBe(0);
+      expect(task.chord!.highest).toBeUndefined();
+      // Grundton eine Oktave höher und die Quinte verdoppelt: auch richtig.
+      const spread = [task.accept[0], task.accept[1] + 12, task.accept[2], task.accept[2] + 12];
+      expect(scoreTask(task, { keys: spread }).earned, task.prompt).toBe(task.points);
+      // Ohne den Grundton unten: falsch.
+      expect(scoreTask(task, { keys: [task.accept[1], task.accept[2], task.accept[0] + 12] }).earned).toBe(0);
+    }
+    expect(seen).toEqual(new Set(Object.keys(NAMES)));
+  });
+
+  it('verlangt beim Spielen von Umkehrungen nur das Gefragte', () => {
+    for (const [ask, lowest, highest] of [[['inv'], true, false], [['pos'], false, true], [['inv', 'pos'], true, true]] as const) {
+      for (const question of generate('umkehrungen-klaviatur-spielen', { ask: [...ask], withBass: true }, 50)) {
+        const task = question.task as KeyboardTask;
+        expect(task.chord!.lowest !== undefined, `${ask}`).toBe(lowest);
+        expect(task.chord!.highest !== undefined, `${ask}`).toBe(highest);
+      }
+    }
+  });
+
+  it('nennt beim Spielen von Umkehrungen Akkord und Umkehrung, und die Lösung erfüllt sie', () => {
+    const INVERSION_MEMBER: Record<string, number> = { Grundstellung: 0, Sextakkord: 1, Quartsextakkord: 2 };
+    const POSITION_MEMBER: Record<string, number> = { Oktavlage: 0, Terzlage: 1, Quintlage: 2 };
+    for (const question of generate('umkehrungen-klaviatur-spielen', { ask: ['inv', 'pos'], withBass: true, qualities: ['dur', 'moll', 'vermindert', 'uebermaessig'] })) {
+      const task = question.task as KeyboardTask;
+      const match = /^(.+), (\w+) in (\w+)$/.exec(task.prompt!)!;
+      expect(match, task.prompt).not.toBeNull();
+      expect(task.chord!.lowest).toBe(INVERSION_MEMBER[match[2]]);
+      expect(task.chord!.highest).toBe(POSITION_MEMBER[match[3]]);
+      // Tiefste und höchste Taste der Lösung sind diese Akkordglieder.
+      const classes = task.chord!.tones.map((tone) => midi(parsePitch(tone)) % 12);
+      const sorted = [...task.accept].sort((a, b) => a - b);
+      expect(classes.indexOf(sorted[0] % 12)).toBe(task.chord!.lowest);
+      expect(classes.indexOf(sorted[sorted.length - 1] % 12)).toBe(task.chord!.highest);
+      expect(scoreTask(task, { keys: task.accept }).earned).toBe(task.points);
     }
   });
 

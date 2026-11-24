@@ -220,7 +220,7 @@ quality, one tap answers.
 | Dreiklänge in Noten benennen        | Erkennen   | ✓   |
 | Dreiklänge notieren                 | Notieren   |     |
 | Dreiklänge auf Klaviatur benennen   | Klaviatur  | ✓   |
-| Dreiklänge auf Klaviatur spielen    | Klaviatur  |     |
+| Dreiklänge auf Klaviatur spielen    | Klaviatur  | ✓   |
 | Dreiklänge hörend erkennen          | Hören      | ✓   |
 | Dreiklänge singen                   | Singen     | ★   |
 
@@ -233,7 +233,7 @@ both.
 | Umkehrungen & Lagen in Noten benennen         | Erkennen   | ✓   |
 | Umkehrungen & Lagen notieren                  | Notieren   |     |
 | Umkehrungen & Lagen auf Klaviatur benennen    | Klaviatur  | ✓   |
-| Umkehrungen & Lagen auf Klaviatur spielen     | Klaviatur  |     |
+| Umkehrungen & Lagen auf Klaviatur spielen     | Klaviatur  | ✓   |
 | Umkehrungen & Lagen hörend erkennen           | Hören      | ✓   |
 | Umkehrungen & Lagen singen                    | Singen     | ★   |
 

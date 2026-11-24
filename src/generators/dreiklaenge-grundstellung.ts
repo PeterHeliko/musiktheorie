@@ -9,8 +9,9 @@
  */
 
 import { OPTION_SETS } from '../content/options';
-import type { SelectField, SelectTask } from '../content/schema';
-import { INTERVAL_KEYBOARD } from '../music/piano';
+import type { ChordRule, KeyboardTask, SelectField, SelectTask } from '../content/schema';
+import { INTERVAL_KEYBOARD, chordExamples } from '../music/piano';
+import { judgeChordKeys } from '../scoring/chord';
 import { analyseTriad, midi, type Pitch } from '../music/theory';
 import {
   CHORD_SEMITONES,
@@ -19,6 +20,7 @@ import {
   STAFF_WINDOWS,
   SUS4_FILTER,
   buildChord,
+  chordName,
   chordSpace,
   chosenQualities,
   octavePlacements,
@@ -196,6 +198,66 @@ export const dreiklaengeKlaviaturBenennen: Generator<KeyNamingFilters> = {
         ? `${this.hint} Bei sus4 sind es 5 + 2.`
         : undefined,
     };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Auf Klaviatur spielen
+// ---------------------------------------------------------------------------
+
+interface KeyPlayingFilters extends FilterValues {
+  qualities: string[];
+  sus4: boolean;
+  accidentals: string;
+}
+
+export const dreiklaengeKlaviaturSpielen: Generator<KeyPlayingFilters> = {
+  id: 'dreiklaenge-klaviatur-spielen',
+  topic: 'dreiklaenge',
+  group: 'grundstellung',
+  skill: 'klaviatur',
+  version: 1,
+  title: 'Dreiklänge auf Klaviatur spielen',
+  instruction: 'Spiele den genannten Dreiklang in Grundstellung: der Grundton liegt unten.',
+  hint:
+    'Tippe die Tasten an; noch einmal antippen nimmt eine weg. Jede Oktave zählt, Töne verdoppeln ist erlaubt. ' +
+    'Mit «Prüfen» gibst du den Akkord ab.',
+
+  filters: [qualityFilter(), SUS4_FILTER, ROOT_FILTER],
+
+  defaults: { qualities: ALL_TRIADS, sus4: false, accidentals: 'einfach' },
+
+  generate(values, rng: Rng): Question {
+    const qualities = chosenQualities(values, this.defaults.qualities);
+    const policy = rootPolicy(values);
+
+    const quality = rng.pick(qualities);
+    const stack = rng.pick(chordsIn(quality, policy, INTERVAL_KEYBOARD));
+    checkChord(stack, quality);
+    const keys = stack.map(midi);
+    checkKeys(keys, quality);
+
+    // Die Regel muss die eigene Lösung annehmen, und die Klaviatur muss eine
+    // richtige Lage zeigen können, wenn falsch gespielt wurde.
+    const rule: ChordRule = { tones: stack.map(pitchKey), lowest: 0 };
+    insist(judgeChordKeys(rule, keys).correct, `${stack.map(pitchKey).join(' ')} verfehlt die eigene Regel`);
+    insist(
+      chordExamples(keys.map((key) => key % 12), rule, INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high).length > 0,
+      'keine Lage zum Zeigen',
+    );
+
+    const task: KeyboardTask = {
+      id: taskId('dks', rng),
+      kind: 'keyboard',
+      prompt: chordName(stack[0], quality),
+      keyboard: { ...INTERVAL_KEYBOARD },
+      accept: keys,
+      chord: rule,
+      sound: true,
+      describe: { by: 'chord' },
+      points: 2,
+    };
+    return { task };
   },
 };
 

@@ -16,8 +16,9 @@
  * dort nicht gibt.
  */
 
-import type { ScoreSpec, SelectTask } from '../content/schema';
-import { INTERVAL_KEYBOARD } from '../music/piano';
+import type { ChordRule, KeyboardTask, ScoreSpec, SelectTask } from '../content/schema';
+import { INTERVAL_KEYBOARD, chordExamples } from '../music/piano';
+import { judgeChordKeys } from '../scoring/chord';
 import { analyseTriad, midi, type Inversion, type Pitch, type Position } from '../music/theory';
 import {
   CLEF_FILTER,
@@ -27,9 +28,11 @@ import {
   UMKEHRUNG_DEFAULTS,
   bassMember,
   buildChord,
+  chordName,
   chordSpace,
   grandSpace,
   inversionPositionFields,
+  inversionPositionText,
   pickInversionAndPosition,
   qualityFilter,
   readKeys,
@@ -40,6 +43,7 @@ import {
   umkehrungFilters,
   voicingsFor,
   type RootPolicy,
+  type UmkehrungChoice,
   type Voicing,
 } from './dreiklaenge-shared';
 import { OPTION_SETS } from '../content/options';
@@ -257,6 +261,112 @@ export const umkehrungenKlaviaturBenennen: Generator<KeyNamingFilters> = {
       fields: inversionPositionFields(choice, { inversion, position }),
     };
     return { task, instruction: instructionFor(choice.ask, 'des Dreiklangs auf den markierten Tasten') };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Auf Klaviatur spielen
+// ---------------------------------------------------------------------------
+
+/**
+ * Die Regel für einen frei gespielten oder gesetzten Akkord: alle drei Töne,
+ * kein anderer, und unten bzw. oben das verlangte Akkordglied — nur das, was
+ * gefragt ist.
+ */
+export function umkehrungRule(
+  chord: Pitch[],
+  ask: string[],
+  inversion: Inversion,
+  position: Position,
+): ChordRule {
+  return {
+    tones: chord.map(pitchKey),
+    ...(ask.includes('inv') ? { lowest: bassMember(inversion) } : {}),
+    ...(ask.includes('pos') ? { highest: topMember(position) } : {}),
+  };
+}
+
+/** Was zu spielen oder zu setzen ist: «D-Dur, Sextakkord». */
+function umkehrungPrompt(root: Pitch, quality: TriadQuality, choice: UmkehrungChoice, inversion: Inversion, position: Position) {
+  return `${chordName(root, quality)}, ${inversionPositionText(choice.ask, inversion, position)}`;
+}
+
+function playInstruction(ask: string[]): string {
+  if (ask.includes('inv') && ask.includes('pos')) return 'Spiele den Dreiklang in der verlangten Umkehrung und Lage.';
+  return ask.includes('inv')
+    ? 'Spiele den Dreiklang in der verlangten Umkehrung.'
+    : 'Spiele den Dreiklang in der verlangten Lage.';
+}
+
+interface KeyPlayingFilters extends FilterValues {
+  ask: string[];
+  inversions: string[];
+  positions: string[];
+  withBass: boolean;
+  qualities: string[];
+  accidentals: string;
+}
+
+export const umkehrungenKlaviaturSpielen: Generator<KeyPlayingFilters> = {
+  id: 'umkehrungen-klaviatur-spielen',
+  topic: 'dreiklaenge',
+  group: 'umkehrungen',
+  skill: 'klaviatur',
+  version: 1,
+  title: 'Umkehrungen & Lagen auf Klaviatur spielen',
+  instruction: playInstruction(['inv']),
+  hint:
+    `${HINT} Tippe die Tasten an; noch einmal antippen nimmt eine weg. Töne verdoppeln ist erlaubt. ` +
+    'Mit «Prüfen» gibst du den Akkord ab.',
+
+  filters: [
+    ...umkehrungFilters({
+      label: 'Mit Basston (Umkehrung und Lage frei kombiniert)',
+      hint: 'Dann kann etwa ein Sextakkord in Terzlage verlangt sein — dafür braucht es vier Töne.',
+    }),
+    qualityFilter(),
+    ROOT_FILTER,
+  ],
+
+  defaults: { ...UMKEHRUNG_DEFAULTS, qualities: ['dur', 'moll'], accidentals: 'einfach' },
+
+  generate(values, rng: Rng): Question {
+    const choice = umkehrungChoice(values, this.defaults);
+    const qualities = multi(values, 'qualities', this.defaults.qualities) as TriadQuality[];
+    const policy = rootPolicy(values);
+
+    const { inversion, position } = pickInversionAndPosition(rng, choice);
+    const quality = rng.pick(qualities);
+    const windows = choice.withBass
+      ? { upper: INTERVAL_KEYBOARD, bass: INTERVAL_KEYBOARD }
+      : { upper: INTERVAL_KEYBOARD };
+    const candidates = voicingsOf(quality, policy, inversion, position, windows);
+    insist(candidates.length > 0, `kein ${quality} als ${inversion} in ${position} auf der Klaviatur`);
+    const { root, voicing } = rng.pick(candidates);
+    checkVoicing(voicing.all, root, quality, inversion, position);
+
+    const chord = buildChord(root, quality);
+    const rule = umkehrungRule(chord, choice.ask, inversion, position);
+    const keys = voicing.all.map(midi);
+    insist(judgeChordKeys(rule, keys).correct, `${voicing.all.map(pitchKey).join(' ')} verfehlt die eigene Regel`);
+    insist(
+      chordExamples(chord.map((pitch) => midi(pitch) % 12), rule, INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high)
+        .length > 0,
+      'keine Lage zum Zeigen',
+    );
+
+    const task: KeyboardTask = {
+      id: taskId('uks', rng),
+      kind: 'keyboard',
+      prompt: umkehrungPrompt(root, quality, choice, inversion, position),
+      keyboard: { ...INTERVAL_KEYBOARD },
+      accept: keys,
+      chord: rule,
+      sound: true,
+      describe: { by: 'chord' },
+      points: 2,
+    };
+    return { task, instruction: playInstruction(choice.ask) };
   },
 };
 

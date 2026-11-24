@@ -20,6 +20,7 @@ import type {
 } from '../content/schema';
 import { keyNames, whiteIndex } from '../music/piano';
 import { judgeSung } from '../sing/judge';
+import { describeChordRule, describeKeys, judgeChordKeys } from './chord';
 import { nameFromMidi } from '../sing/notes';
 import {
   DURATION_LABELS,
@@ -450,6 +451,21 @@ export function keyInterval(
 
 function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): Detail[] {
   const keys = answer?.keys ?? [];
+  if (task.chord) {
+    const correct = judgeChordKeys(task.chord, keys).correct;
+    return [
+      {
+        id: `${task.id}_akkord`,
+        label: task.prompt ?? 'Akkord',
+        earned: correct ? task.points : 0,
+        possible: task.points,
+        studentResponse: describeKeys(keys),
+        correctResponse: describeChordRule(task.chord),
+        correct,
+        interactionType: 'performance',
+      },
+    ];
+  }
   const correct = keys.length === 1 && task.accept.includes(keys[0]);
   if (task.describe.by === 'name') {
     // Verlangt war ein Ton; welche Oktave, ist gleich.
@@ -466,6 +482,7 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
       },
     ];
   }
+  if (task.describe.by === 'chord') throw new Error(`${task.id}: Akkordbeschreibung ohne Akkord`);
   const { from, by } = task.describe;
   // Sind beide Richtungen richtig, nennt die Lösung nur das Intervall.
   const both = task.accept.some((key) => key > from) && task.accept.some((key) => key < from);
@@ -488,6 +505,8 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
 // ---------------------------------------------------------------------------
 // Gesamtauswertung
 // ---------------------------------------------------------------------------
+
+export { judgeChordKeys, judgeChordNotes } from './chord';
 
 export function scoreTask(
   task: Task,

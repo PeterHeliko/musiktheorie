@@ -47,6 +47,7 @@ export function PianoKeyboard({
   states = {},
   pressable,
   onPress,
+  multiple = false,
   disabled = false,
   fit = false,
   label,
@@ -62,6 +63,8 @@ export function PianoKeyboard({
   pressable?: (key: number) => boolean;
   /** Ohne: die Klaviatur ist nur ein Bild. */
   onPress?: (key: number) => void;
+  /** Mehrere Tasten zugleich wählbar (Akkord) statt genau einer. */
+  multiple?: boolean;
   /** Nach dem Prüfen: alles eingefroren, die Färbung bleibt. */
   disabled?: boolean;
   /**
@@ -125,7 +128,7 @@ export function PianoKeyboard({
         style={place(key)}
         data-key={key}
         data-state={state}
-        role="radio"
+        role={multiple ? 'checkbox' : 'radio'}
         aria-checked={state === 'selected' || state === 'right' || state === 'wrong'}
         aria-label={`${nameFromMidi(key)}${marks.has(key) ? ', vorgegeben' : ''}`}
         disabled={!usable}
@@ -148,7 +151,7 @@ export function PianoKeyboard({
     <div
       ref={box}
       class={`piano ${interactive ? 'is-interactive' : ''}`}
-      role={interactive ? 'radiogroup' : 'img'}
+      role={interactive ? (multiple ? 'group' : 'radiogroup') : 'img'}
       aria-label={label}
       style={{ '--piano-ratio': String(ratio) }}
     >

@@ -9,13 +9,21 @@
  *  - «Prüfen» (oder Eingabe-/Leertaste) gibt die gewählte Taste ab.
  *  - Danach ist die gewählte Taste grün oder rot; war sie falsch, ist die
  *    richtige grün umrandet — wie bei den Antwortknöpfen.
+ *
+ * Ein Akkord (`task.chord`, Entscheid 2026-11-24): jedes Antippen nimmt eine
+ * Taste dazu (sie klingt) oder wieder weg. Nach dem Prüfen ist jede gespielte
+ * Taste grün oder rot — rot, wenn sie nicht zum Akkord gehört oder als
+ * tiefste bzw. höchste das falsche Akkordglied ist. War der Akkord falsch,
+ * steht die richtige Lage, die dem Gespielten am nächsten liegt, grün
+ * umrandet da.
  */
 
 import { useEffect } from 'preact/hooks';
 import { player, samplesFor } from '../audio/player';
 import type { KeyboardTask } from '../content/schema';
-import { isWhiteKey, keysBetween } from '../music/piano';
-import type { KeyboardAnswer } from '../scoring';
+import { chordExamples, isWhiteKey, keysBetween } from '../music/piano';
+import { midi, parsePitch } from '../music/theory';
+import { judgeChordKeys, type KeyboardAnswer } from '../scoring';
 import { pitchFromMidi } from '../sing/notes';
 import { useExam } from '../state';
 import { PianoKeyboard, type KeyState } from './PianoKeyboard';
@@ -49,7 +57,14 @@ export function KeyboardTaskView({
   }, [task]);
 
   const states: Record<number, KeyState> = {};
-  if (revealed) {
+  if (revealed && task.chord) {
+    // Ein Akkord: jede gespielte Taste grün oder rot; war er falsch, steht
+    // eine richtige Lage grün umrandet da — die, die dem Gespielten am
+    // nächsten liegt.
+    const judged = judgeChordKeys(task.chord, chosen);
+    if (!judged.correct) for (const key of nearestExample(task, chosen)) states[key] = 'solution';
+    chosen.forEach((key, index) => (states[key] = judged.marks[index]));
+  } else if (revealed) {
     const right = chosen.length === 1 && task.accept.includes(chosen[0]);
     if (!right) for (const key of task.accept) states[key] = 'solution';
     for (const key of chosen) states[key] = task.accept.includes(key) ? 'right' : 'wrong';
@@ -59,6 +74,15 @@ export function KeyboardTaskView({
 
   const press = (key: number) => {
     if (readOnly) return;
+    if (task.chord) {
+      // Antippen nimmt die Taste dazu oder wieder weg. Nur was dazukommt,
+      // klingt.
+      const removing = chosen.includes(key);
+      if (!removing && task.sound) player.strike(pitchFromMidi(key), { seconds: KEY_SECONDS, release: KEY_RELEASE });
+      const keys = removing ? chosen.filter((entry) => entry !== key) : [...chosen, key].sort((a, b) => a - b);
+      setAnswer(task.id, { keys });
+      return;
+    }
     // Erst der Ton, dann alles andere: er soll sofort da sein.
     if (task.sound) player.strike(pitchFromMidi(key), { seconds: KEY_SECONDS, release: KEY_RELEASE });
     setAnswer(task.id, { keys: [key] });
@@ -75,10 +99,24 @@ export function KeyboardTaskView({
         states={states}
         pressable={task.whiteOnly ? isWhiteKey : undefined}
         onPress={press}
+        multiple={Boolean(task.chord)}
         disabled={readOnly}
         fit
         label={task.prompt ? `Klaviatur: ${task.prompt}` : 'Klaviatur'}
       />
     </div>
   );
+}
+
+/**
+ * Eine richtige Lage des Akkords, so nah wie möglich am Gespielten (gemessen
+ * an der tiefsten Taste). Ohne gespielte Taste die des Generators.
+ */
+function nearestExample(task: KeyboardTask, chosen: number[]): number[] {
+  const rule = task.chord!;
+  const classes = rule.tones.map((tone) => ((midi(parsePitch(tone)) % 12) + 12) % 12);
+  const examples = chordExamples(classes, rule, task.keyboard.low, task.keyboard.high);
+  if (chosen.length === 0 || examples.length === 0) return task.accept;
+  const lowest = Math.min(...chosen);
+  return examples.reduce((best, keys) => (Math.abs(keys[0] - lowest) < Math.abs(best[0] - lowest) ? keys : best));
 }

@@ -262,15 +262,40 @@ export interface SingTask extends TaskBase {
 }
 
 /**
+ * Ein Akkord, der frei gesetzt oder gespielt wird: in jeder Lage, mit
+ * Verdopplungen, im Klaviersystem auch über beide Systeme verteilt. Richtig
+ * ist er, wenn alle Akkordtöne da sind, kein anderer Ton, und — wo verlangt —
+ * der tiefste und der höchste Ton die richtigen Akkordglieder sind
+ * (Entscheid 2026-11-24). Im Notenbild zählt die Schreibweise (fis, nicht
+ * ges), auf der Klaviatur nur die Taste.
+ */
+export interface ChordRule {
+  /** Die Akkordtöne, Grundton zuerst («d4», «fis4», «a4»); die Oktave zählt nicht. */
+  tones: string[];
+  /** Index in `tones`: dieser Ton muss unten liegen (Umkehrung). */
+  lowest?: number;
+  /** Index in `tones`: dieser Ton muss oben liegen (Lage). */
+  highest?: number;
+}
+
+/**
  * Auf der Klaviatur spielen: angetippt wird eine Taste, «Prüfen» wertet sie.
  * Die Antwort sind die gewählten Tasten (`KeyboardAnswer`).
+ *
+ * Mit `chord` wird ein Akkord gespielt: jedes Antippen nimmt eine Taste dazu
+ * oder wieder weg, und bewertet wird nach `ChordRule`.
  */
 export interface KeyboardTask extends TaskBase {
   kind: 'keyboard';
   /** Umfang und vorgegebene Tasten. */
   keyboard: KeyboardSpec;
-  /** Richtige Tasten; genau eine davon ist zu wählen. */
+  /**
+   * Richtige Tasten; genau eine davon ist zu wählen. Bei `chord` eine
+   * richtige Lösung, alle Tasten zusammen.
+   */
   accept: number[];
+  /** Ein Akkord statt einer Taste. */
+  chord?: ChordRule;
   /**
    * Nur weisse Tasten lassen sich wählen — für Aufgaben ohne Vorzeichen
    * (Grobbestimmung). Eine schwarze Taste hat dort keine Grösse: c–dis ist
@@ -285,7 +310,7 @@ export interface KeyboardTask extends TaskBase {
    * in weissen Tasten («Terz aufwärts», Grobbestimmung) — oder mit ihrem
    * Tonnamen («fis/ges»).
    */
-  describe: { from: number; by: 'semitones' | 'steps' } | { by: 'name' };
+  describe: { from: number; by: 'semitones' | 'steps' } | { by: 'name' } | { by: 'chord' };
   points: number;
 }
 

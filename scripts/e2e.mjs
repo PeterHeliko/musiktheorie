@@ -49,9 +49,11 @@ const MODES = {
   'intervalle-singen': 'Intervalle singen (Feinbestimmung)',
   'dreiklaenge-bestimmen': 'Dreiklänge in Noten benennen (Grundstellung)',
   'dreiklaenge-klaviatur-benennen': 'Dreiklänge auf Klaviatur benennen (Grundstellung)',
+  'dreiklaenge-klaviatur-spielen': 'Dreiklänge auf Klaviatur spielen (Grundstellung)',
   'dreiklaenge-hoeren': 'Dreiklänge hörend erkennen (Grundstellung)',
   'umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen',
   'umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen',
+  'umkehrungen-klaviatur-spielen': 'Umkehrungen & Lagen auf Klaviatur spielen',
   'umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
@@ -854,6 +856,49 @@ async function main() {
       .evaluate((key) => getComputedStyle(key).backgroundColor);
     check(blackColour === 'rgb(26, 29, 36)', `die schwarzen Tasten bleiben schwarz (${blackColour})`);
     await page.screenshot({ path: join(SHOTS, 'klaviatur-grob-spielen.png'), fullPage: true });
+
+    // Ein Akkord: jedes Antippen nimmt eine Taste dazu oder weg. Nur Dur über
+    // Stammtönen, damit sich der Akkord aus dem Namen ablesen lässt.
+    const chordTask = exercise('dreiklaenge-klaviatur-spielen', '?geschlechter=dur&vorzeichen=stammton');
+    const ROOT_KEYS = { C: 48, D: 50, E: 52, F: 53, G: 55, A: 57, H: 59 };
+    const chordRoot = async () => {
+      await page.waitForSelector('.question .keyboard-task .task-prompt');
+      return ROOT_KEYS[(await page.locator('.question .task-prompt').innerText()).trim()[0]];
+    };
+    await page.goto(chordTask, { waitUntil: 'networkidle' });
+    let root = await chordRoot();
+    for (const key of [root, root + 4, root + 7]) await keyAt(page, key).click();
+    check(
+      (await page.locator('.question .piano-key[data-state="selected"]').count()) === 3,
+      'Akkord: drei angetippte Tasten bleiben gewählt',
+    );
+    await keyAt(page, root + 4).click();
+    check(
+      (await keyAt(page, root + 4).getAttribute('data-state')) === null &&
+        (await page.locator('.question .piano-key[data-state="selected"]').count()) === 2,
+      'noch einmal antippen nimmt die Taste weg',
+    );
+    await keyAt(page, root + 4).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Richtig' &&
+        (await page.locator('.question .piano-key[data-state="right"]').count()) === 3,
+      'der richtige Akkord: Richtig, alle drei Tasten grün',
+    );
+    await page.locator('.session-bar button:has-text("Weiter")').click();
+    root = await chordRoot();
+    // Dieselben Töne, aber die Terz unten: keine Grundstellung.
+    for (const key of [root + 4, root + 7, root + 12]) await keyAt(page, key).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Falsch' &&
+        (await keyAt(page, root + 4).getAttribute('data-state')) === 'wrong' &&
+        (await page.locator('.question .piano-key[data-state="solution"]').count()) >= 1,
+      'Terz unten: Falsch, die tiefste Taste rot, eine richtige Lage grün umrandet',
+    );
+    await page.screenshot({ path: join(SHOTS, 'klaviatur-akkord-falsch.png'), fullPage: true });
 
     const pianoPhone = await browser.newContext({ ...devices['iPhone 13'] });
     const pianoPhonePage = await pianoPhone.newPage();
