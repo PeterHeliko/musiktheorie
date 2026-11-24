@@ -19,7 +19,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { GENERATORS, generatorById, topicsWithGenerators } from './index';
-import { makeRng } from './rng';
+import { deriveSeeds, makeRng } from './rng';
+import { freshSeed, questionKey, roundSeeds } from './fresh';
 import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
 import type { KeyboardTask, NotationTask, SelectTask, SingTask, Task } from '../content/schema';
 import {
@@ -1211,6 +1212,44 @@ describe('Dreiklänge', () => {
       expect(keys[1] - keys[0]).toBeGreaterThanOrEqual(3);
       expect(keys.every((key) => key >= 48 && key <= 71)).toBe(true);
     }
+  });
+});
+
+describe('Keine Wiederholung', () => {
+  const personal = { voice: 'mittel' as const };
+
+  it('stellt in einer Runde nie zweimal dieselbe Aufgabe hintereinander', () => {
+    for (const generator of GENERATORS) {
+      const seeds = roundSeeds(generator, generator.defaults, 4242, 30);
+      const keys = seeds.map((seed) => questionKey(generator.generate(generator.defaults, makeRng(seed), personal)));
+      for (let i = 1; i < keys.length; i++) expect(keys[i], `${generator.id} Aufgabe ${i + 1}`).not.toBe(keys[i - 1]);
+    }
+  });
+
+  it('stellt ohne Ende nie zweimal dieselbe hintereinander, auch bei wenigen möglichen Aufgaben', () => {
+    // Oktaven auf weissen Tasten: nur sieben verschiedene Aufgaben.
+    const generator = generatorById('intervalle-grob-klaviatur-benennen')!;
+    const filters = { ...generator.defaults, intervals: ['oktave'] };
+    let draw = 0;
+    let previous = generator.generate(filters, makeRng(0), personal);
+    for (let i = 0; i < 100; i++) {
+      const seed = freshSeed(generator, filters, personal, previous, () => draw++);
+      const question = generator.generate(filters, makeRng(seed), personal);
+      expect(questionKey(question)).not.toBe(questionKey(previous));
+      previous = question;
+    }
+  });
+
+  it('lässt Runden ohne Wiederholung, wie sie waren — alte Rundenlinks bleiben gleich', () => {
+    const generator = generatorById('intervalle-hoeren')!;
+    expect(roundSeeds(generator, generator.defaults, 99, 10)).toEqual(deriveSeeds(99, 10));
+  });
+
+  it('vergleicht ohne die Kennungen', () => {
+    const generator = generatorById('dreiklaenge-hoeren')!;
+    const question = generator.generate(generator.defaults, makeRng(5), personal);
+    const renamed = { ...question, task: { ...question.task, id: 'anders' } };
+    expect(questionKey(renamed)).toBe(questionKey(question));
   });
 });
 

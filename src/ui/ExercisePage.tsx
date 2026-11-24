@@ -30,7 +30,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
-import { deriveSeeds, makeRng, randomSeed } from '../generators/rng';
+import { freshSeed, roundSeeds, withoutRepeats } from '../generators/fresh';
+import { makeRng, randomSeed } from '../generators/rng';
 import type { FilterValues, Generator, Personal, Question } from '../generators/types';
 import { canonicalFilters, decodeLink, encodeLink } from '../links';
 import type { TaskResult } from '../scoring';
@@ -124,17 +125,12 @@ export function ExercisePage({
    */
   const [roundSeed, setRoundSeed] = useState<number | null>(inRound ? start.seed : null);
   /** Startwerte der noch ausstehenden Aufgaben der Runde, in der Reihenfolge. */
-  const [queue, setQueue] = useState<number[]>(() =>
-    inRound ? deriveSeeds(start.seed, start.session.size).slice(1) : [],
+  const firstSeeds = useMemo(
+    () => (inRound ? roundSeeds(generator, start.filters, start.seed, start.session.size) : [start.seed]),
+    [],
   );
-  const [current, setCurrent] = useState<Current>(() =>
-    build(
-      generator,
-      start.filters,
-      inRound ? deriveSeeds(start.seed, start.session.size)[0] : start.seed,
-      personal,
-    ),
-  );
+  const [queue, setQueue] = useState<number[]>(() => firstSeeds.slice(1));
+  const [current, setCurrent] = useState<Current>(() => build(generator, start.filters, firstSeeds[0], personal));
   /** Bereits beantwortete Aufgaben der laufenden Runde. */
   const [round, setRound] = useState<RoundEntry[]>([]);
   /**
@@ -182,14 +178,16 @@ export function ExercisePage({
       setAnswered(0);
       if (next.mode === 'runde') {
         const seed = randomSeed();
-        const seeds = deriveSeeds(seed, next.size);
+        const seeds = roundSeeds(generator, values, seed, next.size);
         setRoundSeed(seed);
         setQueue(seeds.slice(1));
         setCurrent(build(generator, values, seeds[0], own));
       } else {
         setRoundSeed(null);
         setQueue([]);
-        setCurrent(build(generator, values, randomSeed(), own));
+        setCurrent((previous) =>
+          build(generator, values, freshSeed(generator, values, own, previous.question, randomSeed), own),
+        );
       }
     },
     [generator],
@@ -219,7 +217,9 @@ export function ExercisePage({
   );
 
   const repeatWrong = useCallback(
-    (seeds: number[]) => {
+    (wrong: number[]) => {
+      // Zwei gleiche falsche Aufgaben kämen sonst direkt nacheinander.
+      const seeds = withoutRepeats(generator, filters, personal, wrong);
       setRound([]);
       setSummary(null);
       setRoundTarget(seeds.length);
@@ -253,8 +253,8 @@ export function ExercisePage({
       setCurrent(build(generator, filters, seed, personal));
       return;
     }
-    setCurrent(build(generator, filters, randomSeed(), personal));
-  }, [queue, inRound, round, roundTarget, generator, filters, personal]);
+    setCurrent(build(generator, filters, freshSeed(generator, filters, personal, current.question, randomSeed), personal));
+  }, [queue, inRound, round, roundTarget, generator, filters, personal, current.question]);
 
   // ---------------------------------------------------------------- Ansicht
   const topicHref = hrefFor({ page: 'thema', topic: generator.topic });
