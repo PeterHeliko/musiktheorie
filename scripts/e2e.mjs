@@ -1405,6 +1405,81 @@ async function main() {
       check(await page.locator('.question').isVisible(), 'Falsche lassen sich wiederholen');
     }
 
+    // -------------------------------------------------------------------- Kurse
+    console.log('\nKurse');
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    check((await page.locator('.course-hint').count()) === 1, 'ohne Kurs steht unter «Kurse» der Hinweis auf ⚙');
+
+    // Zusammenstellen: ⚙ → «Zum Kurs hinzufügen», mit den Einstellungen im Blatt.
+    await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
+    await openSettings();
+    await page.locator('.sheet button:has-text("Zum Kurs hinzufügen")').click();
+    await page.fill('#course-new-title', 'Probekurs');
+    await page.locator('.sheet button:has-text("Anlegen")').click();
+    check(
+      (await page.locator('.course-added').innerText()).includes('«Probekurs»'),
+      'eine Übung kommt in einen neuen Kurs',
+    );
+    await page.locator('.sheet button:has-text("Zum Kurs hinzufügen")').click();
+    check(
+      await page.locator('.course-choices button', { hasText: 'Probekurs' }).isDisabled(),
+      'dieselbe Übung mit denselben Einstellungen ist «schon drin»',
+    );
+    await closeSettings();
+
+    // Einen Kurs aus einem Link öffnen und durchgehen.
+    await page.goto(
+      `${BASE}kurs/?titel=Zwei+Schritte&1=intervalle-bestimmen~runde:2&2=gibt-es-nicht&3=noten-benennen~runde:1`,
+      { waitUntil: 'networkidle' },
+    );
+    check((await page.locator('.course-steps li').count()) === 2, 'ein Kurslink zeigt seine Schritte');
+    check(
+      (await page.locator('.notice').innerText()).includes('gibt es nicht mehr'),
+      'eine verschwundene Übung fällt mit Hinweis weg',
+    );
+    check(!page.url().includes('gibt-es-nicht'), 'die Adresszeile zeigt den Kurs in fester Schreibweise');
+    check(await eventually(page, () => document.title.startsWith('Zwei Schritte · Kurs')), 'der Tab nennt den Kurs');
+    await page.locator('.course-steps a').first().click();
+    await page.waitForSelector('.question');
+    check(
+      await eventually(page, () => new URL(location.href).searchParams.get('schritt') === '1'),
+      'die Übung eines Schritts trägt den Kurs in der Adresse',
+    );
+    await openSettings();
+    check(
+      (await page.locator('.sheet .filter-field').count()) === 0 &&
+        (await page.locator('.sheet a:has-text("Frei üben")').count()) === 1,
+      'im Kurs zeigt ⚙ keine Filter, aber «Frei üben»',
+    );
+    await closeSettings();
+    for (let i = 0; i < 2; i++) {
+      await page.locator('.question .choice:not([disabled])').first().click();
+      await page.waitForSelector('.verdict');
+      await page.locator('.session-bar .primary').click();
+    }
+    await page.waitForSelector('.round-summary');
+    await page.locator('.round-actions button:has-text("Nächste Übung")').click();
+    await page.waitForSelector('.question');
+    check(
+      await eventually(
+        page,
+        () =>
+          location.pathname.endsWith('/ueben/noten-benennen/') &&
+          new URL(location.href).searchParams.get('schritt') === '2',
+      ),
+      '«Nächste Übung» öffnet den nächsten Schritt',
+    );
+    await page.locator('.session-icon[aria-label="Zurück zum Kurs"]').click();
+    await page.waitForSelector('.course-steps');
+    check((await page.locator('.course-steps .course-done').count()) === 1, 'eine fertige Runde hakt ihren Schritt ab');
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    const courseRows = await page.locator('.list-page section').nth(1).locator('a').allInnerTexts();
+    check(
+      courseRows.some((row) => row.includes('Zwei Schritte') && row.includes('1/2')) &&
+        courseRows.some((row) => row.includes('Probekurs')),
+      `die Startseite listet die Kurse mit Fortschritt (${courseRows.join(' | ').replace(/\n/g, ' ')})`,
+    );
+
     // ------------------------------------------------------------------- Fehler
     console.log('\nSauberkeit');
     // Der Abbruch einer laufenden Wiedergabe meldet sich als AbortError; das

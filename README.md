@@ -72,6 +72,33 @@ Regeln, damit geteilte Links lange halten (Einzelheiten in `src/links.ts`):
 - Kaputte oder veraltete Werte fallen still auf die Vorgabe zurück — ein alter Link
   öffnet immer eine Übung.
 
+### Kurse
+
+Ein Kurs ist eine Liste von Übungen mit festen Einstellungen, von irgendwem zusammengestellt
+und als Link geteilt (`src/courses.ts`, Entscheide in `CONCEPT.md` §7). Der Link ist der
+Kurs — es gibt keine zentrale Fassung:
+
+```
+/kurs/?titel=Terzen+und+Sexten
+      &1=intervalle-bestimmen~intervalle:k3,g3,k6,g6~runde:10
+      &2=intervalle-notieren~intervalle:k3,g3~schluessel:bass~runde:10
+```
+
+- Jeder Schritt ist ein Übungslink in einer Zeile: «~» statt «&», «:» statt «=», immer mit
+  Rundengrösse. Damit gelten die Regeln oben auch hier.
+- Einstellungen, keine Aufgaben: wer den Kurs öffnet, bekommt neue Aufgaben derselben Art.
+  Titel höchstens 30 Zeichen, höchstens 30 Schritte.
+- **Zusammenstellen:** ⚙ → «Zum Kurs hinzufügen» in einer Übung, mit den Einstellungen im
+  Blatt. Bearbeiten auf der Kursseite: Titel, Reihenfolge, Rundengrösse, Schritte entfernen.
+- **Auf dem Gerät:** wer einen Kurslink öffnet, hat den Kurs danach unter «Kurse» auf der
+  Startseite (`StoredCourse` in `src/settings.ts`), mit erledigten Schritten. Ein Schritt ist
+  erledigt, wenn seine Runde fertig ist.
+- **Ein Schritt in der Übung** trägt `&kurs=<id>&schritt=<n>` in der Adresse; die Kennung
+  gilt nur auf diesem Gerät, anderswo ist es einfach die Übung. Im Kurs zeigt ⚙ keine
+  Filter, ✕ führt zum Kurs, und die Auswertung bietet die nächste Übung an.
+- Die Linkvorschau kann den Titel nicht zeigen (eine HTML-Datei für alle Kurse); Teilen
+  schickt ihn auf dem Telefon als Text mit.
+
 ---
 
 ## Wie es funktioniert
@@ -103,7 +130,8 @@ Link / Speicher / Filterformular
 
 ### Aufbau der Oberfläche
 
-- **Auswahl:** Startseite = Themen, ein Thema = seine Übungen (`/ueben/intervalle/`).
+- **Auswahl:** Startseite = Themen, dann «Kurse» und «Werkzeuge»; ein Thema = seine Übungen
+  (`/ueben/intervalle/`). `/ueben/` ist nur noch ein anderer Name für die Startseite.
   Listen nennen nur Titel, davor ein Zeichen für die Fertigkeit (Notenlinien, Klaviatur, Ohr,
   Mikrofon; `SkillIcon` in `src/ui/icons.tsx`). Was eine Übung verlangt, steht in der Übung.
 - **Übung:** bildschirmfüllend, ohne Kopfzeile der Website. Leiste oben (✕ zurück zum
@@ -293,6 +321,7 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
 src/
   generators/      je Übung eine Datei; types.ts = Bauplan, Themen, Fertigkeiten
   links.ts         Übungszustand ↔ Adresszeile
+  courses.ts       Kurse ↔ Kurslinks
   pages.ts         alle Seiten mit Titel und Beschreibung
   router.ts        Seitenwechsel ohne Neuladen
   sing/            Mikrofon, Tonhöhenerkennung, gehaltene Töne, Bewertung, Stimmlage
