@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from 'preact/hooks';
-import { pathOf, routeFromPath, type Route } from './pages';
+import { aliasTarget, pathOf, routeFromPath, type Route } from './pages';
 
 /** Basis der Website, endet auf «/». Auf GitHub Pages: «/musiktheorie/». */
 export const BASE: string = import.meta.env.BASE_URL;
@@ -33,10 +33,14 @@ export interface Location {
 }
 
 function readLocation(): Location {
-  const { pathname, search } = globalThis.location;
-  const route = pathname.startsWith(BASE)
-    ? routeFromPath(decodeURIComponent(pathname.slice(BASE.length)))
-    : ({ page: 'nicht-gefunden' } as const);
+  const { pathname, search, hash } = globalThis.location;
+  if (!pathname.startsWith(BASE)) return { route: { page: 'nicht-gefunden' }, search };
+  const path = decodeURIComponent(pathname.slice(BASE.length));
+  const route = routeFromPath(path);
+  // Eine frühere Adresse: die Adresszeile zeigt die Seite, die jetzt dort steht.
+  if (aliasTarget(path)) {
+    globalThis.history.replaceState(globalThis.history.state, '', hrefFor(route, search) + hash);
+  }
   return { route, search };
 }
 

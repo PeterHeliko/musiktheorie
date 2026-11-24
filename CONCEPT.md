@@ -347,7 +347,7 @@ quizzes need licensed recordings and images, and they aren't music theory.
 /lernen/                          Lernpfad: Kurse
 /lernen/intervalle/               a Kurs: Abschnitte and Stufen with checkmarks
 /lernen/intervalle/terzen/        one Stufe (its own link)
-/ueben/                           the topics
+/ueben/                           alias of the start page (was its duplicate until 2026-11-24)
 /ueben/intervalle/                one topic: its exercises, full titles only
 /ueben/intervalle-singen/         one exercise; filters and task in the query string (§7)
 /wissen/intervalle/               short explanation with playable examples + «Jetzt üben»

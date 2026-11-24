@@ -14,7 +14,7 @@ import { topicTitle, type TopicId } from '../generators/types';
 import { hrefFor } from '../router';
 import { SkillIcon } from './icons';
 
-/** Startseite und «/ueben/»: die Themen. */
+/** Startseite: die Themen. */
 export function TopicList({ heading }: { heading: string }) {
   return (
     <div class="list-page">

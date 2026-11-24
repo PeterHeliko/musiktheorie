@@ -17,7 +17,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SITE_NAME, allPages, documentTitle, metaFor, type PageMeta } from '../src/pages';
+import { ALIASES, SITE_NAME, allPages, documentTitle, metaFor, type PageMeta } from '../src/pages';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
@@ -64,13 +64,19 @@ function render(meta: PageMeta, { indexable }: { indexable: boolean }): string {
     .replace('</head>', `${head.map((line) => `    ${line}`).join('\n')}\n  </head>`);
 }
 
-let count = 0;
-for (const meta of allPages()) {
-  const file = join(DIST, meta.path, 'index.html');
+function write(path: string, html: string): void {
+  const file = join(DIST, path, 'index.html');
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, render(meta, { indexable: true }));
-  count++;
+  writeFileSync(file, html);
 }
+
+const pages = allPages();
+for (const meta of pages) write(meta.path, render(meta, { indexable: true }));
+// Frühere Adressen: Titel, Vorschau und «canonical» der Seite, die jetzt dort
+// steht — Suchmaschinen führen dann nur noch diese.
+for (const alias of ALIASES) write(alias.path, render(metaFor(alias.route), { indexable: true }));
 writeFileSync(join(DIST, '404.html'), render(metaFor({ page: 'nicht-gefunden' }), { indexable: false }));
 
-console.log(`${count} Seiten und 404.html geschrieben (Basis ${BASE}).`);
+console.log(
+  `${pages.length} Seiten, ${ALIASES.length} frühere Adresse(n) und 404.html geschrieben (Basis ${BASE}).`,
+);

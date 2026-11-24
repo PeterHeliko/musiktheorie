@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { GENERATORS } from './generators/index';
 import { TOPICS } from './generators/types';
-import { allPages, metaFor, pathOf, routeFromPath } from './pages';
+import { ALIASES, allPages, metaFor, pathOf, routeFromPath } from './pages';
 
 describe('Seiten', () => {
   it('verwechselt kein Thema mit einer Übung', () => {
@@ -47,7 +47,14 @@ describe('Seiten', () => {
   });
 
   it('vergibt jeden Pfad nur einmal', () => {
-    const paths = allPages().map((page) => page.path);
+    const paths = [...allPages().map((page) => page.path), ...ALIASES.map((alias) => alias.path)];
     expect(new Set(paths).size).toBe(paths.length);
+  });
+
+  it('öffnet frühere Adressen als die Seite, die jetzt dort steht', () => {
+    expect(routeFromPath('ueben/')).toEqual({ page: 'start' });
+    expect(routeFromPath('ueben')).toEqual({ page: 'start' });
+    expect(routeFromPath('ueben/index.html')).toEqual({ page: 'start' });
+    for (const alias of ALIASES) expect(routeFromPath(alias.path), alias.path).toEqual(alias.route);
   });
 });

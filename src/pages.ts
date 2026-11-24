@@ -19,7 +19,6 @@ export const SITE_NAME = 'Übungen Musiktheorie';
 
 export type Route =
   | { page: 'start' }
-  | { page: 'ueben' }
   | { page: 'thema'; topic: TopicId }
   | { page: 'uebung'; id: string }
   | { page: 'tonhoehe' }
@@ -33,12 +32,26 @@ export interface PageMeta {
   description: string;
 }
 
+/**
+ * Frühere Seiten, die es nicht mehr gibt. Ihre HTML-Datei bleibt, damit
+ * geteilte Links weiter etwas öffnen: sie zeigt die Seite, die an ihre Stelle
+ * getreten ist, und die Adresszeile wechselt still dorthin (`router.ts`).
+ */
+export const ALIASES: { path: string; route: Route }[] = [
+  // Bis 2026-11-24 eine eigene Seite mit denselben Themen wie die Startseite.
+  { path: 'ueben/', route: { page: 'start' } },
+];
+
+/** Die Seite, für die `path` nur noch ein anderer Name ist, oder null. */
+export function aliasTarget(path: string): Route | null {
+  const clean = path.replace(/index\.html$/, '').replace(/\/+$/, '');
+  return ALIASES.find((alias) => alias.path.replace(/\/+$/, '') === clean)?.route ?? null;
+}
+
 export function pathOf(route: Route): string {
   switch (route.page) {
     case 'start':
       return '';
-    case 'ueben':
-      return 'ueben/';
     case 'thema':
       // Gleiche Ebene wie die Übungen (/ueben/intervalle-hoeren/): die
       // Übungsadressen sind schon geteilt und bleiben, wie sie sind. Themen-
@@ -57,7 +70,8 @@ export function pathOf(route: Route): string {
 export function routeFromPath(path: string): Route {
   const clean = path.replace(/index\.html$/, '').replace(/\/+$/, '');
   if (clean === '') return { page: 'start' };
-  if (clean === 'ueben') return { page: 'ueben' };
+  const alias = aliasTarget(clean);
+  if (alias) return alias;
   if (clean === 'werkzeuge/tonhoehe') return { page: 'tonhoehe' };
   const match = /^ueben\/([a-z0-9-]+)$/.exec(clean);
   if (match) {
@@ -83,14 +97,6 @@ export function metaFor(route: Route): PageMeta {
         description:
           'Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde, ' +
           'Rhythmus und Gehörbildung. Unbegrenzt viele Aufgaben, frei einstellbar, ohne Konto.',
-      };
-    case 'ueben':
-      return {
-        path,
-        title: 'Übungen',
-        description:
-          'Alle Übungen nach Thema — Töne, Rhythmus, Intervalle, Dreiklänge, Septakkorde, ' +
-          'Tonleitern und Tonarten, Melodie. Jede Aufgabe wird neu gewürfelt.',
       };
     case 'thema': {
       const topic = TOPICS.find((entry) => entry.id === route.topic)!;
@@ -134,7 +140,6 @@ export function metaFor(route: Route): PageMeta {
 export function allPages(): PageMeta[] {
   const routes: Route[] = [
     { page: 'start' },
-    { page: 'ueben' },
     ...topicsWithGenerators().map((topic): Route => ({ page: 'thema', topic: topic.id })),
     ...GENERATORS.map((generator): Route => ({ page: 'uebung', id: generator.id })),
     { page: 'tonhoehe' },

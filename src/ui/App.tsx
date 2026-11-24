@@ -58,9 +58,6 @@ export function App() {
     case 'start':
       page = <TopicList heading={SITE_NAME} />;
       break;
-    case 'ueben':
-      page = <TopicList heading="Übungen" />;
-      break;
     case 'thema':
       page = <TopicPage topic={route.topic} />;
       break;
@@ -113,7 +110,7 @@ function NotFound() {
         Stück.
       </p>
       <p>
-        <a href={hrefFor({ page: 'ueben' })}>Zu allen Übungen</a>
+        <a href={hrefFor({ page: 'start' })}>Zur Startseite</a>
       </p>
     </div>
   );

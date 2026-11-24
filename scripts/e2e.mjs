@@ -197,7 +197,8 @@ async function main() {
     console.log('\nJede Seite hat ihre eigene HTML-Datei (wie auf GitHub Pages)');
     const pages = [
       ['', 'Übungen Musiktheorie'],
-      ['ueben/', 'Übungen · Übungen Musiktheorie'],
+      // Frühere Adresse: Titel und Vorschau der Startseite, die jetzt dort steht.
+      ['ueben/', 'Übungen Musiktheorie'],
       ['ueben/intervalle/', 'Intervalle · Übungen Musiktheorie'],
       ['ueben/tonleitern/', 'Tonleitern und Tonarten · Übungen Musiktheorie'],
       ['werkzeuge/tonhoehe/', 'Tonhöhe anzeigen · Übungen Musiktheorie'],
@@ -308,8 +309,9 @@ async function main() {
     await page.goto(`${BASE}ueben/`, { waitUntil: 'networkidle' });
     check(
       (await page.locator('.nav-list').first().locator('a').count()) === TOPICS.length,
-      '«/ueben/» listet die Themen',
+      'die frühere Adresse «/ueben/» zeigt die Themen der Startseite',
     );
+    check(page.url() === BASE, '… und die Adresszeile wechselt zur Startseite');
 
     // ------------------------------------------------- jede Übung zeichnet sich
     console.log('\nJede Übung öffnet direkt über ihre Adresse und ist lösbar');
