@@ -16,12 +16,13 @@
  *     ein falscher Ton wird dort nur rot, und es geht weiter, bis der richtige
  *     kommt.
  *
- * Eine Tonfolge (`task.sequence`, Dreiklänge singen): gesungen wird Ton für
- * Ton in der verlangten Reihenfolge. Der erste ist der vorgespielte; ihn
- * mitzusingen ist erlaubt, aber nicht nötig. Jeder richtige Ton wird in der
- * Kurve und im System grün, die Zeile darunter zählt mit; der erste falsche
- * beendet die Aufgabe (mit «Ohne Fehlerurteil» nicht). Die Regeln stehen in
- * `judgeSequence`.
+ * Eine Tonfolge (`task.sequence`: Dreiklänge, Septakkorde, Tonleitern):
+ * gesungen wird Ton für Ton in der verlangten Reihenfolge. Der erste ist der
+ * vorgespielte; ihn mitzusingen ist erlaubt, aber nicht nötig. Jeder richtige
+ * Ton wird in der Kurve und im System grün, die Zeile darunter zählt mit. Ein
+ * falscher wird rot, an seinem Platz im System, und verlangt bleibt derselbe
+ * Ton (Entscheid 2026-11-24); zu Ende ist es, wenn alle richtig gesungen
+ * sind. Die Regeln stehen in `judgeSequence`.
  *
  * Nach dem Urteil spielt «Abspielen» die ganze Lösung: Ausgangs- und
  * Zielton bzw. alle Töne der Folge einzeln, dann zusammen.
@@ -100,8 +101,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
       sequence && { reference: midi(reference), targets: sequence.map(midi), tolerance: task.tolerance },
     [task],
   );
-  /** Welche Töne der Folge schon richtig gesungen sind (0 = der vorgespielte). */
-  const [sungSteps, setSungSteps] = useState<number[]>([]);
+  /** Wie weit die Folge ist: richtig und falsch gesungene Töne. */
+  const [progress, setProgress] = useState<SequenceVerdict | null>(null);
   const events = useMemo<AudioEvent[]>(() => [{ pitches: [reference], quarters: REFERENCE_QUARTERS }], [task]);
   /**
    * Nach dem Urteil spielt «Abspielen» die ganze Lösung: die Töne einzeln,
@@ -199,7 +200,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
     if (mic !== 'on') return;
     const microphone = openedMicrophone();
     if (!microphone) return;
-    const untilRight = task.untilRight === true;
+    // Tonfolgen kennen kein «Ohne Fehlerurteil»: ein falscher Ton beendet sie nie.
+    const untilRight = !sequenceGoal && task.untilRight === true;
     const referenceLine: CurveLine = {
       midi: goal.reference,
       kind: 'reference',
@@ -225,9 +227,9 @@ export function SingTaskView({ task }: { task: SingTask }) {
       centre: untilRight ? centreOf(allLines.map((line) => line.midi)) : goal.reference,
       judge: sequenceGoal
         ? (held) => {
-            const verdict = judgeSequence(sequenceGoal, held, { untilRight });
+            const verdict = judgeSequence(sequenceGoal, held);
             const role = verdict.roles[verdict.roles.length - 1];
-            setSungSteps(verdict.right.map((entry) => entry.step));
+            setProgress(verdict);
             if (role === 'repeat' || role === 'after') return { kind: 'reference' };
             const mark = role === 'right' ? 'right' : 'wrong';
             if (!verdict.done) return { kind: 'progress', mark };
@@ -258,13 +260,13 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const sung = answer<SingAnswer>(task.id)?.notes;
   const score = useMemo(() => {
     if (sequence && sequenceGoal) {
-      const verdict = sung ? judgeSequence(sequenceGoal, sung, { untilRight: task.untilRight }) : null;
-      return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, sungSteps);
+      const verdict = sung ? judgeSequence(sequenceGoal, sung) : null;
+      return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, progress);
     }
     if (!sung) return task.score;
     const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
     return verdict.note === null ? task.score : verdictScore(task, target, verdict);
-  }, [task, sung, sungSteps]);
+  }, [task, sung, progress]);
 
   const status =
     phase === 'playing'
@@ -272,11 +274,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
       : phase !== 'listening'
         ? ''
         : sequence
-          ? sungAfterReference(sungSteps) > 0
-            ? `${sungAfterReference(sungSteps)} von ${sequence.length - 1} Tönen gesungen.`
-            : sungSteps.includes(0)
-              ? 'Ausgangston erkannt.'
-              : 'Jetzt singen.'
+          ? sequenceStatus(progress, sequence.length)
           : heardReference
             ? 'Ausgangston erkannt.'
             : 'Jetzt singen.';
@@ -385,62 +383,95 @@ function verdictScore(task: SingTask, target: Pitch, verdict: SungVerdict): Scor
   };
 }
 
-/** Wie viele Töne nach dem vorgespielten schon richtig gesungen sind. */
-function sungAfterReference(sungSteps: number[]): number {
-  return sungSteps.filter((step) => step > 0).length;
+/** Die Zeile unter der Kurve während einer Tonfolge. */
+function sequenceStatus(progress: SequenceVerdict | null, length: number): string {
+  if (!progress) return 'Jetzt singen.';
+  const after = progress.right.filter((entry) => entry.step > 0).length;
+  const lastWrong = progress.roles[progress.roles.length - 1] === 'wrong';
+  if (lastWrong) return `${after} von ${length - 1} Tönen gesungen — der letzte war daneben, versuch ihn noch einmal.`;
+  if (after > 0) return `${after} von ${length - 1} Tönen gesungen.`;
+  return progress.right.some((entry) => entry.step === 0) ? 'Ausgangston erkannt.' : 'Jetzt singen.';
+}
+
+/**
+ * Ein falsch gesungener Ton im System: in der Oktave, die dem verlangten am
+ * nächsten liegt — dort sieht man, wie weit er daneben war. Geschrieben wird
+ * er, wie man ihn meist liest; der richtige Ton, nur zu ungenau gesungen,
+ * wie der verlangte.
+ */
+function wrongPitch(expected: Pitch, wrong: SequenceVerdict['wrong'][number]): Pitch {
+  if (wrong.verdict.rightNote) return expected;
+  const heard = pitchFromMidi(Math.round(wrong.note));
+  return { ...heard, octave: heard.octave + Math.round((midi(expected) - midi(heard)) / 12) };
+}
+
+/** Der letzte falsche Ton je verlangtem Ton der Folge. */
+function lastWrongs(verdict: SequenceVerdict): Map<number, SequenceVerdict['wrong'][number]> {
+  return new Map(verdict.wrong.map((entry) => [entry.expected, entry]));
 }
 
 /**
  * Das System während einer Tonfolge: jeder richtig gesungene Ton steht grün
- * an seinem Platz, in der notierten Lage; die übrigen Plätze sind noch leer
- * (chordSingTask hält sie von Anfang an frei).
+ * an seinem Platz, in der notierten Lage; wo gerade falsch gesungen wurde,
+ * steht der falsche rot. Die übrigen Plätze sind noch leer (chordSingTask
+ * hält sie von Anfang an frei).
  */
-function progressScore(task: SingTask, sungSteps: number[]): ScoreSpec {
-  if (sungSteps.length === 0) return task.score;
+function progressScore(task: SingTask, progress: SequenceVerdict | null): ScoreSpec {
+  if (!progress || (progress.right.length === 0 && progress.wrong.length === 0)) return task.score;
+  const sequence = task.sequence!.map(parsePitch);
+  const done = new Set(progress.right.map((entry) => entry.step));
+  const wrongs = lastWrongs(progress);
   const [measure] = task.score.measures;
   const notes = measure.notes.map((note, step): NoteSpec => {
-    if (!sungSteps.includes(step)) return note;
-    if (step === 0) return { ...note, mark: 'correct' };
-    return { keys: [task.sequence![step]], duration: 'w', mark: 'correct' };
+    if (done.has(step)) return step === 0 ? { ...note, mark: 'correct' } : { keys: [task.sequence![step]], duration: 'w', mark: 'correct' };
+    const wrong = wrongs.get(step);
+    if (wrong && step === progress.reached && step > 0) {
+      return { keys: [pitchKey(wrongPitch(sequence[step], wrong))], duration: 'w', mark: 'wrong' };
+    }
+    return note;
   });
-  return { ...task.score, measures: [{ ...measure, notes }] };
+  const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+  const shown = notes.flatMap((note) => (note.keys ?? []).map(parsePitch));
+  const needed = staffSpace(clef, shown);
+  const before = task.score.space ?? needed;
+  return {
+    ...task.score,
+    space: { above: Math.max(before.above, needed.above), below: Math.max(before.below, needed.below) },
+    measures: [{ ...measure, notes }],
+  };
 }
 
 /**
- * Das System nach dem Urteil über eine Tonfolge: der vorgespielte Ton, dann
- * jeder Ton der Folge — richtig gesungen grün, der falsche rot und dahinter
- * der verlangte grün, nicht mehr erreichte grün als Lösung. Ein falscher Ton
- * steht wie beim Intervall in der Oktave, die dem verlangten am nächsten
- * liegt.
+ * Das System nach einer Tonfolge: der vorgespielte Ton, dann jeder Ton der
+ * Folge grün — und wo vorher falsch gesungen wurde, der (letzte) falsche rot
+ * davor.
  */
 function sequenceScore(task: SingTask, sequence: Pitch[], verdict: SequenceVerdict): ScoreSpec {
   const notes: NoteSpec[] = [];
   const shown: Pitch[] = [...sequence];
-  const wrongNote = (expected: Pitch, note: number): NoteSpec => {
-    const heard = pitchFromMidi(Math.round(note));
-    const sung = verdict.wrong!.verdict.rightNote
-      ? expected
-      : { ...heard, octave: heard.octave + Math.round((midi(expected) - midi(heard)) / 12) };
-    shown.push(sung);
-    return { keys: [pitchKey(sung)], duration: 'w', mark: 'wrong' };
-  };
+  const wrongs = lastWrongs(verdict);
   sequence.forEach((expected, step) => {
-    const isWrong = verdict.wrong?.expected === step;
+    const wrong = wrongs.get(step);
+    const wrongNote = (): NoteSpec => {
+      const sung = wrongPitch(expected, wrong!);
+      shown.push(sung);
+      return { keys: [pitchKey(sung)], duration: 'w', mark: 'wrong' };
+    };
     if (step === 0) {
       // Der vorgespielte Ton steht schon da; richtig nachgesungen wird er grün.
       const sungIt = verdict.right.some((entry) => entry.step === 0);
       notes.push({ keys: [task.reference], duration: 'w', ...(sungIt ? { mark: 'correct' } : {}) });
-      if (isWrong) notes.push(wrongNote(expected, verdict.wrong!.note));
+      if (wrong) notes.push(wrongNote());
       return;
     }
-    if (isWrong) notes.push(wrongNote(expected, verdict.wrong!.note));
+    if (wrong) notes.push(wrongNote());
     notes.push({ keys: [pitchKey(expected)], duration: 'w', mark: 'correct' });
   });
 
   const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
   const needed = staffSpace(clef, shown);
   const before = task.score.space ?? needed;
-  // Platz für die Töne war von Anfang an da; nur ein falscher kommt dazu.
+  // Platz für die Töne war von Anfang an da; nur die falschen kommen dazu.
   const reserved = task.score.measures[0].notes.length;
   return {
     ...task.score,

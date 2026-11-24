@@ -429,7 +429,6 @@ interface SingingFilters extends FilterValues {
   accidentals: string;
   clefs: string[];
   tolerance: string;
-  untilRight: boolean;
 }
 
 export const septakkordeSingen: Generator<SingingFilters> = {
@@ -453,7 +452,6 @@ export const septakkordeSingen: Generator<SingingFilters> = {
     const policy = rootPolicy(values);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
     const tolerance = Number(single(values, 'tolerance', '50'));
-    const untilRight = toggle(values, 'untilRight', false);
     const range = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
 
     const quality = rng.pick(qualities);
@@ -466,7 +464,6 @@ export const septakkordeSingen: Generator<SingingFilters> = {
       clef,
       range,
       tolerance,
-      untilRight,
       reach: SING_REACH,
     });
     return { task };

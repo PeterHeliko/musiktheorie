@@ -211,7 +211,7 @@ describe('judgeSequence', () => {
     expect(without.right.map((entry) => entry.step)).toEqual([1, 2]);
     expect(judgeSequence(quartsext, [57, 62, 66]).right.map((entry) => entry.step)).toEqual([0, 1, 2]);
     // Mit d begonnen, das ist der zweite Ton: noch nicht entschieden, nichts falsch.
-    expect(judgeSequence(quartsext, [62])).toMatchObject({ done: false, wrong: null, reached: 2 });
+    expect(judgeSequence(quartsext, [62])).toMatchObject({ done: false, wrong: [], reached: 2 });
   });
 
   it('nimmt einen schon richtig gesungenen Ton noch einmal nicht übel', () => {
@@ -223,30 +223,41 @@ describe('judgeSequence', () => {
     expect(judgeSequence(goal, [62, 66, 50, 69]).correct).toBe(true);
   });
 
-  it('wertet einen späteren Ton der Folge zu früh als falsch', () => {
+  it('wertet einen späteren Ton der Folge zu früh als falsch und wartet weiter auf den verlangten', () => {
     const early = judgeSequence(goal, [62, 69]);
-    expect(early.correct).toBe(false);
-    expect(early.wrong).toMatchObject({ index: 1, expected: 1 });
+    expect(early.done).toBe(false);
+    expect(early.wrong).toMatchObject([{ index: 1, expected: 1 }]);
+    expect(early.reached).toBe(1);
   });
 
-  it('endet beim ersten falschen Ton — auch wenn die Reihenfolge nicht stimmt', () => {
-    const swapped = judgeSequence(goal, [62, 69, 66]);
+  it('geht nach einem falschen Ton weiter, bis die Folge stimmt — und bleibt falsch', () => {
+    const swapped = judgeSequence(goal, [62, 69, 66, 69]);
     expect(swapped.done).toBe(true);
     expect(swapped.correct).toBe(false);
-    expect(swapped.wrong).toMatchObject({ index: 1, expected: 1 });
-    expect(swapped.roles).toEqual(['right', 'wrong', 'after']);
+    expect(swapped.roles).toEqual(['right', 'wrong', 'right', 'right']);
+    expect(swapped.wrong).toMatchObject([{ index: 1, expected: 1 }]);
+    // Mehrere Fehler beim selben Ton werden alle gezählt.
+    const twice = judgeSequence(goal, [62, 67, 65, 66, 69]);
+    expect(twice.wrong.map((entry) => entry.expected)).toEqual([1, 1]);
+    expect(twice.roles).toEqual(['right', 'wrong', 'wrong', 'right', 'right']);
     // Ohne den vorgespielten Ton gleich den dritten: verlangt war der zweite.
-    expect(judgeSequence(goal, [69]).wrong).toMatchObject({ index: 0, expected: 1 });
+    expect(judgeSequence(goal, [69]).wrong).toMatchObject([{ index: 0, expected: 1 }]);
+    // Nach dem letzten richtigen Ton zählt nichts mehr.
+    expect(judgeSequence(goal, [62, 66, 69, 70]).roles).toEqual(['right', 'right', 'right', 'after']);
   });
 
   it('wertet einen zu ungenauen Ton als falsch', () => {
-    expect(judgeSequence(goal, [62, 66.7]).correct).toBe(false);
+    expect(judgeSequence(goal, [62, 66.7]).wrong).toHaveLength(1);
+    expect(judgeSequence(goal, [62, 66.7, 66, 69]).correct).toBe(false);
   });
 
-  it('singt mit «Ohne Fehlerurteil» weiter, bis die Folge stimmt', () => {
-    const verdict = judgeSequence(goal, [62, 67, 66, 70, 69], { untilRight: true });
+  it('nimmt bei der Tonleiter den Grundton nicht übel, obwohl er als Oktave noch kommt', () => {
+    // C-Dur: c¹ erklingt; c d, dann c noch einmal (Atemholen), dann weiter.
+    const scale = { reference: 60, targets: [60, 62, 64, 65, 67, 69, 71, 72], tolerance: 50 };
+    const verdict = judgeSequence(scale, [60, 62, 60, 64, 65, 67, 69, 71, 72]);
     expect(verdict.correct).toBe(true);
-    expect(verdict.roles).toEqual(['right', 'wrong', 'right', 'wrong', 'right']);
-    expect(judgeSequence(goal, [62, 67], { untilRight: true }).done).toBe(false);
+    expect(verdict.roles[2]).toBe('repeat');
+    // Die Oktave am Schluss: c, in jeder Oktave.
+    expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69, 71, 48]).correct).toBe(true);
   });
 });

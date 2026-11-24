@@ -1574,7 +1574,8 @@ async function main() {
     // Dreiklänge singen, mit demselben g. Feste Aufgaben (Stimmlage «mittel»):
     //  - G-Dur, g h d: das g ist der vorgespielte Ton, mitgesungen; dann
     //    wartet die Übung auf h;
-    //  - E-Dur, e gis h: das e darf man weglassen, aber das g ist nicht gis.
+    //  - E-Dur, e gis h: das e darf man weglassen, aber das g ist nicht gis —
+    //    es steht rot an seinem Platz, und die Übung wartet weiter auf gis.
     console.log('\nDreiklänge singen mit künstlichem Mikrofon');
     await singPage.goto(`${BASE}ueben/dreiklaenge-singen/?geschlechter=dur&vorzeichen=stammton&aufgabe=8&v=1`, {
       waitUntil: 'networkidle',
@@ -1618,12 +1619,25 @@ async function main() {
       waitUntil: 'networkidle',
     });
     await singPage.locator('.sing-mic button').click();
-    await singPage.waitForSelector('.verdict', { timeout: 12_000 });
+    let missed = '';
+    try {
+      await singPage.waitForFunction(
+        () => document.querySelector('.sing-status')?.textContent?.includes('daneben'),
+        null,
+        { timeout: 12_000 },
+      );
+      missed = await singPage.locator('.sing-status').innerText();
+    } catch {
+      missed = '';
+    }
+    await eventually(singPage, () =>
+      [...document.querySelectorAll('.sing-task .score svg .vf-stavenote')].some((note) => note.outerHTML.includes('#b3261e')),
+    );
     const chordStaff = await staffColours();
+    await singPage.waitForTimeout(1500);
     check(
-      (await singPage.locator('.verdict-text').innerText()) === 'Falsch' &&
-        chordStaff.join(' ') === 'black red green green',
-      `E-Dur mit g begonnen: Falsch; im System e, das g rot, gis und h grün (${chordStaff.join(', ')})`,
+      missed !== '' && (await singPage.locator('.verdict').count()) === 0 && chordStaff.join(' ') === 'black red',
+      `E-Dur mit g begonnen: das g rot an seinem Platz, kein Urteil, es geht weiter (${chordStaff.join(', ')}; «${missed}»)`,
     );
     await singPage.screenshot({ path: join(SHOTS, 'dreiklaenge-singen-falsch.png') });
 

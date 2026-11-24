@@ -410,20 +410,25 @@ function describeSung(name: string, cents: number | null): string {
   return `${name}, ${Math.abs(cents)} Cent zu ${cents < 0 ? 'tief' : 'hoch'}`;
 }
 
-/** Eine gesungene Tonfolge: richtig sind alle Töne in der Reihenfolge. */
+/**
+ * Eine gesungene Tonfolge: richtig ist sie, wenn alle Töne in der
+ * Reihenfolge kamen und keiner falsch war (`judgeSequence`).
+ */
 function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswer | undefined): Detail[] {
   const targets = sequence.map(parsePitch);
   const verdict = judgeSequence(
     { reference: midi(parsePitch(task.reference)), targets: targets.map(midi), tolerance: task.tolerance },
     answer?.notes ?? [],
-    { untilRight: task.untilRight },
   );
-  // Richtig gesungene Töne heissen wie notiert, in der gesungenen Oktave; ein
-  // falscher, wie man ihn meist liest.
-  const sung = verdict.right.map(({ step, verdict: note }) =>
-    toGermanPitch({ ...targets[step], octave: targets[step].octave + note.octaveShift }),
-  );
-  if (verdict.wrong) sung.push(nameFromMidi(Math.round(verdict.wrong.note)));
+  // In der gesungenen Reihenfolge: richtige Töne heissen wie notiert, in der
+  // gesungenen Oktave; falsche, wie man sie meist liest.
+  const sung = verdict.roles.flatMap((role, index) => {
+    if (role === 'right') {
+      const { step, verdict: note } = verdict.right.find((entry) => entry.index === index)!;
+      return [toGermanPitch({ ...targets[step], octave: targets[step].octave + note.octaveShift })];
+    }
+    return role === 'wrong' ? [`${nameFromMidi(Math.round(answer!.notes[index]))} (falsch)`] : [];
+  });
   return [
     {
       id: `${task.id}_gesungen`,

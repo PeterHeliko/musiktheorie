@@ -431,7 +431,6 @@ interface SingingFilters extends FilterValues {
   accidentals: string;
   clefs: string[];
   tolerance: string;
-  untilRight: boolean;
 }
 
 export const dreiklaengeSingen: Generator<SingingFilters> = {
@@ -454,7 +453,6 @@ export const dreiklaengeSingen: Generator<SingingFilters> = {
     const policy = rootPolicy(values);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
     const tolerance = Number(single(values, 'tolerance', '50'));
-    const untilRight = toggle(values, 'untilRight', false);
     const range = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
 
     const quality = rng.pick(qualities);
@@ -467,7 +465,6 @@ export const dreiklaengeSingen: Generator<SingingFilters> = {
       clef,
       range,
       tolerance,
-      untilRight,
     });
     return { task };
   },

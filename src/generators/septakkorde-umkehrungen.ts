@@ -658,7 +658,6 @@ interface SingingFilters extends FilterValues {
   accidentals: string;
   clefs: string[];
   tolerance: string;
-  untilRight: boolean;
 }
 
 export const septUmkehrungenSingen: Generator<SingingFilters> = {
@@ -689,7 +688,6 @@ export const septUmkehrungenSingen: Generator<SingingFilters> = {
     const policy = rootPolicy(values);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
     const tolerance = Number(single(values, 'tolerance', '50'));
-    const untilRight = toggle(values, 'untilRight', false);
     const range = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
 
     const { inversion, position } = pickSeventhInversionAndPosition(rng, choice);
@@ -704,7 +702,7 @@ export const septUmkehrungenSingen: Generator<SingingFilters> = {
       taskId('susi', rng),
       umkehrungPrompt(chord[0], quality, choice, inversion, position, wording),
       stack,
-      { clef, range, tolerance, untilRight, reach: SING_REACH },
+      { clef, range, tolerance, reach: SING_REACH },
     );
     return { task, instruction: singInstruction(choice.ask) };
   },

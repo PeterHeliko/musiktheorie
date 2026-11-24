@@ -2,7 +2,8 @@
  * Gesungene Töne gegen die Aufgabe — ohne Browser, deshalb testbar.
  *
  * Gilt für «Intervalle singen» und folgt drei Entscheiden (2026-11-23).
- * Tonfolgen (Dreiklänge singen) stehen weiter unten bei `judgeSequence`.
+ * Tonfolgen (Dreiklänge, Septakkorde, Tonleitern singen) stehen weiter unten
+ * bei `judgeSequence`; dort gibt es kein «Ohne Fehlerurteil».
  *
  *  - Der erste gehaltene Ton entscheidet; es gibt kein «Prüfen». Mit der
  *    Einstellung «Ohne Fehlerurteil» (`untilRight`) entscheidet erst der
@@ -118,7 +119,7 @@ export function judgeSung(
 }
 
 // ---------------------------------------------------------------------------
-// Mehrere Töne nacheinander (Dreiklänge singen)
+// Mehrere Töne nacheinander (Dreiklänge, Septakkorde, Tonleitern singen)
 // ---------------------------------------------------------------------------
 
 /**
@@ -138,8 +139,9 @@ export interface SequenceGoal {
 export type SequenceRole = 'right' | 'wrong' | 'repeat' | 'after';
 
 export interface SequenceVerdict {
-  /** Entschieden: alle Töne richtig — oder, ohne «Ohne Fehlerurteil», ein falscher. */
+  /** Alle Töne der Folge sind richtig gesungen — die Aufgabe ist zu Ende. */
   done: boolean;
+  /** Zu Ende, und kein falscher Ton dazwischen. */
   correct: boolean;
   /** Je gehaltenem Ton, in der gesungenen Reihenfolge. */
   roles: SequenceRole[];
@@ -151,13 +153,20 @@ export interface SequenceVerdict {
   right: { step: number; index: number; note: number; verdict: NoteVerdict }[];
   /** Wie viele Töne der Folge erledigt sind — der vorgespielte zählt mit, sobald es weitergeht. */
   reached: number;
-  /** Der entscheidende falsche Ton und welcher Ton der Folge verlangt war, oder null. */
-  wrong: { index: number; note: number; verdict: NoteVerdict; expected: number } | null;
+  /** Jeder falsch gesungene Ton und welcher Ton der Folge verlangt war, in der gesungenen Reihenfolge. */
+  wrong: { index: number; note: number; verdict: NoteVerdict; expected: number }[];
 }
 
 /**
  * Das Urteil über eine gesungene Tonfolge. Wie beim Intervall: die Oktave
  * jedes Tons ist egal, die Reihenfolge zählt.
+ *
+ * Ein falscher Ton beendet die Folge nicht (Entscheid 2026-11-24): er zählt
+ * als Fehler, verlangt bleibt derselbe Ton, und es geht weiter, bis er
+ * kommt. Zu Ende ist die Folge, wenn alle Töne richtig gesungen sind;
+ * richtig ist sie, wenn dabei keiner falsch war. Sonst ginge es nach einem
+ * Fehler — Tonleitern und Akkorde bauen auf dem vorigen Ton auf — nur noch
+ * daneben weiter.
  *
  * Der erste Ton der Folge ist der vorgespielte. Ihn mitzusingen ist erlaubt,
  * aber nicht nötig — wie beim Intervall singen. Wer gleich mit dem zweiten
@@ -165,18 +174,16 @@ export interface SequenceVerdict {
  * Ausgangston darf deshalb nichts kosten.
  *
  * Einen schon richtig gesungenen Ton noch einmal zu singen, ist kein Fehler —
- * er wird übergangen, solange er nicht selbst noch verlangt ist. Sonst zählte
- * ein Ton, der über ein Atemholen hinweg oder nach kurzem Schwanken noch
- * einmal als gehalten erkannt wird (hold.ts), gegen den nächsten.
+ * er wird übergangen, solange er nicht der verlangte ist. Sonst zählte ein
+ * Ton, der über ein Atemholen hinweg oder nach kurzem Schwanken noch einmal
+ * als gehalten erkannt wird (hold.ts), gegen den nächsten. Das gilt auch für
+ * den Grundton einer Tonleiter, obwohl er als Oktave am Schluss noch einmal
+ * kommt.
  */
-export function judgeSequence(
-  goal: SequenceGoal,
-  notes: readonly number[],
-  { untilRight = false }: { untilRight?: boolean } = {},
-): SequenceVerdict {
+export function judgeSequence(goal: SequenceGoal, notes: readonly number[]): SequenceVerdict {
   const roles: SequenceRole[] = [];
   const right: SequenceVerdict['right'] = [];
-  let wrong: SequenceVerdict['wrong'] = null;
+  const wrong: SequenceVerdict['wrong'] = [];
   let at = 0;
   let done = false;
   const samePitch = (a: number, b: number) => pitchClass(a) === pitchClass(b);
@@ -187,8 +194,7 @@ export function judgeSequence(
       return;
     }
     const sung = [goal.reference, ...goal.targets.slice(0, at)];
-    const remaining = goal.targets.slice(at);
-    if (at > 0 && sung.some((tone) => samePitch(tone, note)) && !remaining.some((tone) => samePitch(tone, note))) {
+    if (at > 0 && !samePitch(goal.targets[at], note) && sung.some((tone) => samePitch(tone, note))) {
       roles.push('repeat');
       return;
     }
@@ -203,11 +209,8 @@ export function judgeSequence(
       return;
     }
     roles.push('wrong');
-    if (!untilRight) {
-      wrong = { index, note, verdict, expected: at };
-      done = true;
-    }
+    wrong.push({ index, note, verdict, expected: at });
   });
 
-  return { done, correct: done && wrong === null, roles, right, reached: at, wrong };
+  return { done, correct: done && wrong.length === 0, roles, right, reached: at, wrong };
 }

@@ -216,8 +216,12 @@ beliebiger Oktave (`judgeSequence` in `src/sing/judge.ts`). Den vorgespielten To
 mitsingen, muss aber nicht — wie beim Intervall. Einen schon richtig gesungenen Ton
 noch einmal zu singen, zählt nicht — auch nicht, wenn er über ein Atemholen hinweg zweimal als
 gehalten erkannt wird. Das System hat von Anfang an Platz für alle drei Töne; jeder richtig
-gesungene erscheint dort grün, und die Zeile unter der Kurve zählt mit. Der erste falsche Ton
-beendet die Aufgabe, ausser mit «Ohne Fehlerurteil».
+gesungene erscheint dort grün, und die Zeile unter der Kurve zählt mit. **Ein falscher Ton
+beendet die Aufgabe nicht** (Entscheid 2026-11-24): er steht rot an seinem Platz, verlangt
+bleibt derselbe Ton, und es geht weiter, bis er kommt — Tonfolgen bauen auf dem vorigen Ton
+auf, nach einem Fehler ginge es sonst nur daneben weiter. Zu Ende ist es, wenn alle Töne
+richtig gesungen sind; dann steht vor jedem Ton, der zuerst falsch kam, der falsche rot, und
+das Urteil ist «Falsch». «Ohne Fehlerurteil» gibt es deshalb nur beim Intervall.
 
 `/ueben/septakkorde-singen/` und `/ueben/septakkorde-umkehrungen-singen/` gehen genauso, mit
 vier Tönen. Ein grosser Durseptakkord umfasst elf Halbtöne und passt nicht in jede Stimmlage;

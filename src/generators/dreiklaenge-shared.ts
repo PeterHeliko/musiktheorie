@@ -558,7 +558,8 @@ export const UMKEHRUNG_DEFAULTS = {
  * Dreiklänge singen (Entscheid 2026-11-24): der tiefste Ton erklingt und
  * steht im System, gesungen wird der Dreiklang von unten nach oben — jeder
  * Ton in beliebiger Oktave, die Reihenfolge zählt, den vorgespielten darf
- * man mitsingen (`judgeSequence`).
+ * man mitsingen (`judgeSequence`). Ein falscher Ton beendet die Aufgabe nicht;
+ * «Ohne Fehlerurteil» gibt es deshalb nur beim Intervall.
  */
 export const SING_FILTERS: FilterSpec[] = [
   CLEF_FILTER,
@@ -569,10 +570,9 @@ export const SING_FILTERS: FilterSpec[] = [
     options: TOLERANCE_OPTIONS,
     hint: 'So weit darf jeder gesungene Ton danebenliegen.',
   },
-  { kind: 'toggle', key: 'untilRight', label: 'Ohne Fehlerurteil' },
 ];
 
-export const SING_DEFAULTS = { clefs: ['treble'], tolerance: '50', untilRight: false };
+export const SING_DEFAULTS = { clefs: ['treble'], tolerance: '50' };
 
 /** Zeichenbreite je weiterer Ganze im System der Singübung, wie in SingTaskView. */
 export const SUNG_NOTE_ROOM = 50;
@@ -601,11 +601,10 @@ export function chordSingTask(
   id: string,
   prompt: string,
   stack: Pitch[],
-  { clef, range, tolerance, untilRight, reach = 1 }: {
+  { clef, range, tolerance, reach = 1 }: {
     clef: 'treble' | 'bass';
     range: Window;
     tolerance: number;
-    untilRight: boolean;
     /**
      * So viele Halbtöne darf placeInVoice die Stimmlage überschreiten: bei
      * Dreiklängen einen, beim grossen Durseptakkord (elf Halbtöne) zwei.
@@ -634,7 +633,6 @@ export function chordSingTask(
     target: pitchKey(stack[stack.length - 1]),
     sequence: stack.map(pitchKey),
     tolerance,
-    ...(untilRight ? { untilRight: true } : {}),
     points: 2,
   };
 }
