@@ -16,9 +16,9 @@
  * dort nicht gibt.
  */
 
-import type { ChordRule, KeyboardTask, ScoreSpec, SelectTask } from '../content/schema';
+import type { ChordRule, KeyboardTask, NotationTask, ScoreSpec, SelectTask } from '../content/schema';
 import { INTERVAL_KEYBOARD, chordExamples } from '../music/piano';
-import { judgeChordKeys } from '../scoring/chord';
+import { judgeChordKeys, judgeChordNotes } from '../scoring/chord';
 import { analyseTriad, midi, type Inversion, type Pitch, type Position } from '../music/theory';
 import {
   CLEF_FILTER,
@@ -367,6 +367,117 @@ export const umkehrungenKlaviaturSpielen: Generator<KeyPlayingFilters> = {
       points: 2,
     };
     return { task, instruction: playInstruction(choice.ask) };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Notieren
+// ---------------------------------------------------------------------------
+
+function writeInstruction(ask: string[]): string {
+  if (ask.includes('inv') && ask.includes('pos')) return 'Setze den Dreiklang in der verlangten Umkehrung und Lage.';
+  return ask.includes('inv')
+    ? 'Setze den Dreiklang in der verlangten Umkehrung.'
+    : 'Setze den Dreiklang in der verlangten Lage.';
+}
+
+interface WritingFilters extends FilterValues {
+  ask: string[];
+  inversions: string[];
+  positions: string[];
+  withBass: boolean;
+  clefs: string[];
+  qualities: string[];
+  accidentals: string;
+}
+
+export const umkehrungenNotieren: Generator<WritingFilters> = {
+  id: 'umkehrungen-notieren',
+  topic: 'dreiklaenge',
+  group: 'umkehrungen',
+  skill: 'notieren',
+  version: 1,
+  title: 'Umkehrungen & Lagen notieren',
+  instruction: writeInstruction(['inv']),
+  hint:
+    `${HINT} Die Töne dürfen weit auseinander liegen und sich verdoppeln, mit zwei Systemen auch auf ` +
+    'beide verteilt. Noch einmal auf einen Ton tippen nimmt ihn weg.',
+
+  filters: [
+    ...umkehrungFilters({
+      label: 'Zwei Systeme (Basston im Bassschlüssel)',
+      hint: 'Dann sind Umkehrung und Lage frei kombiniert, etwa ein Sextakkord in Terzlage.',
+    }),
+    {
+      ...CLEF_FILTER,
+      disabledBy: (values) =>
+        toggle(values, 'withBass', false) ? 'Mit zwei Systemen: oben Violin-, unten Bassschlüssel.' : null,
+    },
+    qualityFilter(),
+    ROOT_FILTER,
+  ],
+
+  defaults: {
+    ...UMKEHRUNG_DEFAULTS,
+    clefs: ['treble'],
+    qualities: ['dur', 'moll'],
+    accidentals: 'einfach',
+  },
+
+  generate(values, rng: Rng): Question {
+    const choice = umkehrungChoice(values, this.defaults);
+    const clefs = multi(values, 'clefs', this.defaults.clefs);
+    const qualities = multi(values, 'qualities', this.defaults.qualities) as TriadQuality[];
+    const policy = rootPolicy(values);
+
+    const { inversion, position } = pickInversionAndPosition(rng, choice);
+    const quality = rng.pick(qualities);
+    const clef = choice.withBass ? 'treble' : (rng.pick(clefs) as 'treble' | 'bass');
+    const windows = choice.withBass
+      ? { upper: STAFF_WINDOWS.treble, bass: GRAND_BASS_WINDOW }
+      : { upper: STAFF_WINDOWS[clef] };
+    const candidates = voicingsOf(quality, policy, inversion, position, windows);
+    insist(candidates.length > 0, `kein ${quality} als ${inversion} in ${position}`);
+    const { root, voicing } = rng.pick(candidates);
+    checkVoicing(voicing.all, root, quality, inversion, position);
+
+    const rule = umkehrungRule(buildChord(root, quality), choice.ask, inversion, position);
+    insist(judgeChordNotes(rule, voicing.all).correct, `${voicing.all.map(pitchKey).join(' ')} verfehlt die eigene Regel`);
+
+    const task: NotationTask = {
+      id: taskId('un', rng),
+      kind: 'notation',
+      mode: 'chord',
+      prompt: umkehrungPrompt(root, quality, choice, inversion, position),
+      points: 2,
+      score: choice.withBass
+        ? {
+            clef: 'grand',
+            width: 170,
+            scale: 2,
+            measures: [
+              {
+                notes: [{ duration: 'w', placeholder: true, annotation: '?' }],
+                bass: [{ duration: 'w', placeholder: true }],
+              },
+            ],
+          }
+        : {
+            clef,
+            width: 170,
+            scale: 2,
+            measures: [{ notes: [{ duration: 'w', placeholder: true, annotation: '?' }] }],
+          },
+      solution: {
+        type: 'chord',
+        rule,
+        example: {
+          upper: voicing.upper.map(pitchKey),
+          ...(voicing.bass ? { lower: [pitchKey(voicing.bass)] } : {}),
+        },
+      },
+    };
+    return { task, instruction: writeInstruction(choice.ask) };
   },
 };
 

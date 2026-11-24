@@ -163,6 +163,10 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlter
 
   const isRest = spec.rest || !spec.keys?.length;
   const own = (spec.keys ?? []).map(parsePitch);
+  /** Färbung je eigenem Kopf (`keyMarks`), nach Tonhöhe samt Schreibweise. */
+  const headMarks = new Map(
+    own.map((pitch, index) => [`${pitch.step}${pitch.alter}/${pitch.octave}`, spec.keyMarks?.[index]] as const),
+  );
   // Vorschau-Köpfe hängen an derselben Note, damit sie an der richtigen
   // x-Position sitzen; eingefärbt werden sie einzeln.
   const extra = (spec.previewKeys ?? []).map(parsePitch);
@@ -183,10 +187,21 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlter
       // ein ♮ vor jeder Stammtonnote wäre falscher Notensatz. Gebraucht wird
       // es, wenn an derselben Stelle im Takt vorher ein Vorzeichen stand.
       const earlier = alters.get(`${pitch.step}${pitch.octave}`) ?? 0;
-      if (glyph && (pitch.alter !== 0 || earlier !== 0)) note.addModifier(new Accidental(glyph), index);
+      const headMark = headMarks.get(`${pitch.step}${pitch.alter}/${pitch.octave}`);
+      const headStyle = headMark
+        ? { fillStyle: headMark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR, strokeStyle: headMark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR }
+        : null;
+      if (glyph && (pitch.alter !== 0 || earlier !== 0)) {
+        const accidental = new Accidental(glyph);
+        // Das Vorzeichen gehört zum Ton: es trägt dieselbe Farbe wie sein Kopf.
+        if (headStyle) accidental.setStyle(headStyle);
+        note.addModifier(accidental, index);
+      }
       // Nur die Vorschau-Köpfe einfärben, die vorhandenen bleiben schwarz.
       if (extra.some((p) => midi(p) === midi(pitch) && p.step === pitch.step)) {
         note.setKeyStyle(index, PREVIEW_STYLE);
+      } else if (headStyle) {
+        note.setKeyStyle(index, headStyle);
       }
     });
     // Was im Takt gilt, bestimmen nur die gesetzten Töne, keine Vorschau.

@@ -9,9 +9,9 @@
  */
 
 import { OPTION_SETS } from '../content/options';
-import type { ChordRule, KeyboardTask, SelectField, SelectTask } from '../content/schema';
+import type { ChordRule, KeyboardTask, NotationTask, SelectField, SelectTask } from '../content/schema';
 import { INTERVAL_KEYBOARD, chordExamples } from '../music/piano';
-import { judgeChordKeys } from '../scoring/chord';
+import { judgeChordKeys, judgeChordNotes } from '../scoring/chord';
 import { analyseTriad, midi, type Pitch } from '../music/theory';
 import {
   CHORD_SEMITONES,
@@ -130,6 +130,64 @@ export const dreiklaengeBenennen: Generator<NamingFilters> = {
       fields: [qualityField(quality, qualities)],
     };
     return { task, hint: namingHint(qualities) };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Notieren
+// ---------------------------------------------------------------------------
+
+interface WritingFilters extends FilterValues {
+  qualities: string[];
+  sus4: boolean;
+  clefs: string[];
+  accidentals: string;
+}
+
+export const dreiklaengeNotieren: Generator<WritingFilters> = {
+  id: 'dreiklaenge-notieren',
+  topic: 'dreiklaenge',
+  group: 'grundstellung',
+  skill: 'notieren',
+  version: 1,
+  title: 'Dreiklänge notieren',
+  instruction: 'Setze den genannten Dreiklang in Grundstellung ins System: der Grundton liegt unten.',
+  hint:
+    'Tippe die Stelle im System an oder ziehe dorthin; noch einmal antippen nimmt den Ton weg. ' +
+    'Das Vorzeichen wählst du vorher in der Werkzeugleiste. Jede Oktave zählt, Töne verdoppeln ist erlaubt.',
+
+  filters: [qualityFilter(), SUS4_FILTER, CLEF_FILTER, ROOT_FILTER],
+
+  defaults: { qualities: ALL_TRIADS, sus4: false, clefs: ['treble'], accidentals: 'einfach' },
+
+  generate(values, rng: Rng): Question {
+    const qualities = chosenQualities(values, this.defaults.qualities);
+    const clefs = multi(values, 'clefs', this.defaults.clefs);
+    const policy = rootPolicy(values);
+
+    const quality = rng.pick(qualities);
+    const clef = rng.pick(clefs) as 'treble' | 'bass';
+    const stack = rng.pick(chordsIn(quality, policy, STAFF_WINDOWS[clef]));
+    checkChord(stack, quality);
+
+    const rule: ChordRule = { tones: stack.map(pitchKey), lowest: 0 };
+    insist(judgeChordNotes(rule, stack).correct, `${stack.map(pitchKey).join(' ')} verfehlt die eigene Regel`);
+
+    const task: NotationTask = {
+      id: taskId('dn', rng),
+      kind: 'notation',
+      mode: 'chord',
+      prompt: chordName(stack[0], quality),
+      points: 2,
+      score: {
+        clef,
+        width: 170,
+        scale: 2,
+        measures: [{ notes: [{ duration: 'w', placeholder: true, annotation: '?' }] }],
+      },
+      solution: { type: 'chord', rule, example: { upper: stack.map(pitchKey) } },
+    };
+    return { task };
   },
 };
 

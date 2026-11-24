@@ -22,12 +22,14 @@ import {
   dreiklaengeHoeren,
   dreiklaengeKlaviaturBenennen,
   dreiklaengeKlaviaturSpielen,
+  dreiklaengeNotieren,
 } from './dreiklaenge-grundstellung';
 import {
   umkehrungenBenennen,
   umkehrungenHoeren,
   umkehrungenKlaviaturBenennen,
   umkehrungenKlaviaturSpielen,
+  umkehrungenNotieren,
 } from './dreiklaenge-umkehrungen';
 import { dreiklaengeStufen } from './stufen';
 import { intervalleBestimmen, intervalleNotieren } from './intervalle';
@@ -67,10 +69,12 @@ export const GENERATORS: Generator<FilterValues>[] = [
   gehoerIntervalle,
   intervalleSingen,
   dreiklaengeBenennen,
+  dreiklaengeNotieren,
   dreiklaengeKlaviaturBenennen,
   dreiklaengeKlaviaturSpielen,
   dreiklaengeHoeren,
   umkehrungenBenennen,
+  umkehrungenNotieren,
   umkehrungenKlaviaturBenennen,
   umkehrungenKlaviaturSpielen,
   umkehrungenHoeren,

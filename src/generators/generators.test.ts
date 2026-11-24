@@ -32,7 +32,7 @@ import {
 import { INTERVAL_KEYBOARD, isWhiteKey, keysBetween } from '../music/piano';
 import { pitchFromMidi } from '../sing/notes';
 import { VOICE_RANGES, type Voice } from '../sing/voice';
-import { fromPitch, keyInterval, scoreTask, type InputNote } from '../scoring';
+import { fromPitch, keyInterval, scoreTask, toPitch, type InputNote } from '../scoring';
 import { LEDGER_ROOM, windowFor } from './shared';
 import {
   durationInQuarters,
@@ -106,6 +106,10 @@ function notationAnswerFor(task: NotationTask): unknown {
     }
     case 'mark':
       return solution.gaps;
+    case 'chord': {
+      const notes = (keys: string[] = []) => keys.map((key) => fromPitch(parsePitch(key), 'w'));
+      return { u: notes(solution.example.upper), l: notes(solution.example.lower) };
+    }
     case 'melody':
       return solution.measures.map((bar) =>
         bar.map((note) => fromPitch(parsePitch(note.keys![0]), note.duration, note.dotted)),
@@ -1055,6 +1059,51 @@ describe('Dreiklänge', () => {
       expect(classes.indexOf(sorted[0] % 12)).toBe(task.chord!.lowest);
       expect(classes.indexOf(sorted[sorted.length - 1] % 12)).toBe(task.chord!.highest);
       expect(scoreTask(task, { keys: task.accept }).earned).toBe(task.points);
+    }
+  });
+
+  it('nimmt beim Notieren in Grundstellung jede Lage mit dem Grundton unten, in richtiger Schreibweise', () => {
+    for (const question of generate('dreiklaenge-notieren', { sus4: true })) {
+      const task = question.task as NotationTask;
+      const solution = task.solution as Extract<NotationTask['solution'], { type: 'chord' }>;
+      const [root, middle, top] = solution.example.upper.map(parsePitch);
+      const note = (p: ReturnType<typeof parsePitch>, octaves = 0) => fromPitch({ ...p, octave: p.octave + octaves }, 'w');
+      // Weit gesetzt, Grundton verdoppelt: richtig.
+      expect(scoreTask(task, { n: { u: [note(root), note(top), note(middle, 1), note(root, 1)] } }).earned).toBe(2);
+      // Ohne Grundton unten: falsch.
+      expect(scoreTask(task, { n: { u: [note(middle), note(top), note(root, 1)] } }).earned).toBe(0);
+      // Der mittlere Ton enharmonisch umgeschrieben (z.B. ges statt fis): falsch.
+      const respelled = { ...middle, step: 'cdefgab'[('cdefgab'.indexOf(middle.step) + 1) % 7] as typeof middle.step };
+      const shift = midi(middle) - midi({ ...respelled, alter: 0, octave: middle.octave + (respelled.step === 'c' ? 1 : 0) });
+      if (Math.abs(shift) <= 2) {
+        const enharmonic = { ...respelled, alter: shift, octave: middle.octave + (respelled.step === 'c' ? 1 : 0) };
+        expect(midi(enharmonic)).toBe(midi(middle));
+        expect(scoreTask(task, { n: { u: [note(root), fromPitch(enharmonic, 'w'), note(top)] } }).earned, task.prompt).toBe(0);
+      }
+    }
+  });
+
+  it('setzt beim Notieren mit Basston zwei Systeme, und die Töne dürfen wandern', () => {
+    for (const question of generate('umkehrungen-notieren', { withBass: true, ask: ['inv', 'pos'] })) {
+      const task = question.task as NotationTask;
+      expect(task.score.clef).toBe('grand');
+      const solution = task.solution as Extract<NotationTask['solution'], { type: 'chord' }>;
+      expect(solution.example.lower).toHaveLength(1);
+      const all = [...solution.example.lower!, ...solution.example.upper].map((key) => fromPitch(parsePitch(key), 'w'));
+      // Alles ins obere System, oder alles ins untere: der Akkord bleibt derselbe.
+      expect(scoreTask(task, { n: { u: all } }).earned).toBe(2);
+      expect(scoreTask(task, { n: { l: all } }).earned).toBe(2);
+      // Den Basston weglassen: die Umkehrung stimmt dann nur noch zufällig.
+      const withoutBass = scoreTask(task, { n: { u: all.slice(1) } });
+      const { bass } = members(all.slice(1).map(toPitch));
+      const lowestWanted = task.solution.type === 'chord' ? task.solution.rule.lowest : undefined;
+      expect(withoutBass.earned === 2).toBe([0, 2, 4].indexOf(bass) === lowestWanted);
+    }
+  });
+
+  it('zeigt beim Notieren ohne Basston ein System im gewählten Schlüssel', () => {
+    for (const question of generate('umkehrungen-notieren', { clefs: ['bass'] }, 20)) {
+      expect((question.task as NotationTask).score.clef).toBe('bass');
     }
   });
 

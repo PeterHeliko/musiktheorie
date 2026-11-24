@@ -48,10 +48,12 @@ const MODES = {
   'intervalle-hoeren': 'Intervalle hörend erkennen (Feinbestimmung)',
   'intervalle-singen': 'Intervalle singen (Feinbestimmung)',
   'dreiklaenge-bestimmen': 'Dreiklänge in Noten benennen (Grundstellung)',
+  'dreiklaenge-notieren': 'Dreiklänge notieren (Grundstellung)',
   'dreiklaenge-klaviatur-benennen': 'Dreiklänge auf Klaviatur benennen (Grundstellung)',
   'dreiklaenge-klaviatur-spielen': 'Dreiklänge auf Klaviatur spielen (Grundstellung)',
   'dreiklaenge-hoeren': 'Dreiklänge hörend erkennen (Grundstellung)',
   'umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen',
+  'umkehrungen-notieren': 'Umkehrungen & Lagen notieren',
   'umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen',
   'umkehrungen-klaviatur-spielen': 'Umkehrungen & Lagen auf Klaviatur spielen',
   'umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen',
@@ -434,6 +436,43 @@ async function main() {
     await page.waitForSelector('.verdict');
     check(await page.locator('.verdict').isVisible(), 'Noteneingabe wird bewertet');
     await page.screenshot({ path: join(SHOTS, 'noteneingabe.png'), fullPage: true });
+
+    // Ein Akkord über zwei Systeme: oben und unten setzen, wegnehmen, prüfen.
+    console.log('\nNoteneingabe: Akkord im Klaviersystem');
+    await page.goto(exercise('umkehrungen-notieren', '?mit-bass=ja'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.notation-input svg');
+    const grandBox = await page.locator('.notation-input svg').first().boundingBox();
+    const summary = () => page.locator('.input-summary').innerText();
+    // Ein Drittel von oben liegt im oberen System, vier Fünftel im unteren.
+    const upperSpot = { x: grandBox.x + grandBox.width * 0.55, y: grandBox.y + grandBox.height * 0.3 };
+    const lowerSpot = { x: grandBox.x + grandBox.width * 0.55, y: grandBox.y + grandBox.height * 0.78 };
+    await page.mouse.click(upperSpot.x, upperSpot.y);
+    await page.waitForTimeout(100);
+    await page.mouse.click(lowerSpot.x, lowerSpot.y);
+    await page.waitForTimeout(100);
+    const placedNames = (await summary()).replace('Gesetzt: ', '').split(', ');
+    check(
+      placedNames.length === 2 && /\d$/.test(placedNames[1]) && !/\d$/.test(placedNames[0]),
+      `ein Ton oben (eingestrichen oder höher), einer unten (${placedNames.join(', ')})`,
+    );
+    await page.mouse.click(lowerSpot.x, lowerSpot.y);
+    await page.waitForTimeout(100);
+    check((await summary()).split(', ').length === 1, 'noch einmal antippen nimmt den Ton unten wieder weg');
+    await page.locator('button:has-text("Prüfen")').click();
+    await page.waitForSelector('.verdict');
+    // VexFlow zeichnet nach dem Prüfen neu — darauf warten.
+    const exampleShown = await eventually(
+      page,
+      () =>
+        [...document.querySelectorAll('.notation-input svg .vf-stavenote')].filter((note) =>
+          note.outerHTML.includes('#00d903'),
+        ).length >= 2,
+    );
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Falsch' && exampleShown,
+      'ein einzelner Ton ist kein Akkord: Falsch, eine richtige Lösung steht grün in beiden Systemen',
+    );
+    await page.screenshot({ path: join(SHOTS, 'noteneingabe-akkord.png'), fullPage: true });
 
     // Feste Aufgabe: des¹, grosse Terz aufwärts → f¹. Gesetzt wird fis¹.
     console.log('\nNoteneingabe: die Lösung steht im System');

@@ -42,6 +42,8 @@ const WORD: Record<Grade, string> = {
  *  - Knopfraster: die eigene Wahl grün oder rot, die richtige grün umrandet.
  *  - Klaviatur: ebenso die Tasten.
  *  - Ein einzelner gesetzter Ton: falsch, steht der richtige grün daneben.
+ *  - Ein frei gesetzter Akkord: jeder Ton grün oder rot, falsch steht eine
+ *    richtige Lösung grün daneben.
  *  - Singen: Zielton grün im System, ein falscher Ton rot davor.
  *
  * Auswahllisten, Diktat, Vorzeichen, Pausen und Halbtonschritte zeigen sie
@@ -55,6 +57,7 @@ export function showsSolution(task: Task): boolean {
     case 'sing':
       return true;
     case 'notation':
+      if (task.solution.type === 'chord') return !task.fields?.length;
       return (
         task.solution.type === 'pitch' &&
         task.solution.slots.length === 1 &&

@@ -13,7 +13,7 @@
  * schnell genug und spart die gesamte Fehlerklasse «Anzeige und Zustand laufen
  * auseinander».
  *
- * Sechs Modi, siehe NotationTask['mode'].
+ * Sieben Modi, siehe NotationTask['mode'].
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -42,6 +42,7 @@ import {
   type Step,
 } from '../theory';
 import type {
+  ChordAnswer,
   InputNote,
   KeysigAnswer,
   MarkAnswer,
@@ -50,7 +51,7 @@ import type {
   PitchAnswer,
   SlotAnswer,
 } from '../../scoring';
-import { pitchSlotCorrect, toPitch } from '../../scoring';
+import { judgeChordNotes, pitchSlotCorrect, toPitch } from '../../scoring';
 import { shortcutAllowed } from '../../ui/keyboard';
 import { AccidentalPalette, DurationPalette, ToolbarActions, type DurationChoice } from './toolbar';
 
@@ -367,6 +368,7 @@ export function NotationInput({ task }: { task: NotationTask }) {
       {(task.mode === 'rhythm' || task.mode === 'rest') && <SlotInput {...props} />}
       {task.mode === 'keysig' && <KeySignatureInput {...props} />}
       {task.mode === 'mark' && <MarkInput {...props} />}
+      {task.mode === 'chord' && <ChordInput {...props} />}
     </div>
   );
 }
@@ -653,6 +655,164 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
           'Setze zwei Töne über den vorgegebenen Grundton. Gesetzt wird beim Loslassen.'
         ) : (
           'Auf die gewünschte Tonhöhe tippen oder dorthin ziehen. Gesetzt wird beim Loslassen.'
+        )}
+      </p>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modus «chord» — einen Akkord frei setzen, auch über zwei Systeme
+// ---------------------------------------------------------------------------
+
+/** Wo im Akkord-Notenbild liegt der Zeiger: oberes (oder einziges) System, unteres. */
+interface ChordLocation {
+  staff: 'u' | 'l';
+  diatonic: number;
+}
+
+/**
+ * Im Klaviersystem entscheidet die Höhe, welches System gemeint ist: die
+ * Grenze liegt mitten zwischen der untersten Linie oben und der obersten
+ * unten. So reicht jedes System mit Hilfslinien bis zur Mitte.
+ */
+function locateChord(rendered: RenderedScore | null, event: MouseEvent): ChordLocation | null {
+  if (!rendered) return null;
+  const point = toScoreCoordinates(rendered.svg, event);
+  const upper = rendered.staves[0];
+  if (!point || !upper) return null;
+  const lower = rendered.bassStaves[0];
+  const below = lower && point.y > (upper.stave.getYForLine(4) + lower.stave.getYForLine(0)) / 2;
+  const geometry = below ? lower : upper;
+  const highest = diatonicForY(geometry, geometry.stave.getYForLine(0)) + LEDGER_STEPS;
+  const lowest = diatonicForY(geometry, geometry.stave.getYForLine(4)) - LEDGER_STEPS;
+  return {
+    staff: below ? 'l' : 'u',
+    diatonic: Math.min(highest, Math.max(lowest, diatonicForY(geometry, point.y))),
+  };
+}
+
+/**
+ * Ein Akkord, frei gesetzt (Entscheid 2026-11-24): jede Stelle antippen setzt
+ * einen Ton, dieselbe Stelle noch einmal nimmt ihn weg (mit anderem
+ * Vorzeichen: ändert es). Im Klaviersystem gehören die Töne beider Systeme
+ * zum selben Akkord. Bewertet wird nach `ChordRule` (scoring/chord.ts).
+ *
+ * Nach dem Prüfen ist jeder gesetzte Ton grün oder rot, wie bewertet; war der
+ * Akkord falsch, steht eine richtige Lösung grün daneben.
+ */
+function ChordInput({ task, answer, update, readOnly }: ModeProps) {
+  const solution = task.solution;
+  const placed = (answer.n as ChordAnswer | undefined) ?? {};
+  const [alter, setAlter] = useState(0);
+  const { onRendered, live } = useRenderedRef();
+  const [hover, setHover] = useState<ChordLocation | null>(null);
+  const area = useRef<HTMLDivElement>(null);
+  const onMove = useCallback(
+    (event: MouseEvent) => {
+      if (readOnly) return;
+      const next = locateChord(live(), event);
+      setHover((previous) =>
+        previous && next && previous.staff === next.staff && previous.diatonic === next.diatonic ? previous : next,
+      );
+    },
+    [readOnly, live],
+  );
+  const onLeave = useCallback(() => setHover(null), []);
+  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
+
+  const upper = placed.u ?? [];
+  const lower = placed.l ?? [];
+  const grand = task.score.clef === 'grand';
+
+  const spec = useMemo<ScoreSpec>(() => {
+    if (solution.type !== 'chord') return task.score;
+    const measure = task.score.measures[0];
+    const judged = readOnly ? judgeChordNotes(solution.rule, [...upper, ...lower].map(toPitch)) : null;
+    const marks = (from: number, count: number): NoteSpec['keyMarks'] =>
+      judged?.marks.slice(from, from + count).map((mark) => (mark === 'right' ? 'correct' : 'wrong'));
+
+    const staffNote = (own: InputNote[], staff: 'u' | 'l', empty: NoteSpec, from: number): NoteSpec => {
+      const previewKey =
+        !readOnly && hover?.staff === staff ? noteKey(noteFrom(hover.diatonic, alter, { duration: 'w', dotted: false })) : null;
+      if (own.length === 0) return previewKey ? { keys: [previewKey], duration: 'w', preview: true } : empty;
+      return {
+        keys: own.map(noteKey),
+        duration: 'w',
+        previewKeys: previewKey ? [previewKey] : undefined,
+        keyMarks: marks(from, own.length),
+      };
+    };
+
+    const notes = [staffNote(upper, 'u', measure.notes[0], 0)];
+    const bass = grand ? [staffNote(lower, 'l', measure.bass?.[0] ?? { duration: 'w', placeholder: true }, upper.length)] : undefined;
+
+    // Falsch: eine richtige Lösung grün daneben. Das Bild wird dafür breiter,
+    // damit der eigene Akkord bleibt, wo er war.
+    if (judged && !judged.correct) {
+      notes.push({ keys: solution.example.upper, duration: 'w', mark: 'correct' });
+      bass?.push(
+        solution.example.lower?.length
+          ? { keys: solution.example.lower, duration: 'w', mark: 'correct' }
+          : { duration: 'w', placeholder: true },
+      );
+      const width = task.score.width ?? 600;
+      return { ...task.score, width: width + Math.round(width - SCORE_PREFIX), measures: [{ notes, bass }] };
+    }
+    return { ...task.score, measures: [{ notes, bass }] };
+  }, [task.score, JSON.stringify(placed), hover?.staff, hover?.diatonic, alter, readOnly]);
+
+  function handleClick(event: PointerEvent) {
+    if (event.button !== 0 || readOnly) return;
+    const hit = locateChord(live(), event);
+    if (!hit) return;
+    const own = placed[hit.staff] ?? [];
+    const incoming = noteFrom(hit.diatonic, alter, { duration: 'w', dotted: false });
+    // Dieselbe Stelle noch einmal: gleiches Vorzeichen nimmt den Ton weg,
+    // ein anderes ändert ihn.
+    const existing = own.findIndex((note) => note.s === incoming.s && note.o === incoming.o);
+    const next =
+      existing >= 0 && own[existing].a === incoming.a
+        ? own.filter((_, index) => index !== existing)
+        : existing >= 0
+          ? own.map((note, index) => (index === existing ? incoming : note))
+          : [...own, incoming].sort((a, b) => midi(toPitch(a)) - midi(toPitch(b)));
+    update({ ...placed, [hit.staff]: next });
+  }
+
+  if (solution.type !== 'chord') return null;
+  const summary = [...lower, ...upper].map((note) => toGermanPitch(toPitch(note)));
+
+  return (
+    <>
+      <div class="toolbar toolbar-one-row toolbar-bare">
+        <AccidentalPalette
+          value={alter}
+          onChange={setAlter}
+          disabled={readOnly}
+          label="Vorzeichen für den nächsten Ton"
+          bare
+        />
+        <ToolbarActions>
+          <button type="button" class="tool tool-wide" onClick={() => update({})} disabled={readOnly}>
+            Zurücksetzen
+          </button>
+        </ToolbarActions>
+      </div>
+
+      <div class="score-click-area score-click-area-bare" ref={area} {...pointer}>
+        <Score spec={spec} onRendered={onRendered} />
+      </div>
+
+      <p class="input-summary">
+        {summary.length > 0 ? (
+          <>
+            Gesetzt: <b>{summary.join(', ')}</b>
+          </>
+        ) : grand ? (
+          'Setze die Töne in die beiden Systeme. Noch einmal auf denselben Ton tippen nimmt ihn weg.'
+        ) : (
+          'Setze die Töne ins System. Noch einmal auf denselben Ton tippen nimmt ihn weg.'
         )}
       </p>
     </>

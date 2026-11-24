@@ -20,7 +20,7 @@ import type {
 } from '../content/schema';
 import { keyNames, whiteIndex } from '../music/piano';
 import { judgeSung } from '../sing/judge';
-import { describeChordRule, describeKeys, judgeChordKeys } from './chord';
+import { describeChordRule, describeKeys, describeNotes, judgeChordKeys, judgeChordNotes } from './chord';
 import { nameFromMidi } from '../sing/notes';
 import {
   DURATION_LABELS,
@@ -63,6 +63,11 @@ export interface KeysigAnswer {
   placed: { s: Step; o: number }[];
 }
 export type MarkAnswer = number[];
+/** Ein frei gesetzter Akkord: Töne im oberen (bzw. einzigen) und im unteren System. */
+export interface ChordAnswer {
+  u?: InputNote[];
+  l?: InputNote[];
+}
 export type TextTableAnswer = Record<string, string>;
 
 /** Für Aufgaben mit Noteneingabe UND Auswahlfeldern. */
@@ -250,6 +255,24 @@ function scoreNotation(task: NotationTask, answer: NotationAnswer | undefined): 
           possible: task.points,
           studentResponse: value ? describe(value.placed, value.sign) : '—',
           correctResponse: describe(steps.map((s) => ({ s })), sign),
+          correct,
+          interactionType: 'fill-in' as const,
+        },
+      ];
+    }
+
+    case 'chord': {
+      const value = (given as ChordAnswer | undefined) ?? {};
+      const notes = [...(value.u ?? []), ...(value.l ?? [])].map(toPitch);
+      const correct = judgeChordNotes(solution.rule, notes).correct;
+      return [
+        {
+          id: `${id}_akkord`,
+          label: task.prompt ?? 'Akkord',
+          earned: correct ? task.points : 0,
+          possible: task.points,
+          studentResponse: describeNotes(notes),
+          correctResponse: describeChordRule(solution.rule),
           correct,
           interactionType: 'fill-in' as const,
         },

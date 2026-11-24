@@ -56,6 +56,11 @@ export interface NoteSpec {
   previewKeys?: string[];
   /** Nach dem Prüfen: selbst gesetzte Note grün (richtig) oder rot (falsch). */
   mark?: 'correct' | 'wrong';
+  /**
+   * Dasselbe je Notenkopf eines Akkords, in der Reihenfolge von `keys` —
+   * für frei gesetzte Akkorde, bei denen einzelne Töne falsch sein können.
+   */
+  keyMarks?: ('correct' | 'wrong')[];
 }
 
 export interface MeasureSpec {
@@ -189,7 +194,7 @@ export interface SelectTask extends TaskBase {
 /** Eine Aufgabe der Noteneingabe. Der Modus bestimmt Werkzeuge und Bewertung. */
 export interface NotationTask extends TaskBase {
   kind: 'notation';
-  mode: 'pitch' | 'melody' | 'rhythm' | 'rest' | 'keysig' | 'mark';
+  mode: 'pitch' | 'melody' | 'rhythm' | 'rest' | 'keysig' | 'mark' | 'chord';
   audio?: string;
   /** Ausgangslage: vorgegebene Noten, Schlüssel, Taktart. */
   score: ScoreSpec;
@@ -220,7 +225,13 @@ export type NotationSolution =
   /** keysig: Vorzeichen in vorgeschriebener Reihenfolge. */
   | { type: 'keysig'; accidentals: number }
   /** mark: die Zwischenräume (0-basierter Index des linken Nachbarn). */
-  | { type: 'mark'; gaps: number[] };
+  | { type: 'mark'; gaps: number[] }
+  /**
+   * chord: ein frei gesetzter Akkord, im Klaviersystem auf beide Systeme
+   * verteilt. Bewertet nach `rule`; `example` ist eine richtige Lösung, die
+   * nach einem Fehler grün daneben steht (oben, und im Klaviersystem unten).
+   */
+  | { type: 'chord'; rule: ChordRule; example: { upper: string[]; lower?: string[] } };
 
 export interface PitchSlotSolution {
   /** Index des Eingabeplatzes im Notenbild. */

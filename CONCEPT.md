@@ -218,7 +218,7 @@ quality, one tap answers.
 | Übung                               | Fertigkeit |     |
 | ----------------------------------- | ---------- | --- |
 | Dreiklänge in Noten benennen        | Erkennen   | ✓   |
-| Dreiklänge notieren                 | Notieren   |     |
+| Dreiklänge notieren                 | Notieren   | ✓   |
 | Dreiklänge auf Klaviatur benennen   | Klaviatur  | ✓   |
 | Dreiklänge auf Klaviatur spielen    | Klaviatur  | ✓   |
 | Dreiklänge hörend erkennen          | Hören      | ✓   |
@@ -231,7 +231,7 @@ both.
 | Übung                                         | Fertigkeit |     |
 | --------------------------------------------- | ---------- | --- |
 | Umkehrungen & Lagen in Noten benennen         | Erkennen   | ✓   |
-| Umkehrungen & Lagen notieren                  | Notieren   |     |
+| Umkehrungen & Lagen notieren                  | Notieren   | ✓   |
 | Umkehrungen & Lagen auf Klaviatur benennen    | Klaviatur  | ✓   |
 | Umkehrungen & Lagen auf Klaviatur spielen     | Klaviatur  | ✓   |
 | Umkehrungen & Lagen hörend erkennen           | Hören      | ✓   |

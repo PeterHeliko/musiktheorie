@@ -138,6 +138,15 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 - In der Übung füllt sie den Platz, den die Antworten übrig lassen, wie ein Notenbild mit
   `fit`.
 
+### Akkorde setzen
+
+`NotationTask` im Modus `chord` (`NotationInput.tsx`, `ChordInput`): Antippen setzt einen Ton,
+dieselbe Stelle noch einmal nimmt ihn weg (mit anderem Vorzeichen: ändert ihn). Im
+Klaviersystem entscheidet die Höhe, welches System gemeint ist; die Töne beider Systeme
+gehören zum selben Akkord. Bewertet wird wie beim Akkord auf der Klaviatur, nur zählt hier die
+Schreibweise (`src/scoring/chord.ts`). Nach dem Prüfen ist jeder Ton grün oder rot; war der
+Akkord falsch, steht eine richtige Lösung grün daneben.
+
 ### Tonhöhe (Versuch)
 
 `/werkzeuge/tonhoehe/` zeigt den gesungenen Ton, die Abweichung in Cent und eine
