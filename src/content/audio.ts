@@ -10,6 +10,7 @@
  * wirklich zur ausgewiesenen Lösung passt.
  */
 
+import { scalePitches, type ScaleType } from '../music/scales';
 import {
   parseIntervalLabel,
   parsePitch,
@@ -18,16 +19,8 @@ import {
   type Pitch,
 } from '../music/theory';
 
-export type ScaleType = 'dur' | 'moll-natuerlich' | 'moll-harmonisch' | 'moll-melodisch';
-
-/** Stufen einer Tonleiter als Intervalle über dem Grundton. */
-export const SCALE_PATTERNS: Record<ScaleType, string[]> = {
-  dur: ['r1', 'g2', 'g3', 'r4', 'r5', 'g6', 'g7', 'r8'],
-  'moll-natuerlich': ['r1', 'g2', 'k3', 'r4', 'r5', 'k6', 'k7', 'r8'],
-  'moll-harmonisch': ['r1', 'g2', 'k3', 'r4', 'r5', 'k6', 'g7', 'r8'],
-  // Aufwärts erklingt die melodische Molltonleiter mit grosser Sexte und Septime.
-  'moll-melodisch': ['r1', 'g2', 'k3', 'r4', 'r5', 'g6', 'g7', 'r8'],
-};
+// Die Tonleitern selbst stehen in music/scales.ts; hier nur weitergereicht.
+export { SCALE_PATTERNS, type ScaleType } from '../music/scales';
 
 export type AudioItem =
   /**
@@ -124,13 +117,10 @@ export function expandAudioItem(item: AudioItem, melody?: AudioEvent[]): AudioEv
     }
 
     case 'scale': {
-      const tonic = parsePitch(item.tonic);
-      const pitches = SCALE_PATTERNS[item.scale].map((label) =>
-        transposeByInterval(tonic, parseIntervalLabel(label)),
-      );
-      // Abwärts wird dieselbe Leiter rückwärts gespielt. Die Dauern hängen an
-      // der Position, nicht am Ton: der SCHLUSSTON bleibt länger stehen.
-      const ordered = item.direction === 'down' ? [...pitches].reverse() : pitches;
+      // Abwärts von der Oktave zum Grundton — melodisch Moll dann in der
+      // natürlichen Form. Die Dauern hängen an der Position, nicht am Ton:
+      // der SCHLUSSTON bleibt länger stehen.
+      const ordered = scalePitches(parsePitch(item.tonic), item.scale, item.direction ?? 'up');
       return ordered.map((pitch, index) => ({
         pitches: [pitch],
         quarters: index === ordered.length - 1 ? 2 : 1,

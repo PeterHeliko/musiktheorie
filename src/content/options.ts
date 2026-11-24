@@ -20,6 +20,7 @@ import {
   germanNoteName,
   type Step,
 } from '../music/theory';
+import { SCALE_LABELS, SCALE_TYPES } from '../music/scales';
 import type { SelectOption } from './schema';
 
 const opt = (value: string, label = value): SelectOption => ({ value, label });
@@ -158,12 +159,8 @@ export const OPTION_SETS: Record<string, SelectOption[]> = {
   /** Nur die Intervallgrösse (Grobbestimmung). */
   intervalSize: INTERVAL_SIZE_OPTIONS,
 
-  scaleType: [
-    opt('dur', 'Dur'),
-    opt('moll-natuerlich', 'moll natürlich'),
-    opt('moll-harmonisch', 'moll harmonisch'),
-    opt('moll-melodisch', 'moll melodisch'),
-  ],
+  /** Dur, die drei Moll und die Kirchentonarten (music/scales.ts). */
+  scaleType: SCALE_TYPES.map((type) => opt(type, SCALE_LABELS[type])),
 
   triadQuality: (Object.keys(TRIAD_LABELS) as (keyof typeof TRIAD_LABELS)[]).map((q) =>
     opt(q, TRIAD_LABELS[q]),

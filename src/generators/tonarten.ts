@@ -8,18 +8,14 @@
  *    markieren.
  */
 
-import { SCALE_PATTERNS, type ScaleType } from '../content/audio';
 import type { NotationTask, SelectField, SelectOption } from '../content/schema';
+import { scalePitches } from '../music/scales';
 import {
   CIRCLE_OF_FIFTHS,
   keyByName,
   keySignatureSteps,
   midi,
-  parseIntervalLabel,
-  tonicPitchFromName,
-  transposeByInterval,
   vexKeySignature,
-  type Pitch,
 } from '../music/theory';
 import type { Rng } from './rng';
 import {
@@ -31,6 +27,7 @@ import {
   pitchKey,
   taskId,
 } from './shared';
+import { DIRECTION_FILTER, SCALE_FILTER, pickScale, placeTonic, scalePrompt } from './tonleitern';
 import { multi, range, type FilterValues, type Generator, type Question } from './types';
 
 const SIGN_OPTIONS: SelectOption[] = [
@@ -210,20 +207,6 @@ export const tonartenZuordnen: Generator<MatchFilters> = {
 // Halbtonschritte markieren
 // ---------------------------------------------------------------------------
 
-const SCALE_OPTIONS: SelectOption[] = [
-  { value: 'dur', label: 'Dur' },
-  { value: 'moll-natuerlich', label: 'moll natürlich' },
-  { value: 'moll-harmonisch', label: 'moll harmonisch' },
-  { value: 'moll-melodisch', label: 'moll melodisch' },
-];
-
-const SCALE_NAMES: Record<ScaleType, string> = {
-  dur: 'Dur-Tonleiter',
-  'moll-natuerlich': 'Moll-Tonleiter (natürlich)',
-  'moll-harmonisch': 'Moll-Tonleiter (harmonisch)',
-  'moll-melodisch': 'Moll-Tonleiter (melodisch)',
-};
-
 interface SemitoneFilters extends FilterValues {
   scales: string[];
   maxAccidentals: number;
@@ -235,24 +218,17 @@ export const tonartenHalbtonschritte: Generator<SemitoneFilters> = {
   id: 'halbtonschritte-markieren',
   topic: 'tonleitern',
   skill: 'erkennen',
-  version: 1,
+  // 2: Kirchentonarten; Grundtöne aus scaleTonics, melodisch Moll abwärts natürlich (2026-11-24).
+  version: 2,
   title: 'Halbtonschritte markieren',
   instruction:
     'Klicke auf die Stellen zwischen zwei Noten, an denen ein <b>Halbtonschritt</b> liegt.',
   hint: 'Die harmonische Molltonleiter hat zwischen der 6. und 7. Stufe einen ganzen Anderthalbtonschritt — der zählt nicht.',
 
   filters: [
-    { kind: 'multi', key: 'scales', label: 'Welche Tonleiterarten?', options: SCALE_OPTIONS },
+    SCALE_FILTER,
     { kind: 'range', key: 'maxAccidentals', label: 'Höchstens', min: 0, max: 5, unit: 'Vorzeichen' },
-    {
-      kind: 'multi',
-      key: 'directions',
-      label: 'Richtung',
-      options: [
-        { value: 'up', label: 'aufwärts' },
-        { value: 'down', label: 'abwärts' },
-      ],
-    },
+    DIRECTION_FILTER,
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
   ],
 
@@ -264,27 +240,10 @@ export const tonartenHalbtonschritte: Generator<SemitoneFilters> = {
   },
 
   generate(values, rng: Rng): Question {
-    const scales = multi(values, 'scales', this.defaults.scales);
-    const maxAccidentals = Math.round(range(values, 'maxAccidentals', 4));
-    const directions = multi(values, 'directions', this.defaults.directions);
+    const choice = pickScale(values, rng);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
-
-    const scale = rng.pick(scales) as ScaleType;
-    const pool = CIRCLE_OF_FIFTHS.filter((key) => Math.abs(key.accidentals) <= maxAccidentals);
-    insist(pool.length > 0, 'Mit dieser Vorzeichengrenze bleibt keine Tonart übrig.');
-
-    const key = rng.pick(pool);
-    const isMajor = scale === 'dur';
-    const keyName = isMajor ? key.major : key.minor;
-    const tonicName = keyName.replace(/-(Dur|Moll)$/i, '');
     const clef = rng.pick(clefs) as 'treble' | 'bass';
-    const direction = rng.pick(directions) as 'up' | 'down';
-
-    const tonic = placeTonic(tonicPitchFromName(tonicName), clef);
-    const ascending = SCALE_PATTERNS[scale].map((label) =>
-      transposeByInterval(tonic, parseIntervalLabel(label)),
-    );
-    const pitches = direction === 'down' ? [...ascending].reverse() : ascending;
+    const pitches = scalePitches(placeTonic(choice.tonic, clef), choice.type, choice.direction);
 
     // DIE Rechnung dieser Aufgabe: wo liegt ein Halbtonschritt? Direkt aus den
     // Tonhöhen, nicht aus einer Tabelle — sonst prüfte die Aufgabe nur, ob die
@@ -293,13 +252,14 @@ export const tonartenHalbtonschritte: Generator<SemitoneFilters> = {
     for (let i = 0; i + 1 < pitches.length; i++) {
       if (Math.abs(midi(pitches[i + 1]) - midi(pitches[i])) === 1) gaps.push(i);
     }
-    insist(gaps.length > 0, `${keyName} ${scale} hätte keinen Halbtonschritt — das kann nicht sein.`);
+    const prompt = scalePrompt(choice);
+    insist(gaps.length > 0, `${prompt} hätte keinen Halbtonschritt — das kann nicht sein.`);
 
     const task: NotationTask = {
       id: taskId('th', rng),
       kind: 'notation',
       mode: 'mark',
-      prompt: `${tonicName}-${SCALE_NAMES[scale]} ${direction === 'up' ? 'aufwärts' : 'abwärts'}`,
+      prompt,
       points: gaps.length,
       score: {
         clef,
@@ -312,19 +272,6 @@ export const tonartenHalbtonschritte: Generator<SemitoneFilters> = {
     return { task };
   },
 };
-
-/** Tonleiter so legen, dass sie im gewählten Schlüssel bequem Platz hat. */
-function placeTonic(tonic: Pitch, clef: 'treble' | 'bass'): Pitch {
-  // Der Grundton bekommt die Oktave, ab der die Leiter im System liegt: eine
-  // Oktave nach oben muss noch hineinpassen.
-  const target = clef === 'treble' ? 60 : 43;
-  let best = { ...tonic, octave: 4 };
-  for (const octave of [2, 3, 4, 5]) {
-    const candidate = { ...tonic, octave };
-    if (Math.abs(midi(candidate) - target) < Math.abs(midi(best) - target)) best = candidate;
-  }
-  return best;
-}
 
 /** Für Tests: welche Vorzeichen trägt diese Tonart, in welcher Reihenfolge? */
 export { keySignatureSteps };

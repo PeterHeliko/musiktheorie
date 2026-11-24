@@ -1,10 +1,20 @@
 /**
- * Tonleitern und Tonarten: Vorzeichen setzen und zuordnen.
+ * Tonleitern und Tonarten: die Tonleitern selbst, Vorzeichen setzen und
+ * zuordnen, Halbtonschritte, Hören.
  */
 
 import { describe, expect, it } from 'vitest';
+import { expandAudioItem } from '../content/audio';
 import type { NotationTask, SelectTask } from '../content/schema';
-import { keySignaturePitches, toGermanPitch } from '../music/theory';
+import {
+  SCALE_TYPES,
+  scaleName,
+  scalePitches,
+  scaleSignature,
+  scaleTonics,
+  type ScaleType,
+} from '../music/scales';
+import { CIRCLE_OF_FIFTHS, germanNoteName, keySignaturePitches, midi, parsePitch, toGermanPitch } from '../music/theory';
 import { judgeKeySignature, scoreTask } from '../scoring';
 import { generatorById } from './index';
 import { makeRng } from './rng';
@@ -89,5 +99,137 @@ describe('Tonarten den Vorzeichen zuordnen', () => {
     for (const question of generate('tonarten-zuordnen', { ask: ['moll'] })) {
       expect((question.task as SelectTask).fields.map((field) => field.id)).toEqual(['moll']);
     }
+  });
+});
+
+/**
+ * Halbtonschritte aufwärts, wie im Lehrbuch — bewusst noch einmal
+ * ausgeschrieben, damit der Test eine zweite Meinung ist.
+ */
+const STEPS_UP: Record<ScaleType, number[]> = {
+  dur: [2, 2, 1, 2, 2, 2, 1],
+  'moll-natuerlich': [2, 1, 2, 2, 1, 2, 2],
+  'moll-harmonisch': [2, 1, 2, 2, 1, 3, 1],
+  'moll-melodisch': [2, 1, 2, 2, 2, 2, 1],
+  dorisch: [2, 1, 2, 2, 2, 1, 2],
+  phrygisch: [1, 2, 2, 2, 1, 2, 2],
+  lydisch: [2, 2, 2, 1, 2, 2, 1],
+  mixolydisch: [2, 2, 1, 2, 2, 1, 2],
+  lokrisch: [1, 2, 2, 1, 2, 2, 2],
+};
+
+const name = (pitch: { step: Parameters<typeof germanNoteName>[0]; alter: number }) =>
+  germanNoteName(pitch.step, pitch.alter);
+
+describe('Tonleitern', () => {
+  it('haben die Halbtonschritte aus dem Lehrbuch, auf jedem Grundton', () => {
+    for (const type of SCALE_TYPES) {
+      for (const tonic of scaleTonics(type, 7)) {
+        const up = scalePitches(tonic, type).map(midi);
+        expect(up.slice(1).map((value, index) => value - up[index])).toEqual(STEPS_UP[type]);
+        // Jeder Stammton genau einmal, dann die Oktave.
+        const steps = scalePitches(tonic, type).map((pitch) => pitch.step);
+        expect(new Set(steps.slice(0, 7)).size).toBe(7);
+        expect(steps[7]).toBe(steps[0]);
+      }
+    }
+  });
+
+  it('gehen abwärts von der Oktave zum Grundton, melodisch Moll natürlich', () => {
+    const a = parsePitch('a3');
+    expect(scalePitches(a, 'moll-melodisch', 'up').map(toGermanPitch).join(' ')).toBe('a h c1 d1 e1 fis1 gis1 a1');
+    expect(scalePitches(a, 'moll-melodisch', 'down').map(toGermanPitch).join(' ')).toBe('a1 g1 f1 e1 d1 c1 h a');
+    expect(scalePitches(a, 'moll-harmonisch', 'down').map(toGermanPitch).join(' ')).toBe('a1 gis1 f1 e1 d1 c1 h a');
+  });
+
+  it('stehen auf den Grundtönen der Tonarten mit höchstens so vielen Vorzeichen', () => {
+    const names = (type: ScaleType, max: number) => scaleTonics(type, max).map(name).sort();
+    expect(names('dur', 7)).toEqual(CIRCLE_OF_FIFTHS.map((key) => key.major.replace('-Dur', '')).sort());
+    expect(names('moll-natuerlich', 7)).toEqual(
+      CIRCLE_OF_FIFTHS.map((key) => key.minor.replace('-Moll', '')).map((n) => n[0].toUpperCase() + n.slice(1)).sort(),
+    );
+    // Kirchentonarten ohne Vorzeichen: die weissen Tasten.
+    expect(names('dorisch', 0)).toEqual(['D']);
+    expect(names('phrygisch', 0)).toEqual(['E']);
+    expect(names('lydisch', 0)).toEqual(['F']);
+    expect(names('mixolydisch', 0)).toEqual(['G']);
+    expect(names('lokrisch', 0)).toEqual(['H']);
+    expect(names('dorisch', 1)).toEqual(['A', 'D', 'G']);
+    // Ohne Doppelkreuz: gis-, dis- und ais-Moll harmonisch bräuchten eines.
+    const harmonic = names('moll-harmonisch', 7);
+    for (const missing of ['Gis', 'Dis', 'Ais']) expect(harmonic).not.toContain(missing);
+    expect(names('moll-natuerlich', 7)).toContain('Gis');
+    for (const type of SCALE_TYPES) {
+      for (const tonic of scaleTonics(type, 7)) {
+        for (const direction of ['up', 'down'] as const) {
+          expect(scalePitches(tonic, type, direction).every((pitch) => Math.abs(pitch.alter) <= 1)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('tragen die Vorzeichen ihrer Tonart', () => {
+    const signature = (type: ScaleType, key: string) => scaleSignature(type, parsePitch(key));
+    expect(signature('dur', 'es4')).toBe(-3);
+    expect(signature('moll-harmonisch', 'c4')).toBe(-3);
+    expect(signature('dorisch', 'g4')).toBe(-1);
+    expect(signature('lydisch', 'hes4')).toBe(-1);
+    expect(signature('lydisch', 'b4')).toBe(6);
+    expect(signature('lokrisch', 'fis4')).toBe(1);
+    expect(signature('dur', 'fes4')).toBeNull();
+  });
+
+  it('heissen wie im Lehrbuch', () => {
+    expect(scaleName('dur', parsePitch('es4'))).toBe('Es-Dur');
+    expect(scaleName('moll-harmonisch', parsePitch('c4'))).toBe('c-Moll harmonisch');
+    expect(scaleName('moll-natuerlich', parsePitch('fis4'))).toBe('fis-Moll natürlich');
+    expect(scaleName('dorisch', parsePitch('d4'))).toBe('D-dorisch');
+  });
+});
+
+describe('Halbtonschritte markieren', () => {
+  it('markiert die Halbtonschritte aller Arten, auch abwärts', () => {
+    const questions = generate(
+      'halbtonschritte-markieren',
+      { scales: SCALE_TYPES, maxAccidentals: 5, directions: ['up', 'down'], clefs: ['treble', 'bass'] },
+      80,
+    );
+    for (const question of questions) {
+      const task = question.task as NotationTask;
+      if (task.solution.type !== 'mark') throw new Error('keine Markieraufgabe');
+      const pitches = task.score.measures[0].notes.map((note) => midi(parsePitch(note.keys![0])));
+      expect(pitches).toHaveLength(8);
+      const semitones = pitches.slice(1).map((value, index) => Math.abs(value - pitches[index]));
+      expect(task.solution.gaps).toEqual(semitones.flatMap((step, index) => (step === 1 ? [index] : [])));
+    }
+  });
+});
+
+describe('Tonleitern hörend erkennen', () => {
+  it('bietet die Kirchentonarten an, schaltet sie aber nicht ein', () => {
+    const generator = generatorById('tonleitern-hoeren')!;
+    const filter = generator.filters.find((spec) => spec.key === 'scaleTypes');
+    expect(filter?.kind === 'multi' && filter.options.map((option) => option.value)).toEqual(SCALE_TYPES);
+    expect(generator.defaults.scaleTypes).toEqual(['dur', 'moll-natuerlich', 'moll-harmonisch', 'moll-melodisch']);
+  });
+
+  it('lässt abwärts natürlich und melodisch Moll beide gelten — sie klingen gleich', () => {
+    const questions = generate('tonleitern-hoeren', { directions: ['down'], tonic: 'zufaellig' }, 60);
+    let twins = 0;
+    for (const question of questions) {
+      const field = (question.task as SelectTask).fields[0];
+      const audio = question.audio;
+      if (audio?.kind !== 'scale') throw new Error('keine Tonleiter');
+      const sounding = expandAudioItem(audio).map((event) => midi(event.pitches[0]));
+      if (field.correct === 'moll-natuerlich' || field.correct === 'moll-melodisch') {
+        twins++;
+        expect(field.alsoCorrect).toEqual([field.correct === 'moll-natuerlich' ? 'moll-melodisch' : 'moll-natuerlich']);
+        const natural = scalePitches(parsePitch(audio.tonic), 'moll-natuerlich', 'down').map(midi);
+        expect(sounding).toEqual(natural);
+      } else {
+        expect(field.alsoCorrect).toBeUndefined();
+      }
+    }
+    expect(twins).toBeGreaterThan(0);
   });
 });

@@ -9,6 +9,7 @@
 
 import { SCALE_PATTERNS, type ScaleType } from '../content/audio';
 import { OPTION_SETS } from '../content/options';
+import { MAJOR_MINOR } from '../music/scales';
 import { midi, parseIntervalLabel, parsePitch, transposeByInterval } from '../music/theory';
 import type { Rng } from './rng';
 import {
@@ -38,6 +39,11 @@ const SEMITONE_STEPS: Record<ScaleType, number[]> = {
   'moll-natuerlich': [2, 1, 2, 2, 1, 2, 2],
   'moll-harmonisch': [2, 1, 2, 2, 1, 3, 1],
   'moll-melodisch': [2, 1, 2, 2, 2, 2, 1],
+  dorisch: [2, 1, 2, 2, 2, 1, 2],
+  phrygisch: [1, 2, 2, 2, 1, 2, 2],
+  lydisch: [2, 2, 2, 1, 2, 2, 1],
+  mixolydisch: [2, 2, 1, 2, 2, 1, 2],
+  lokrisch: [1, 2, 2, 1, 2, 2, 2],
 };
 
 interface Filters extends FilterValues {
@@ -51,7 +57,8 @@ export const gehoerTonleitern: Generator<Filters> = {
   id: 'tonleitern-hoeren',
   topic: 'tonleitern',
   skill: 'hoeren',
-  version: 1,
+  // 2: melodisch Moll erklingt abwärts natürlich (2026-11-24).
+  version: 2,
   title: 'Tonleitern hörend erkennen',
   instruction: 'Eine Tonleiter erklingt. Wähle die richtige Art.',
 
@@ -80,13 +87,14 @@ export const gehoerTonleitern: Generator<Filters> = {
         { value: 'up', label: 'aufwärts' },
         { value: 'down', label: 'abwärts' },
       ],
-      hint: 'Abwärts ist deutlich schwerer — die melodische Molltonleiter klingt hier wie die natürliche, weil ihre erhöhten Stufen nur aufwärts gelten.',
+      hint: 'Abwärts ist deutlich schwerer. Die melodische Molltonleiter klingt hier wie die natürliche, weil ihre erhöhten Stufen nur aufwärts gelten — beide Antworten zählen dann.',
     },
     { kind: 'toggle', key: 'limitPlays', label: `Wiedergaben begrenzen (${LIMITED_PLAYS}×)` },
   ],
 
   defaults: {
-    scaleTypes: OPTION_SETS.scaleType.map((option) => option.value),
+    // Die Kirchentonarten stehen zur Wahl, sind aber aus (Entscheid 2026-11-24).
+    scaleTypes: MAJOR_MINOR,
     tonic: 'fest',
     directions: ['up'],
     limitPlays: false,
@@ -121,13 +129,30 @@ export const gehoerTonleitern: Generator<Filters> = {
       `${scale} ergibt die Schritte ${steps.join(' ')}, erwartet ${SEMITONE_STEPS[scale].join(' ')}`,
     );
 
+    // Abwärts ist melodisch Moll natürlich (music/scales.ts): die beiden
+    // klingen dann gleich, und beide Antworten sind richtig.
+    const twin =
+      direction === 'down' && (scale === 'moll-natuerlich' || scale === 'moll-melodisch')
+        ? scale === 'moll-natuerlich'
+          ? 'moll-melodisch'
+          : 'moll-natuerlich'
+        : null;
+    const alsoCorrect = twin && scaleTypes.includes(twin) ? [twin] : undefined;
+
     const id = taskId('gt', rng);
     return {
       task: {
         id,
         kind: 'select',
         fields: [
-          { id: 'a', options: optionsFrom('scaleType', scaleTypes), correct: scale, points: 1, buttons: true },
+          {
+            id: 'a',
+            options: optionsFrom('scaleType', scaleTypes),
+            correct: scale,
+            ...(alsoCorrect ? { alsoCorrect } : {}),
+            points: 1,
+            buttons: true,
+          },
         ],
       },
       audio: { id, kind: 'scale', tonic, scale, direction },

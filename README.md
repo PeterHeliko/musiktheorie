@@ -244,6 +244,19 @@ Dreiklängen). Entscheide 2026-11-24:
 
 ### Tonleitern und Tonarten
 
+Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dort
+(Entscheide 2026-11-24):
+
+- **Neun Arten:** Dur, Moll natürlich, harmonisch, melodisch und die Kirchentonarten dorisch,
+  phrygisch, lydisch, mixolydisch, lokrisch (ionisch und äolisch sind Dur und Moll natürlich).
+  Die Kirchentonarten sind überall zuschaltbar, aber aus.
+- **Melodisch Moll abwärts ist natürlich** — im Notenbild wie im Klang. Beim Hören abwärts
+  zählen deshalb beide Antworten.
+- **«Höchstens n Vorzeichen»** meint die Tonart: bei Moll die der natürlichen Form, bei den
+  Kirchentonarten die der Durtonart, aus der sie stammen (G-dorisch: ein ♭). Grundtöne, deren
+  Leiter ein Doppelvorzeichen bräuchte, fallen weg (gis-Moll harmonisch).
+- Aufgaben heissen «Es-Dur aufwärts», «c-Moll harmonisch abwärts», «D-dorisch aufwärts».
+
 - **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den
   Tönen (eine Spalte je Stammton, ♯ oben, ♭ unten), auf den Knöpfen nur der Grundton — Dur
   gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein.
