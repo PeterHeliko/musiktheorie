@@ -233,3 +233,49 @@ describe('Tonleitern hörend erkennen', () => {
     expect(twins).toBeGreaterThan(0);
   });
 });
+
+describe('Tonleitern notieren', () => {
+  it('gibt den Grundton vor und verlangt die übrigen sieben Töne der Leiter', () => {
+    const questions = generate(
+      'tonleitern-notieren',
+      { scales: SCALE_TYPES, maxAccidentals: 7, directions: ['up', 'down'], clefs: ['treble', 'bass'] },
+      120,
+    );
+    for (const question of questions) {
+      const task = question.task as NotationTask;
+      if (task.solution.type !== 'pitch') throw new Error('keine Noteneingabe');
+      const notes = task.score.measures[0].notes;
+      expect(notes).toHaveLength(8);
+      expect(notes[0].keys).toHaveLength(1);
+      expect(notes.slice(1).every((note) => note.placeholder)).toBe(true);
+      const scale = [notes[0].keys![0], ...task.solution.slots.map((slot) => slot.accept[0])].map(parsePitch);
+      // Ganz richtig: volle Punkte; ein Ton daneben: einer weniger.
+      const answer = (keys: string[]) =>
+        Object.fromEntries(
+          task.solution.type === 'pitch'
+            ? task.solution.slots.map((slot, index) => {
+                const pitch = parsePitch(keys[index]);
+                return [String(slot.slot), [{ s: pitch.step, o: pitch.octave, a: pitch.alter, d: 'w' }]];
+              })
+            : [],
+        );
+      const right = task.solution.slots.map((slot) => slot.accept[0]);
+      expect(scoreTask(task, { n: answer(right) }).earned).toBe(7);
+      // Ein Vorzeichen daneben kostet genau diesen Ton.
+      const slipped = task.solution.slots.map((slot) => {
+        const pitch = parsePitch(slot.accept[0]);
+        return { s: pitch.step, o: pitch.octave, a: pitch.alter, d: 'w' };
+      });
+      slipped[2] = { ...slipped[2], a: slipped[2].a === 1 ? 0 : slipped[2].a + 1 };
+      const placed = Object.fromEntries(task.solution.slots.map((slot, index) => [String(slot.slot), [slipped[index]]]));
+      expect(scoreTask(task, { n: placed }).earned).toBe(6);
+      // Die Leiter selbst: aufwärts oder abwärts, jeder Schritt eine Stufe.
+      const up = task.prompt!.endsWith('aufwärts');
+      const values = scale.map(midi);
+      for (let index = 1; index < 8; index++) {
+        expect(Math.sign(values[index] - values[index - 1])).toBe(up ? 1 : -1);
+      }
+      expect(Math.abs(values[7] - values[0])).toBe(12);
+    }
+  });
+});

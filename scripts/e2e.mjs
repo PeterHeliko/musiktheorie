@@ -75,6 +75,7 @@ const MODES = {
   'vorzeichen-setzen': 'Vorzeichen setzen',
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
   'stufen-bestimmen': 'Stufen bestimmen',
+  'tonleitern-notieren': 'Tonleitern notieren',
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
   melodiediktat: 'Rhythmus- und Melodiediktat',
 };

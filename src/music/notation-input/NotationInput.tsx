@@ -551,6 +551,12 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
         const keys = [...(note.keys ?? []), ...own.map(noteKey)];
         return { ...note, keys, previewKeys: previewKey ? [previewKey] : undefined };
       }
+      // Mehrere Plätze (Tonleiter notieren), geprüft: jeder gesetzte Ton grün
+      // oder rot; die Lösung steht darunter (`solutionBelow`).
+      if (readOnly && slots.length > 1) {
+        if (own.length === 0) return { ...note, annotation: undefined };
+        return { keys: [noteKey(own[0])], duration: note.duration, mark: pitchSlotCorrect(slot, own) ? 'correct' : 'wrong' };
+      }
       // Wird gedrückt gezogen, ersetzt die neue Note beim Loslassen die
       // gesetzte — die verschwindet deshalb sofort, zu sehen ist nur noch die
       // gezogene. Bricht der Zug ab (Loslassen ausserhalb), steht sie wieder da.
@@ -603,6 +609,23 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     readOnly,
     pointer.pressed,
   ]);
+
+  /**
+   * Mehrere Plätze, geprüft und nicht alles richtig: die ganze Lösung grün in
+   * einem zweiten System darunter, gleich gebaut — so steht jeder richtige Ton
+   * genau unter dem eigenen. Im selben System neben dem eigenen Ton läse sich
+   * eine Sekunde daneben wie zwei Töne der Leiter.
+   */
+  const solutionBelow = useMemo<ScoreSpec | null>(() => {
+    if (!readOnly || slots.length < 2 || slots.some((slot) => slot.chord)) return null;
+    if (slots.every((slot) => pitchSlotCorrect(slot, placed[String(slot.slot)] ?? []))) return null;
+    const measure = task.score.measures[0];
+    const notes = measure.notes.map((note, index): NoteSpec => {
+      const slot = slots.find((s) => s.slot === index);
+      return slot ? { keys: [slot.accept[0]], duration: note.duration, mark: 'correct' } : note;
+    });
+    return { ...task.score, measures: [{ ...measure, notes }] };
+  }, [task.score, JSON.stringify(placed), JSON.stringify(slots), readOnly]);
 
   function handleClick(event: PointerEvent) {
     // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
@@ -735,6 +758,12 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
       <div class="score-click-area score-click-area-bare" ref={area} {...pointer.handlers}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
+
+      {solutionBelow && (
+        <div class="score-solution" role="img" aria-label={`Lösung: ${slots.map((slot) => toGermanPitch(parsePitch(slot.accept[0]))).join(', ')}`}>
+          <Score spec={solutionBelow} />
+        </div>
+      )}
 
       <p class="input-summary">
         {summary.length > 0 ? (

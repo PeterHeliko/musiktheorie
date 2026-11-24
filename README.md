@@ -257,6 +257,10 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   Leiter ein Doppelvorzeichen bräuchte, fallen weg (gis-Moll harmonisch).
 - Aufgaben heissen «Es-Dur aufwärts», «c-Moll harmonisch abwärts», «D-dorisch aufwärts».
 
+- **Tonleitern notieren:** der Grundton steht da (abwärts der obere), die übrigen sieben Töne
+  werden gesetzt, jeder an seinem Platz — Vorzeichen vor den Noten, ohne Tonartvorzeichen.
+  Jeder Ton zählt einzeln. Nach dem Prüfen sind die eigenen Töne grün oder rot, und war nicht
+  alles richtig, steht die ganze Leiter grün in einem zweiten System darunter, Ton unter Ton.
 - **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den
   Tönen (eine Spalte je Stammton, ♯ oben, ♭ unten), auf den Knöpfen nur der Grundton — Dur
   gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein.

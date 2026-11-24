@@ -41,7 +41,8 @@ const WORD: Record<Grade, string> = {
  *
  *  - Knopfraster: die eigene Wahl grün oder rot, die richtige grün umrandet.
  *  - Klaviatur: ebenso die Tasten.
- *  - Ein einzelner gesetzter Ton: falsch, steht der richtige grün daneben.
+ *  - Gesetzte Töne (Intervall, Tonleiter): falsch, steht der richtige grün
+ *    daneben.
  *  - Ein frei gesetzter Akkord: jeder Ton grün oder rot, falsch steht eine
  *    richtige Lösung grün daneben.
  *  - Vorzeichen: jedes gesetzte grün oder rot, falsch steht der richtige Satz
@@ -63,8 +64,7 @@ export function showsSolution(task: Task): boolean {
       if (task.solution.type === 'keysig') return true;
       return (
         task.solution.type === 'pitch' &&
-        task.solution.slots.length === 1 &&
-        !task.solution.slots[0].chord &&
+        task.solution.slots.every((slot) => !slot.chord) &&
         !task.fields?.length
       );
     default:
