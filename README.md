@@ -104,7 +104,8 @@ Link / Speicher / Filterformular
 ### Aufbau der Oberfläche
 
 - **Auswahl:** Startseite = Themen, ein Thema = seine Übungen (`/ueben/intervalle/`).
-  Listen nennen nur Titel; was eine Übung verlangt, steht in der Übung.
+  Listen nennen nur Titel, davor ein Zeichen für die Fertigkeit (Notenlinien, Klaviatur, Ohr,
+  Mikrofon; `SkillIcon` in `src/ui/icons.tsx`). Was eine Übung verlangt, steht in der Übung.
 - **Übung:** bildschirmfüllend, ohne Kopfzeile der Website. Leiste oben (✕ zurück zum
   Thema, Titel, die wievielte Aufgabe bzw. «7/10», ⚙), die Aufgabe, und unten eine feste
   Leiste mit Rückmeldung und Hauptknopf (Prüfen / Weiter).

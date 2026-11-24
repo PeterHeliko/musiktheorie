@@ -12,6 +12,7 @@
 import { topicSections, topicsWithGenerators } from '../generators/index';
 import { topicTitle, type TopicId } from '../generators/types';
 import { hrefFor } from '../router';
+import { SkillIcon } from './icons';
 
 /** Startseite und «/ueben/»: die Themen. */
 export function TopicList({ heading }: { heading: string }) {
@@ -52,7 +53,12 @@ export function TopicPage({ topic }: { topic: TopicId }) {
           <ul class="nav-list">
             {section.generators.map((generator) => (
               <li key={generator.id}>
-                <a href={hrefFor({ page: 'uebung', id: generator.id })}>{generator.title}</a>
+                <a href={hrefFor({ page: 'uebung', id: generator.id })}>
+                  <span class="nav-label">
+                    <SkillIcon skill={generator.skill} />
+                    {generator.title}
+                  </span>
+                </a>
               </li>
             ))}
           </ul>

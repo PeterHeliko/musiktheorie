@@ -263,6 +263,12 @@ async function main() {
       groupHeadings.join('|') === 'Grobbestimmung|Feinbestimmung',
       `gegliedert in Grob- und Feinbestimmung (${groupHeadings.join(', ')})`,
     );
+    const itemCount = await page.locator('.list-page .nav-list li').count();
+    check(
+      (await page.locator('.list-page .nav-list li .skill-icon').count()) === itemCount &&
+        (await page.locator('.session-bar .skill-icon, .session-title .skill-icon').count()) === 0,
+      `jede Übung trägt ihr Zeichen vor dem Titel (${itemCount})`,
+    );
     await page.screenshot({ path: join(SHOTS, '01-thema.png'), fullPage: true });
     await page
       .locator('.list-page section', { has: page.locator('h2', { hasText: 'Feinbestimmung' }) })
