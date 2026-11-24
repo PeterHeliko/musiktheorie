@@ -60,10 +60,17 @@ import { PitchSmoother, detectPitch } from '../sing/pitch';
 import { useExam } from '../state';
 import { Score } from './Score';
 
-/** Der Ausgangston: anderthalb Sekunden, dann kurz ausklingen. */
+/**
+ * Der Ausgangston: eine Sekunde, dann rasch ausklingen. Erst danach hört die
+ * Seite zu — jede Zehntelsekunde mehr hält das Mikrofon zu. Länger lohnt
+ * nicht: die Klaviertöne sind nach einer Sekunde rund 15–20 dB leiser als
+ * beim Anschlag, die hohen (ab etwa g¹) als Aufnahme überhaupt nur gut eine
+ * Sekunde lang. Mit 1,5 s und 0,4 s Ausklingen blieb am Ende fast eine
+ * Sekunde, in der nichts mehr zu hören war und trotzdem niemand zuhörte.
+ */
 const REFERENCE_TEMPO = 60;
-const REFERENCE_QUARTERS = 1.5;
-const REFERENCE_RELEASE = 0.4;
+const REFERENCE_QUARTERS = 1;
+const REFERENCE_RELEASE = 0.25;
 
 /** So viele Sekunden zeigt die Kurve. */
 const HISTORY_SECONDS = 6;
