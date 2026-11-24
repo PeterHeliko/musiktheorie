@@ -88,7 +88,7 @@ export const gehoerTonleitern: Generator<Filters> = {
         { value: 'up', label: 'aufwärts' },
         { value: 'down', label: 'abwärts' },
       ],
-      hint: 'Abwärts ist deutlich schwerer. Die melodische Molltonleiter klingt hier wie die natürliche, weil ihre erhöhten Stufen nur aufwärts gelten — beide Antworten zählen dann.',
+      hint: 'Abwärts ist deutlich schwerer. Die melodische Molltonleiter klingt hier wie die natürliche, weil ihre erhöhten Stufen nur aufwärts gelten. Beide Antworten zählen dann.',
     },
     {
       kind: 'range',

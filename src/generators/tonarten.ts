@@ -223,7 +223,7 @@ export const tonartenHalbtonschritte: Generator<SemitoneFilters> = {
   title: 'Halbtonschritte markieren',
   instruction:
     'Klicke auf die Stellen zwischen zwei Noten, an denen ein <b>Halbtonschritt</b> liegt.',
-  hint: 'Die harmonische Molltonleiter hat zwischen der 6. und 7. Stufe einen ganzen Anderthalbtonschritt — der zählt nicht.',
+  hint: 'Die harmonische Molltonleiter hat zwischen der 6. und 7. Stufe einen Anderthalbtonschritt, der zählt nicht.',
 
   filters: [
     SCALE_FILTER,

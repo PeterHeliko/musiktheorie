@@ -137,7 +137,7 @@ const MAX_ACCIDENTALS_FILTER: FilterSpec = {
   min: 0,
   max: 7,
   unit: 'Vorzeichen',
-  hint: 'Gemeint sind die Vorzeichen der Tonart — bei den Kirchentonarten die der Durtonart, aus der sie stammen.',
+  hint: 'Gemeint sind die Vorzeichen der Tonart, bei den Kirchentonarten die der Durtonart, aus der sie stammen.',
 };
 
 // ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ export const tonleiternNotieren: Generator<WritingFilters> = {
   title: 'Tonleitern notieren',
   instruction:
     'Notiere die Tonleiter, mit den Vorzeichen vor den Noten. Der Grundton steht schon da; ihn am Ende zu wiederholen, ist freigestellt.',
-  hint: 'Wähle ♭, ♮ oder ♯ für den nächsten Ton und ziehe ihn an seinen Platz — gesetzt wird beim Loslassen, neu ziehen ersetzt ihn.',
+  hint: 'Wähle ♭, ♮ oder ♯ für den nächsten Ton und ziehe ihn auf seine Tonhöhe, gern auch neben der Note. Gesetzt wird beim Loslassen in den blauen Platz; die Nummern wählen einen anderen.',
 
   filters: [
     SCALE_FILTER,
