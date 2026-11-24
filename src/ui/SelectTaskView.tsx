@@ -32,11 +32,13 @@ export function SelectTaskView({
   const hasVisual = Boolean(task.score || task.keyboard);
   const side = task.layout === 'side';
 
+  // Mehrere Tonnamen-Raster (Tonarten zuordnen): breit nebeneinander.
+  const rasters = task.fields.length > 1 && task.fields.every((field) => field.buttons && field.buttonLayout === 'notes');
   const fields = (
     <div
       class={`field-row ${task.fields.length > 2 && !side ? 'field-row-wide' : ''} ${
         side ? 'field-grid' : ''
-      }`}
+      } ${rasters ? 'field-row-notes' : ''}`}
       style={side && task.fieldColumns ? { '--field-columns': task.fieldColumns } : undefined}
     >
       {task.fields.map((field) => (

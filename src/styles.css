@@ -1536,6 +1536,28 @@
   padding: 6px 2px;
 }
 
+/* Zwei Raster (Tonarten zuordnen): wo die Spalte breit ist (quer, Rechner),
+   Dur und Moll nebeneinander und mit kleineren Knöpfen, damit beide samt
+   Notenbild ohne Scrollen Platz haben (Entscheid 2026-11-24). */
+@container (min-width: 600px) {
+  .field-row-notes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+    align-items: start;
+  }
+
+  .field-row-notes .note-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px 4px;
+  }
+
+  .field-row-notes .note-grid .choice {
+    min-height: 34px;
+    padding: 2px;
+  }
+}
+
 /* --------------------------------------------------------------- Klaviatur */
 
 /* PianoKeyboard.tsx: Tasten absolut gesetzt, in Prozent der Breite. Die Höhe

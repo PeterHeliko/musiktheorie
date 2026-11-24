@@ -441,7 +441,9 @@ export function keyMatching(
   return {
     id,
     kind: 'select',
-    score: { clef, keySignature: vexKey, width: 150, measures: [{ notes: [] }] },
+    // So gross, wie neben den Rastern Platz bleibt: hochkant gross, quer
+    // (zwei Raster nebeneinander, wenig Höhe) kleiner.
+    score: { clef, keySignature: vexKey, width: 150, fit: { maxScale: 2.4 }, space: { above: 22, below: 14 }, measures: [{ notes: [] }] },
     fields,
   };
 }

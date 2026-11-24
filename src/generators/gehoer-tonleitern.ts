@@ -19,7 +19,7 @@ import {
   pitchKey,
   taskId,
 } from './shared';
-import { multi, single, toggle, type FilterValues, type Generator, type Question } from './types';
+import { multi, range, single, toggle, type FilterValues, type Generator, type Question } from './types';
 
 const LIMITED_PLAYS = 3;
 
@@ -50,6 +50,7 @@ interface Filters extends FilterValues {
   scaleTypes: string[];
   tonic: string;
   directions: string[];
+  tempo: number;
   limitPlays: boolean;
 }
 
@@ -89,6 +90,16 @@ export const gehoerTonleitern: Generator<Filters> = {
       ],
       hint: 'Abwärts ist deutlich schwerer. Die melodische Molltonleiter klingt hier wie die natürliche, weil ihre erhöhten Stufen nur aufwärts gelten — beide Antworten zählen dann.',
     },
+    {
+      kind: 'range',
+      key: 'tempo',
+      label: 'Tempo',
+      min: 60,
+      max: 160,
+      step: 4,
+      unit: 'bpm',
+      hint: 'Viertel pro Minute; jeder Ton der Tonleiter ist ein Viertel lang.',
+    },
     { kind: 'toggle', key: 'limitPlays', label: `Wiedergaben begrenzen (${LIMITED_PLAYS}×)` },
   ],
 
@@ -97,6 +108,8 @@ export const gehoerTonleitern: Generator<Filters> = {
     scaleTypes: MAJOR_MINOR,
     tonic: 'fest',
     directions: ['up'],
+    // Etwas zügiger als die 84 der übrigen Hörbeispiele (Entscheid 2026-11-24).
+    tempo: 96,
     limitPlays: false,
   },
 
@@ -155,7 +168,7 @@ export const gehoerTonleitern: Generator<Filters> = {
           },
         ],
       },
-      audio: { id, kind: 'scale', tonic, scale, direction },
+      audio: { id, kind: 'scale', tonic, scale, direction, tempo: Math.round(range(values, 'tempo', 96)) },
       instruction:
         direction === 'up'
           ? 'Eine Tonleiter erklingt aufwärts. Wähle die richtige Art.'

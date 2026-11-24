@@ -44,7 +44,8 @@ export type AudioItem =
    * Arpeggio weg.
    */
   | { id: string; kind: 'voicing'; notes: string[]; broken?: boolean }
-  | { id: string; kind: 'scale'; tonic: string; scale: ScaleType; direction?: 'up' | 'down' }
+  /** `tempo` in Vierteln pro Minute; ohne Angabe DEFAULT_TEMPO. */
+  | { id: string; kind: 'scale'; tonic: string; scale: ScaleType; direction?: 'up' | 'down'; tempo?: number }
   /** Melodie; die Töne übergibt der Aufrufer, weil sie vom Generator stammen. */
   | { id: string; kind: 'melody'; tempo: number; countIn?: boolean };
 
@@ -143,5 +144,7 @@ export function expandAudioItem(item: AudioItem, melody?: AudioEvent[]): AudioEv
 }
 
 export function tempoFor(item: AudioItem): number {
-  return item.kind === 'melody' ? item.tempo : DEFAULT_TEMPO;
+  if (item.kind === 'melody') return item.tempo;
+  if (item.kind === 'scale') return item.tempo ?? DEFAULT_TEMPO;
+  return DEFAULT_TEMPO;
 }

@@ -174,7 +174,8 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 - Eine Taste klingt beim Niederdrücken, ohne Vorlauf (`player.strike`); die Töne der
   Klaviatur werden beim Öffnen der Aufgabe geladen.
 - In der Übung füllt sie den Platz, den die Antworten übrig lassen, wie ein Notenbild mit
-  `fit`.
+  `fit`. Wird die Höhe knapp (quer auf dem Telefon), nimmt sie die ganze Spalte in der Breite
+  und wird niedriger statt schmaler: breite Tasten treffen sich besser.
 
 ### Noten setzen
 
@@ -311,7 +312,10 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   (`SingTask.melodic`).
 - **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den
   Tönen (eine Spalte je Stammton, ♯ oben, ♭ unten), auf den Knöpfen nur der Grundton — Dur
-  gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein.
+  gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein. Ist die Spalte breit
+  (quer, Rechner), stehen beide Raster nebeneinander, mit kleineren Knöpfen; das Notenbild
+  nimmt den übrigen Platz (`fit`).
+- **Tonleitern hörend erkennen:** Tempo einstellbar (60 bis 160), Vorgabe 96.
 
 ---
 

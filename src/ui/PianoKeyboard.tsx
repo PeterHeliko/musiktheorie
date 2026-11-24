@@ -38,7 +38,10 @@ const BLACK_WIDTH = 0.6;
 const WHITE_LENGTH = 5.5;
 
 /** Kleiner wird sie auch auf engstem Raum nicht (Höhe in px). */
-const MIN_HEIGHT = 48;
+const MIN_HEIGHT = 72;
+
+/** Breiter wird sie nur, wenn die Höhe knapp ist (weisse Tasten ≈ 45 px). */
+const MAX_WIDTH = 640;
 
 export function PianoKeyboard({
   low,
@@ -162,19 +165,29 @@ export function PianoKeyboard({
 }
 
 /**
- * Breite der Klaviatur mit `fit`: so hoch, dass der Rest der Aufgabe gerade
- * noch ohne Scrollen Platz hat. Gerechnet wie bei den Notenbildern
- * (Score.tsx): Innenhöhe der scrollenden Mitte (.session-body) abzüglich
- * allem anderen darin. Breiter als die Spalte und als `max-width` wird sie
- * nie (styles.css). Ausserhalb der Übungsansicht bleibt sie, wie sie ist.
+ * Die Klaviatur in den Platz bringen, den der Rest der Aufgabe übrig lässt.
+ *
+ * Passt sie in ihrem Seitenverhältnis (WHITE_LENGTH), bleibt es dabei, höchstens
+ * MAX_WIDTH breit. Wird die Höhe knapp — quer auf dem Telefon —, nimmt sie
+ * stattdessen die ganze Spalte in der Breite und wird niedriger: breite
+ * Tasten treffen sich besser als lange (Entscheid 2026-11-24). Die Tasten
+ * sind in Prozent gesetzt und folgen jedem Seitenverhältnis.
  */
 function fitToRoom(piano: HTMLElement, ratio: number): void {
   const body = piano.closest<HTMLElement>('.session-body');
-  const column = body?.firstElementChild;
+  const column = body?.firstElementChild as HTMLElement | null | undefined;
   if (!body || !column) return;
   const style = getComputedStyle(body);
   const room = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
   const others = column.getBoundingClientRect().height - piano.getBoundingClientRect().height;
-  const height = Math.max(room - others, MIN_HEIGHT);
-  piano.style.width = `${Math.floor(height * ratio)}px`;
+  const available = room - others;
+  const columnStyle = getComputedStyle(column);
+  const full = column.clientWidth - parseFloat(columnStyle.paddingLeft) - parseFloat(columnStyle.paddingRight);
+  const natural = Math.min(full, MAX_WIDTH) / ratio;
+  const [width, height] =
+    available >= natural ? [Math.min(full, MAX_WIDTH), natural] : [full, Math.max(available, MIN_HEIGHT)];
+  piano.style.width = `${Math.floor(width)}px`;
+  piano.style.height = `${Math.floor(height)}px`;
+  piano.style.maxWidth = '100%';
+  piano.style.aspectRatio = 'auto';
 }
