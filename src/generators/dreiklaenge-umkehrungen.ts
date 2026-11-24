@@ -17,7 +17,7 @@
  */
 
 import type { ChordRule, KeyboardTask, NotationTask, ScoreSpec, SelectTask } from '../content/schema';
-import { INTERVAL_KEYBOARD, chordExamples } from '../music/piano';
+import { INTERVAL_KEYBOARD, KEY_NAMES, chordExamples, isWhiteKey, keyNames, keysBetween } from '../music/piano';
 import { judgeChordKeys, judgeChordNotes } from '../scoring/chord';
 import { analyseTriad, midi, type Inversion, type Pitch, type Position } from '../music/theory';
 import {
@@ -35,7 +35,12 @@ import {
   chordSingTask,
   chordSpace,
   grandSpace,
-  inversionPositionFields,
+  QUALITY_OPTION,
+  ROOT_OPTION,
+  ASK_OPTIONS,
+  askInstruction,
+  chordFields,
+  staffRootNames,
   inversionPositionText,
   pickInversionAndPosition,
   placeInVoice,
@@ -100,10 +105,15 @@ function checkKeys(keys: number[], quality: TriadQuality, inversion: Inversion, 
   insist(read!.top === topMember(position), `Tasten ${keys.join(' ')}: oben nicht die ${position}`);
 }
 
-function instructionFor(ask: string[], subject: string): string {
-  if (ask.includes('inv') && ask.includes('pos')) return `Bestimme Umkehrung und Lage ${subject}.`;
-  return ask.includes('inv') ? `Bestimme die Umkehrung ${subject}.` : `Bestimme die Lage ${subject}.`;
-}
+const instructionFor = askInstruction;
+
+/** Beim Benennen in Noten und auf der Klaviatur: alles vier lässt sich fragen. */
+const NAMING_ASK = [ROOT_OPTION, QUALITY_OPTION, ...ASK_OPTIONS];
+/** Beim Hören kein Grundton — dafür bräuchte es das absolute Gehör. */
+const HEARING_ASK = [QUALITY_OPTION, ...ASK_OPTIONS];
+
+/** Die Namen der weissen Tasten, c bis h. */
+const WHITE_KEY_NAMES = keysBetween(60, 71).filter(isWhiteKey).flatMap(keyNames);
 
 const HINT =
   'Umkehrung: der tiefste Ton — Grundton = Grundstellung, Terz = Sextakkord, Quinte = Quartsextakkord. ' +
@@ -134,10 +144,13 @@ export const umkehrungenBenennen: Generator<NamingFilters> = {
   hint: HINT,
 
   filters: [
-    ...umkehrungFilters({
-      label: 'Zwei Systeme (Basston im Bassschlüssel)',
-      hint: 'Erst mit eigenem Basston sind Umkehrung und Lage unabhängig voneinander.',
-    }),
+    ...umkehrungFilters(
+      {
+        label: 'Zwei Systeme (Basston im Bassschlüssel)',
+        hint: 'Erst mit eigenem Basston sind Umkehrung und Lage unabhängig voneinander.',
+      },
+      NAMING_ASK,
+    ),
     {
       ...CLEF_FILTER,
       disabledBy: (values) =>
@@ -198,7 +211,13 @@ export const umkehrungenBenennen: Generator<NamingFilters> = {
       id: taskId('ub', rng),
       kind: 'select',
       score,
-      fields: inversionPositionFields(choice, { inversion, position }),
+      fields: chordFields(choice, {
+        root: { correct: [noteName(root).toLowerCase()], names: staffRootNames(policy) },
+        quality,
+        qualities,
+        inversion,
+        position,
+      }),
     };
     return { task, instruction: instructionFor(choice.ask, 'des Dreiklangs') };
   },
@@ -228,10 +247,13 @@ export const umkehrungenKlaviaturBenennen: Generator<KeyNamingFilters> = {
   hint: HINT,
 
   filters: [
-    ...umkehrungFilters({
-      label: 'Mit Basston (vier Tasten)',
-      hint: 'Erst mit eigenem Basston sind Umkehrung und Lage unabhängig voneinander.',
-    }),
+    ...umkehrungFilters(
+      {
+        label: 'Mit Basston (vier Tasten)',
+        hint: 'Erst mit eigenem Basston sind Umkehrung und Lage unabhängig voneinander.',
+      },
+      NAMING_ASK,
+    ),
     {
       ...qualityFilter(AUDIBLE_QUALITIES),
       hint: 'Ohne übermässig: seine Umkehrungen liegen auf denselben Tasten.',
@@ -265,7 +287,13 @@ export const umkehrungenKlaviaturBenennen: Generator<KeyNamingFilters> = {
       id: taskId('ukb', rng),
       kind: 'select',
       keyboard: { ...INTERVAL_KEYBOARD, marked: keys },
-      fields: inversionPositionFields(choice, { inversion, position }),
+      fields: chordFields(choice, {
+        root: { correct: keyNames(midi(root)), names: policy === 'stammton' ? WHITE_KEY_NAMES : KEY_NAMES },
+        quality,
+        qualities,
+        inversion,
+        position,
+      }),
     };
     return { task, instruction: instructionFor(choice.ask, 'des Dreiklangs auf den markierten Tasten') };
   },
@@ -517,10 +545,13 @@ export const umkehrungenHoeren: Generator<HearingFilters> = {
   hint: 'Achte auf den tiefsten Ton für die Umkehrung und auf den höchsten für die Lage.',
 
   filters: [
-    ...umkehrungFilters({
-      label: 'Mit Basston (vier Töne)',
-      hint: 'Erst mit eigenem Basston sind Umkehrung und Lage unabhängig voneinander.',
-    }),
+    ...umkehrungFilters(
+      {
+        label: 'Mit Basston (vier Töne)',
+        hint: 'Erst mit eigenem Basston sind Umkehrung und Lage unabhängig voneinander.',
+      },
+      HEARING_ASK,
+    ),
     {
       ...qualityFilter(AUDIBLE_QUALITIES),
       hint: 'Ohne übermässig: seine Umkehrungen klingen gleich.',
@@ -555,18 +586,12 @@ export const umkehrungenHoeren: Generator<HearingFilters> = {
     checkKeys(voicing.all.map(midi), quality, inversion, position);
 
     const id = taskId('gu', rng);
-    const what =
-      choice.ask.includes('inv') && choice.ask.includes('pos')
-        ? 'Umkehrung und Lage'
-        : choice.ask.includes('inv')
-          ? 'die Umkehrung'
-          : 'die Lage';
     return {
-      task: { id, kind: 'select', fields: inversionPositionFields(choice, { inversion, position }) },
+      task: { id, kind: 'select', fields: chordFields(choice, { quality, qualities, inversion, position }) },
       audio: { id, kind: 'voicing', notes: voicing.all.map(pitchKey), broken },
-      instruction: broken
-        ? `Du hörst den Dreiklang gebrochen und dann zusammen. Bestimme ${what}.`
-        : `Du hörst den Dreiklang als Zusammenklang. Bestimme ${what}.`,
+      instruction: `${
+        broken ? 'Du hörst den Dreiklang gebrochen und dann zusammen.' : 'Du hörst den Dreiklang als Zusammenklang.'
+      } ${askInstruction(choice.ask, 'des Dreiklangs')}`,
       maxPlays: limitPlays ? LIMITED_PLAYS : undefined,
     };
   },

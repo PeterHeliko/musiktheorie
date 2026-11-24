@@ -835,7 +835,7 @@ describe('Dreiklänge', () => {
     sus4: [5, 7],
   };
 
-  const field = (question: Question, id = 'a') => (question.task as SelectTask).fields.find((f) => f.id === id)!;
+  const field = (question: Question, id = 'quality') => (question.task as SelectTask).fields.find((f) => f.id === id)!;
   const scoreKeys = (question: Question) => {
     const measure = (question.task as SelectTask).score!.measures[0];
     return [...(measure.bass?.[0]?.keys ?? []), ...(measure.notes[0].keys ?? [])].map(parsePitch);
@@ -855,6 +855,13 @@ describe('Dreiklänge', () => {
     )!;
     const member = (p: ReturnType<typeof parsePitch>) => (degree(p) - degree(root) + 7) % 7;
     return { root, bass: member(sorted[0]), top: member(sorted[sorted.length - 1]) };
+  }
+  /** Deutscher Name ohne Oktave, von Hand: fis, es, b, h. */
+  function spelledName(pitch: ReturnType<typeof parsePitch>): string {
+    const base = pitch.step === 'b' ? 'h' : pitch.step;
+    if (pitch.alter === 0) return base;
+    if (pitch.alter === 1) return `${base}is`;
+    return ({ e: 'es', a: 'as', h: 'b' } as Record<string, string>)[base] ?? `${base}es`;
   }
   const INVERSION_OF: Record<number, string> = { 0: 'grundstellung', 2: 'sextakkord', 4: 'quartsextakkord' };
   const POSITION_OF: Record<number, string> = { 0: 'oktavlage', 2: 'terzlage', 4: 'quintlage' };
@@ -876,19 +883,19 @@ describe('Dreiklänge', () => {
       const [root, middle, top] = scoreKeys(question);
       expect([midi(middle) - midi(root), midi(top) - midi(root)]).toEqual(SEMITONES[field(question).correct]);
     }
-    expect(answersFor(questions, 'a')).toEqual(new Set(['dur', 'moll', 'vermindert', 'uebermaessig', 'sus4']));
+    expect(answersFor(questions, 'quality')).toEqual(new Set(['dur', 'moll', 'vermindert', 'uebermaessig', 'sus4']));
   });
 
   it('fragt nur die angekreuzten Geschlechter, sus4 nur zugeschaltet', () => {
-    expect(answersFor(generate('dreiklaenge-bestimmen', { qualities: ['moll', 'vermindert'] }), 'a')).toEqual(
+    expect(answersFor(generate('dreiklaenge-bestimmen', { qualities: ['moll', 'vermindert'] }), 'quality')).toEqual(
       new Set(['moll', 'vermindert']),
     );
     for (const question of generate('dreiklaenge-bestimmen', { qualities: ['dur'] }, 20)) {
-      expect(offered(question, 'a')).toEqual(['dur']);
+      expect(offered(question, 'quality')).toEqual(['dur']);
     }
     for (const id of ['dreiklaenge-bestimmen', 'dreiklaenge-klaviatur-benennen', 'dreiklaenge-hoeren']) {
-      expect(answersFor(generate(id, {}), 'a').has('sus4'), id).toBe(false);
-      expect(offered(generate(id, { sus4: true }, 1)[0], 'a'), id).toContain('sus4');
+      expect(answersFor(generate(id, {}), 'quality').has('sus4'), id).toBe(false);
+      expect(offered(generate(id, { sus4: true }, 1)[0], 'quality'), id).toContain('sus4');
     }
   });
 
@@ -1150,6 +1157,51 @@ describe('Dreiklänge', () => {
     expect(scoreTask(task, { notes: tones.slice(0, 2) }).earned).toBe(0);
     expect(scoreTask(task, { notes: [tones[0], tones[2], tones[1]] }).earned).toBe(0);
     expect(scoreTask(task, { notes: tones.map((tone) => tone - 12) }).earned).toBe(task.points);
+  });
+
+  it('fragt auf Wunsch auch den Grundton, als Tonnamen-Raster', () => {
+    for (const question of generate('dreiklaenge-bestimmen', { ask: ['root', 'quality'], sus4: true })) {
+      const fields = (question.task as SelectTask).fields;
+      expect(fields.map((f) => f.id)).toEqual(['root', 'quality']);
+      expect(fields[0].buttonLayout).toBe('notes');
+      // Der Grundton ist der tiefste Ton, so geschrieben, wie er dasteht.
+      expect(fields[0].correct).toBe(spelledName(scoreKeys(question)[0]));
+    }
+    for (const question of generate('dreiklaenge-bestimmen', { ask: ['root'], accidentals: 'stammton' }, 20)) {
+      expect(offered(question, 'root')).toEqual(['c', 'd', 'e', 'f', 'g', 'a', 'h']);
+    }
+  });
+
+  it('nimmt auf der Klaviatur beide Namen einer schwarzen Grundton-Taste', () => {
+    let black = 0;
+    for (const question of generate('dreiklaenge-klaviatur-benennen', { ask: ['root'] })) {
+      const task = question.task as SelectTask;
+      const root = task.keyboard!.marked![0];
+      const accepted = [field(question, 'root').correct, ...(field(question, 'root').alsoCorrect ?? [])];
+      if (!isWhiteKey(root)) {
+        black++;
+        expect(accepted).toHaveLength(2);
+      }
+      for (const name of accepted) expect(scoreTask(task, { root: name }).earned).toBe(task.fields[0].points);
+    }
+    expect(black).toBeGreaterThan(0);
+  });
+
+  it('fragt bei Umkehrungen auf Wunsch Grundton und Geschlecht mit, beim Hören nur das Geschlecht', () => {
+    for (const question of generate('umkehrungen-benennen', { ask: ['root', 'quality', 'inv', 'pos'], withBass: true })) {
+      const fields = (question.task as SelectTask).fields;
+      expect(fields.map((f) => f.id)).toEqual(['root', 'quality', 'inv', 'pos']);
+      const { root } = members(scoreKeys(question));
+      expect(fields[0].correct).toBe(spelledName(root));
+    }
+    // Nur der Grundton gefragt: die Umkehrung ist trotzdem gewürfelt.
+    const rootOnly = generate('umkehrungen-benennen', { ask: ['root'] });
+    expect(new Set(rootOnly.map((q) => members(scoreKeys(q)).bass))).toEqual(new Set([0, 2, 4]));
+    const hearing = generatorById('umkehrungen-hoeren')!.filters.find((f) => f.key === 'ask')!;
+    expect(hearing.kind === 'multi' && hearing.options.map((o) => o.value)).toEqual(['quality', 'inv', 'pos']);
+    for (const question of generate('umkehrungen-hoeren', { ask: ['quality'] }, 20)) {
+      expect((question.task as SelectTask).fields.map((f) => f.id)).toEqual(['quality']);
+    }
   });
 
   it('legt mit Basston auf der Klaviatur vier Tasten, den Basston abgesetzt', () => {

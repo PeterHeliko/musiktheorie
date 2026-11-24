@@ -253,7 +253,9 @@ export function pickInversionAndPosition(
       const inversion = rng.pick(inversions) as Inversion;
       return { inversion, position: COUPLED_POSITION[inversion] };
     }
-    const position = rng.pick(positions) as Position;
+    // Ist keins von beiden gefragt (nur Grundton oder Geschlecht), gelten
+    // die Lagen-Einstellungen nicht: alle Lagen.
+    const position = rng.pick(askPosition ? positions : POSITIONS) as Position;
     return { inversion: STACK_FOR_POSITION[position], position };
   }
   return {
@@ -279,42 +281,99 @@ export function umkehrungChoice(values: FilterValues, defaults: FilterValues): U
   };
 }
 
+/** Was beim Benennen eines Akkords gefragt sein kann, in dieser Reihenfolge. */
+const ASKABLE = ['root', 'quality', 'inv', 'pos'] as const;
+const ASK_LABELS: Record<(typeof ASKABLE)[number], { field: string; object: string }> = {
+  root: { field: 'Grundton', object: 'den Grundton' },
+  quality: { field: 'Geschlecht', object: 'das Geschlecht' },
+  inv: { field: 'Umkehrung', object: 'die Umkehrung' },
+  pos: { field: 'Lage', object: 'die Lage' },
+};
+
+/** «Bestimme das Geschlecht des Dreiklangs.», «Bestimme Grundton, Geschlecht und Lage des Dreiklangs.» */
+export function askInstruction(ask: readonly string[], subject: string): string {
+  const asked = ASKABLE.filter((key) => ask.includes(key));
+  if (asked.length === 1) return `Bestimme ${ASK_LABELS[asked[0]].object} ${subject}.`;
+  const names = asked.map((key) => ASK_LABELS[key].field);
+  return `Bestimme ${names.slice(0, -1).join(', ')} und ${names[names.length - 1]} ${subject}.`;
+}
+
+/** Der Grundton als Tonnamen-Raster, wie bei den Tönen; mehrere richtige bei einer schwarzen Taste. */
+export interface RootAnswer {
+  /** Richtige Namen, klein geschrieben («fis»; auf der Taste «fis», «ges»). */
+  correct: string[];
+  /** Alle angebotenen Namen. */
+  names: string[];
+}
+
+/** Alle Tonnamen im Notenbild für diese Grundton-Einstellung, klein geschrieben. */
+export function staffRootNames(policy: RootPolicy): string[] {
+  const alters = policy === 'stammton' ? [0] : [-1, 0, 1];
+  return STEPS.flatMap((step) => alters.map((alter) => germanNoteName(step, alter).toLowerCase()));
+}
+
 /**
- * Die Antwortfelder: Umkehrung und/oder Lage als Knopfreihen. Angeboten wird,
- * was die Einstellungen zulassen — ohne Basston bei beiden Feldern also die
- * Lagen, die zu den eingestellten Umkehrungen gehören.
+ * Die Antwortfelder als Knopfreihen: Grundton, Geschlecht, Umkehrung, Lage —
+ * was gefragt ist. Angeboten wird, was die Einstellungen zulassen; ohne
+ * Basston bei Umkehrung und Lage also nur die Lagen, die zu den eingestellten
+ * Umkehrungen gehören.
  */
-export function inversionPositionFields(
+export function chordFields(
   { ask, inversions, positions, withBass }: UmkehrungChoice,
-  answer: { inversion: Inversion; position: Position },
+  answer: { root?: RootAnswer; quality?: ChordQuality; qualities?: readonly string[]; inversion?: Inversion; position?: Position },
 ): SelectField[] {
-  const askInversion = ask.includes('inv');
-  const askPosition = ask.includes('pos');
-  const both = askInversion && askPosition;
+  const asked = ASKABLE.filter((key) => ask.includes(key));
+  const many = asked.length > 1;
+  const points = many ? 1 : 2;
+  const label = (key: (typeof ASKABLE)[number]) => (many ? ASK_LABELS[key].field : undefined);
   const offeredPositions =
-    !withBass && askInversion ? inversions.map((inversion) => COUPLED_POSITION[inversion as Inversion]) : positions;
-  const fields: SelectField[] = [];
-  if (askInversion) {
-    fields.push({
-      id: 'inv',
-      label: both ? 'Umkehrung' : undefined,
-      options: optionsFrom('inversion', inversions),
-      correct: answer.inversion,
-      points: both ? 1 : 2,
-      buttons: true,
-    });
-  }
-  if (askPosition) {
-    fields.push({
-      id: 'pos',
-      label: both ? 'Lage' : undefined,
-      options: optionsFrom('position', offeredPositions),
-      correct: answer.position,
-      points: both ? 1 : 2,
-      buttons: true,
-    });
-  }
-  return fields;
+    !withBass && ask.includes('inv') ? inversions.map((inversion) => COUPLED_POSITION[inversion as Inversion]) : positions;
+
+  return asked.map((key): SelectField => {
+    switch (key) {
+      case 'root': {
+        const root = answer.root!;
+        insist(root.correct.every((name) => root.names.includes(name)), `«${root.correct}» fehlt im Raster`);
+        return {
+          id: 'root',
+          label: label(key),
+          options: root.names.map((name) => ({ value: name, label: name })),
+          correct: root.correct[0],
+          ...(root.correct.length > 1 ? { alsoCorrect: root.correct.slice(1) } : {}),
+          points,
+          buttons: true,
+          buttonLayout: 'notes',
+        };
+      }
+      case 'quality':
+        return {
+          id: 'quality',
+          label: label(key),
+          options: optionsFrom('chordQuality', answer.qualities!),
+          correct: answer.quality!,
+          points,
+          buttons: true,
+        };
+      case 'inv':
+        return {
+          id: 'inv',
+          label: label(key),
+          options: optionsFrom('inversion', inversions),
+          correct: answer.inversion!,
+          points,
+          buttons: true,
+        };
+      case 'pos':
+        return {
+          id: 'pos',
+          label: label(key),
+          options: optionsFrom('position', offeredPositions),
+          correct: answer.position!,
+          points,
+          buttons: true,
+        };
+    }
+  });
 }
 
 /** «Sextakkord», «Terzlage», «Sextakkord in Terzlage» — was verlangt ist. */
@@ -436,13 +495,20 @@ export const ASK_OPTIONS: SelectOption[] = [
   { value: 'pos', label: 'Lage' },
 ];
 
+/** Beim Benennen auch Grundton und Geschlecht (beim Hören nur das Geschlecht). */
+export const ROOT_OPTION: SelectOption = { value: 'root', label: 'Grundton' };
+export const QUALITY_OPTION: SelectOption = { value: 'quality', label: 'Geschlecht' };
+
 /**
  * Gefragt ist, Umkehrungen, Lagen — in dieser Reihenfolge, dazu der
  * Basston-Schalter. Ohne `bass` (Singen: drei Töne) gibt es keinen.
  */
-export function umkehrungFilters(bass?: { label: string; hint: string }): FilterSpec[] {
+export function umkehrungFilters(
+  bass?: { label: string; hint: string },
+  askOptions: SelectOption[] = ASK_OPTIONS,
+): FilterSpec[] {
   return [
-    { kind: 'multi', key: 'ask', label: 'Gefragt ist', options: ASK_OPTIONS },
+    { kind: 'multi', key: 'ask', label: 'Gefragt ist', options: askOptions },
     {
       kind: 'multi',
       key: 'inversions',

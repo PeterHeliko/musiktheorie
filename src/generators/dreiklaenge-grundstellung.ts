@@ -1,28 +1,33 @@
 /**
  * Dreiklänge in Grundstellung — drei Töne eng über dem Grundton.
  *
- * Gefragt ist beim Benennen nur das Geschlecht (Entscheid 2026-11-24): ein
- * Tipp auf Dur, moll, vermindert, übermässig oder — zugeschaltet — sus4. Der
- * Grundton ist der tiefste Ton und steht schon da.
+ * Gefragt ist beim Benennen zunächst nur das Geschlecht (Entscheid
+ * 2026-11-24): ein Tipp auf Dur, moll, vermindert, übermässig oder —
+ * zugeschaltet — sus4. Unter «Gefragt ist» lässt sich der Grundton dazu
+ * nehmen; dann antwortet man im Tonnamen-Raster wie bei den Tönen.
  *
  * Gemeinsames (Akkordbau, Namen, Einstellungen) in `dreiklaenge-shared.ts`.
  */
 
 import { OPTION_SETS } from '../content/options';
 import type { ChordRule, KeyboardTask, NotationTask, SelectField, SelectTask } from '../content/schema';
-import { INTERVAL_KEYBOARD, chordExamples } from '../music/piano';
+import { INTERVAL_KEYBOARD, KEY_NAMES, chordExamples, isWhiteKey, keyNames, keysBetween } from '../music/piano';
 import { judgeChordKeys, judgeChordNotes } from '../scoring/chord';
 import { analyseTriad, midi, type Pitch } from '../music/theory';
 import {
   CHORD_SEMITONES,
   CLEF_FILTER,
+  QUALITY_OPTION,
   ROOT_FILTER,
+  ROOT_OPTION,
   SING_DEFAULTS,
   SING_FILTERS,
   SING_HINT,
   STAFF_WINDOWS,
   SUS4_FILTER,
+  askInstruction,
   buildChord,
+  chordFields,
   chordName,
   chordSingTask,
   chordSpace,
@@ -34,11 +39,12 @@ import {
   readKeys,
   rootClasses,
   rootPolicy,
+  staffRootNames,
   type ChordQuality,
   type RootPolicy,
 } from './dreiklaenge-shared';
 import type { Rng } from './rng';
-import { insist, optionsFrom, pitchKey, taskId, wholeNoteScore, type Window } from './shared';
+import { insist, noteName, pitchKey, taskId, wholeNoteScore, type Window } from './shared';
 import { multi, single, toggle, type FilterValues, type Generator, type Personal, type Question } from './types';
 import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
 
@@ -68,15 +74,22 @@ function checkChord(stack: Pitch[], quality: ChordQuality): void {
   }
 }
 
-/** Das Geschlecht als Knopfreihe — ein Tipp ist die Antwort. */
-function qualityField(quality: ChordQuality, allowed: readonly ChordQuality[]): SelectField {
-  return {
-    id: 'a',
-    options: optionsFrom('chordQuality', allowed),
-    correct: quality,
-    points: 2,
-    buttons: true,
-  };
+/** Was beim Benennen gefragt sein kann: Grundton und Geschlecht. */
+const ASK_FILTER = {
+  kind: 'multi' as const,
+  key: 'ask',
+  label: 'Gefragt ist',
+  options: [ROOT_OPTION, QUALITY_OPTION],
+};
+
+/** Die Antwortfelder: Grundton (Tonnamen-Raster) und/oder Geschlecht (ein Tipp, wenn allein). */
+function namingFields(
+  ask: string[],
+  quality: ChordQuality,
+  qualities: readonly ChordQuality[],
+  root: { correct: string[]; names: string[] },
+): SelectField[] {
+  return chordFields({ ask, inversions: [], positions: [], withBass: false }, { root, quality, qualities });
 }
 
 const NAMING_HINT =
@@ -91,11 +104,15 @@ function namingHint(qualities: readonly ChordQuality[]): string {
 
 const ALL_TRIADS = OPTION_SETS.triadQuality.map((option) => option.value);
 
+/** Die Namen der weissen Tasten, c bis h. */
+const WHITE_KEY_NAMES = keysBetween(60, 71).filter(isWhiteKey).flatMap(keyNames);
+
 // ---------------------------------------------------------------------------
 // In Noten benennen
 // ---------------------------------------------------------------------------
 
 interface NamingFilters extends FilterValues {
+  ask: string[];
   qualities: string[];
   sus4: boolean;
   clefs: string[];
@@ -112,14 +129,15 @@ export const dreiklaengeBenennen: Generator<NamingFilters> = {
   // 2: neu gebaut — nur noch das Geschlecht, in Grundstellung.
   version: 2,
   title: 'Dreiklänge in Noten benennen',
-  instruction: 'Welches Geschlecht hat der Dreiklang?',
+  instruction: askInstruction(['quality'], 'des Dreiklangs'),
   hint: NAMING_HINT,
 
-  filters: [qualityFilter(), SUS4_FILTER, CLEF_FILTER, ROOT_FILTER],
+  filters: [ASK_FILTER, qualityFilter(), SUS4_FILTER, CLEF_FILTER, ROOT_FILTER],
 
-  defaults: { qualities: ALL_TRIADS, sus4: false, clefs: ['treble'], accidentals: 'einfach' },
+  defaults: { ask: ['quality'], qualities: ALL_TRIADS, sus4: false, clefs: ['treble'], accidentals: 'einfach' },
 
   generate(values, rng: Rng): Question {
+    const ask = multi(values, 'ask', this.defaults.ask);
     const qualities = chosenQualities(values, this.defaults.qualities);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
     const policy = rootPolicy(values);
@@ -133,9 +151,12 @@ export const dreiklaengeBenennen: Generator<NamingFilters> = {
       id: taskId('db', rng),
       kind: 'select',
       score: wholeNoteScore(stack.map(pitchKey), clef, { width: 150, space: chordSpace(clefs) }),
-      fields: [qualityField(quality, qualities)],
+      fields: namingFields(ask, quality, qualities, {
+        correct: [noteName(stack[0]).toLowerCase()],
+        names: staffRootNames(policy),
+      }),
     };
-    return { task, hint: namingHint(qualities) };
+    return { task, hint: namingHint(qualities), instruction: askInstruction(ask, 'des Dreiklangs') };
   },
 };
 
@@ -220,6 +241,7 @@ function checkKeys(keys: number[], quality: ChordQuality): void {
 }
 
 interface KeyNamingFilters extends FilterValues {
+  ask: string[];
   qualities: string[];
   sus4: boolean;
   accidentals: string;
@@ -232,15 +254,17 @@ export const dreiklaengeKlaviaturBenennen: Generator<KeyNamingFilters> = {
   skill: 'klaviatur',
   version: 1,
   title: 'Dreiklänge auf Klaviatur benennen',
-  instruction: 'Welches Geschlecht hat der Dreiklang auf den markierten Tasten?',
+  instruction: askInstruction(['quality'], 'des Dreiklangs auf den markierten Tasten'),
   hint:
-    'Zähle die Halbtöne vom tiefsten Ton aus: 4 + 3 = Dur, 3 + 4 = moll, 3 + 3 = vermindert, 4 + 4 = übermässig.',
+    'Zähle die Halbtöne vom tiefsten Ton aus: 4 + 3 = Dur, 3 + 4 = moll, 3 + 3 = vermindert, 4 + 4 = übermässig. ' +
+    'Eine schwarze Taste hat zwei Namen; beide sind richtig.',
 
-  filters: [qualityFilter(), SUS4_FILTER, ROOT_FILTER],
+  filters: [ASK_FILTER, qualityFilter(), SUS4_FILTER, ROOT_FILTER],
 
-  defaults: { qualities: ALL_TRIADS, sus4: false, accidentals: 'einfach' },
+  defaults: { ask: ['quality'], qualities: ALL_TRIADS, sus4: false, accidentals: 'einfach' },
 
   generate(values, rng: Rng): Question {
+    const ask = multi(values, 'ask', this.defaults.ask);
     const qualities = chosenQualities(values, this.defaults.qualities);
     const policy = rootPolicy(values);
 
@@ -254,13 +278,15 @@ export const dreiklaengeKlaviaturBenennen: Generator<KeyNamingFilters> = {
       id: taskId('dkb', rng),
       kind: 'select',
       keyboard: { ...INTERVAL_KEYBOARD, marked: keys },
-      fields: [qualityField(quality, qualities)],
+      fields: namingFields(ask, quality, qualities, {
+        correct: keyNames(keys[0]),
+        names: policy === 'stammton' ? WHITE_KEY_NAMES : KEY_NAMES,
+      }),
     };
     return {
       task,
-      hint: qualities.includes('sus4')
-        ? `${this.hint} Bei sus4 sind es 5 + 2.`
-        : undefined,
+      instruction: askInstruction(ask, 'des Dreiklangs auf den markierten Tasten'),
+      hint: qualities.includes('sus4') ? `${this.hint} Bei sus4 sind es 5 + 2.` : undefined,
     };
   },
 };
@@ -377,7 +403,7 @@ export const dreiklaengeHoeren: Generator<HearingFilters> = {
 
     const id = taskId('ga', rng);
     return {
-      task: { id, kind: 'select', fields: [qualityField(quality, qualities)] },
+      task: { id, kind: 'select', fields: namingFields(['quality'], quality, qualities, { correct: [], names: [] }) },
       audio: { id, kind: 'voicing', notes: stack.map(pitchKey), broken },
       instruction: broken
         ? 'Du hörst den Dreiklang gebrochen und dann zusammen. Bestimme das Geschlecht.'
