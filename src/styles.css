@@ -1076,6 +1076,70 @@
   margin: 0;
 }
 
+/* Kursseite: Bearbeiten / Entfernen, und im Bearbeiten «Fertig». */
+.course-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.course-actions button.primary {
+  font: inherit;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 8px 24px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.course-remove {
+  margin-bottom: 0;
+}
+
+/* Bearbeiten: je Schritt der Text, darunter die Knöpfe. */
+.course-edit-steps {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.course-edit-steps li {
+  padding: 10px 4px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.course-edit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  /* Unter dem Text, nicht unter dem Zeichen der Fertigkeit. */
+  padding-left: 34px;
+}
+
+.course-edit-controls .link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.course-edit-controls .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.course-edit-controls select {
+  width: auto;
+  min-height: 40px;
+  padding: 6px 8px;
+}
+
 /* Einstellungsblatt im Kurs: «Frei üben» unter dem Satz, ohne Trennlinie. */
 .course-free {
   margin: 12px 0 0;
