@@ -53,12 +53,24 @@ const MODES = {
   'dreiklaenge-klaviatur-spielen': 'Dreiklänge auf Klaviatur spielen (Grundstellung)',
   'dreiklaenge-hoeren': 'Dreiklänge hörend erkennen (Grundstellung)',
   'dreiklaenge-singen': 'Dreiklänge singen (Grundstellung)',
-  'umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen',
-  'umkehrungen-notieren': 'Umkehrungen & Lagen notieren',
-  'umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen',
-  'umkehrungen-klaviatur-spielen': 'Umkehrungen & Lagen auf Klaviatur spielen',
-  'umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen',
-  'umkehrungen-singen': 'Umkehrungen & Lagen singen',
+  'umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen (Dreiklänge)',
+  'umkehrungen-notieren': 'Umkehrungen & Lagen notieren (Dreiklänge)',
+  'umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen (Dreiklänge)',
+  'umkehrungen-klaviatur-spielen': 'Umkehrungen & Lagen auf Klaviatur spielen (Dreiklänge)',
+  'umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen (Dreiklänge)',
+  'umkehrungen-singen': 'Umkehrungen & Lagen singen (Dreiklänge)',
+  'septakkorde-benennen': 'Septakkorde in Noten benennen (Grundstellung)',
+  'septakkorde-notieren': 'Septakkorde notieren (Grundstellung)',
+  'septakkorde-klaviatur-benennen': 'Septakkorde auf Klaviatur benennen (Grundstellung)',
+  'septakkorde-klaviatur-spielen': 'Septakkorde auf Klaviatur spielen (Grundstellung)',
+  'septakkorde-hoeren': 'Septakkorde hörend erkennen (Grundstellung)',
+  'septakkorde-singen': 'Septakkorde singen (Grundstellung)',
+  'septakkorde-umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen (Septakkorde)',
+  'septakkorde-umkehrungen-notieren': 'Umkehrungen & Lagen notieren (Septakkorde)',
+  'septakkorde-umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen (Septakkorde)',
+  'septakkorde-umkehrungen-klaviatur-spielen': 'Umkehrungen & Lagen auf Klaviatur spielen (Septakkorde)',
+  'septakkorde-umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen (Septakkorde)',
+  'septakkorde-umkehrungen-singen': 'Umkehrungen & Lagen singen (Septakkorde)',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
@@ -69,7 +81,7 @@ const MODES = {
 const MODE_IDS = Object.keys(MODES);
 
 /** Themen mit Übungen — muss zu src/generators/types.ts (TOPICS) passen. */
-const TOPICS = ['toene', 'rhythmus', 'intervalle', 'dreiklaenge', 'tonleitern', 'melodie'];
+const TOPICS = ['toene', 'rhythmus', 'intervalle', 'dreiklaenge', 'septakkorde', 'tonleitern', 'melodie'];
 
 let failures = 0;
 
@@ -1000,6 +1012,61 @@ async function main() {
       'Terz unten: Falsch, die tiefste Taste rot, eine richtige Lage grün umrandet',
     );
     await page.screenshot({ path: join(SHOTS, 'klaviatur-akkord-falsch.png'), fullPage: true });
+
+    // Ein Septakkord als Akkordsymbol: «C7» heisst c e g b.
+    await page.goto(
+      exercise('septakkorde-klaviatur-spielen', '?arten=dominant&bezeichnung=symbole&vorzeichen=stammton'),
+      { waitUntil: 'networkidle' },
+    );
+    root = await chordRoot();
+    check(
+      /^[A-H]7$/.test((await page.locator('.question .task-prompt').innerText()).trim()),
+      'Septakkord: als Akkordsymbol genannt',
+    );
+    for (const key of [root, root + 4, root + 7, root + 10]) await keyAt(page, key).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Richtig' &&
+        (await page.locator('.question .piano-key[data-state="right"]').count()) === 4,
+      'Septakkord: vier Tasten, Richtig, alle grün',
+    );
+
+    // Vierstimmig verlangt (Terz unten, Quinte oben). Gespielt werden zwei
+    // Tasten, die nicht zum Akkord gehören — so liegt keine unter der grün
+    // umrandeten Lösung, und die muss vierstimmig sein: alle vier Töne, die
+    // Terz unten, die Quinte oben.
+    await page.goto(
+      exercise(
+        'septakkorde-umkehrungen-klaviatur-spielen',
+        '?arten=dominant&bezeichnung=symbole&vorzeichen=stammton&gefragt=umkehrung,lage&mit-bass=ja' +
+          '&umkehrungen=quintsextakkord&lagen=quintlage',
+      ),
+      { waitUntil: 'networkidle' },
+    );
+    root = await chordRoot();
+    check(
+      /^[A-H]7, Quintsextakkord in Quintlage$/.test((await page.locator('.question .task-prompt').innerText()).trim()),
+      'Septakkord-Umkehrung: Akkord, Umkehrung und Lage genannt',
+    );
+    for (const key of [root + 1, root + 2]) await keyAt(page, key).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    const outlined = (
+      await page
+        .locator('.question .piano-key[data-state="solution"]')
+        .evaluateAll((keys) => keys.map((key) => Number(key.dataset.key)))
+    ).sort((a, b) => a - b);
+    const member = (key) => (key - root + 120) % 12;
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Falsch' &&
+        outlined.length === 4 &&
+        new Set(outlined.map(member)).size === 4 &&
+        member(outlined[0]) === 4 &&
+        member(outlined[3]) === 7,
+      `vierstimmig: Falsch, grün eine Lage mit allen vier Tönen, Terz unten, Quinte oben (${outlined.join(' ')})`,
+    );
+    await page.screenshot({ path: join(SHOTS, 'klaviatur-septakkord-vierstimmig.png'), fullPage: true });
 
     const pianoPhone = await browser.newContext({ ...devices['iPhone 13'] });
     const pianoPhonePage = await pianoPhone.newPage();

@@ -33,6 +33,22 @@ import {
   umkehrungenNotieren,
   umkehrungenSingen,
 } from './dreiklaenge-umkehrungen';
+import {
+  septakkordeBenennen,
+  septakkordeHoeren,
+  septakkordeKlaviaturBenennen,
+  septakkordeKlaviaturSpielen,
+  septakkordeNotieren,
+  septakkordeSingen,
+} from './septakkorde-grundstellung';
+import {
+  septUmkehrungenBenennen,
+  septUmkehrungenHoeren,
+  septUmkehrungenKlaviaturBenennen,
+  septUmkehrungenKlaviaturSpielen,
+  septUmkehrungenNotieren,
+  septUmkehrungenSingen,
+} from './septakkorde-umkehrungen';
 import { dreiklaengeStufen } from './stufen';
 import { intervalleBestimmen, intervalleNotieren } from './intervalle';
 import { intervalleGrobBestimmen, intervalleGrobNotieren } from './intervalle-grob';
@@ -82,6 +98,18 @@ export const GENERATORS: Generator<FilterValues>[] = [
   umkehrungenKlaviaturSpielen,
   umkehrungenHoeren,
   umkehrungenSingen,
+  septakkordeBenennen,
+  septakkordeNotieren,
+  septakkordeKlaviaturBenennen,
+  septakkordeKlaviaturSpielen,
+  septakkordeHoeren,
+  septakkordeSingen,
+  septUmkehrungenBenennen,
+  septUmkehrungenNotieren,
+  septUmkehrungenKlaviaturBenennen,
+  septUmkehrungenKlaviaturSpielen,
+  septUmkehrungenHoeren,
+  septUmkehrungenSingen,
   tonartenZuordnen,
   tonartenVorzeichen,
   tonartenHalbtonschritte,

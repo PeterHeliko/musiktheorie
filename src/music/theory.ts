@@ -533,6 +533,113 @@ export function buildTriad(root: Pitch, quality: TriadQuality): Pitch[] {
 }
 
 // ---------------------------------------------------------------------------
+// Septakkorde
+// ---------------------------------------------------------------------------
+
+/**
+ * Die fünf üblichen Septakkorde (Entscheid 2026-11-24): Dreiklang plus
+ * Septime über dem Grundton. Die Werte stehen so im Link.
+ */
+export type SeventhQuality = 'dominant' | 'gross-dur' | 'klein-moll' | 'halbvermindert' | 'vermindert';
+
+/** Ausgeschriebene Namen, wie in der Aufgabe: «Dominantseptakkord auf G». */
+export const SEVENTH_LABELS: Record<SeventhQuality, string> = {
+  dominant: 'Dominantseptakkord',
+  'gross-dur': 'grosser Durseptakkord',
+  'klein-moll': 'kleiner Mollseptakkord',
+  halbvermindert: 'halbverminderter Septakkord',
+  vermindert: 'verminderter Septakkord',
+};
+
+/** Akkordsymbol ohne Grundton: «G7», «Cmaj7», «Dm7», «Hm7♭5», «Cis°7». */
+export const SEVENTH_SYMBOLS: Record<SeventhQuality, string> = {
+  dominant: '7',
+  'gross-dur': 'maj7',
+  'klein-moll': 'm7',
+  halbvermindert: 'm7♭5',
+  vermindert: '°7',
+};
+
+/** Terz, Quinte und Septime über dem Grundton, in Halbtönen. */
+export const SEVENTH_SEMITONES: Record<SeventhQuality, [number, number, number]> = {
+  dominant: [4, 7, 10],
+  'gross-dur': [4, 7, 11],
+  'klein-moll': [3, 7, 10],
+  halbvermindert: [3, 6, 10],
+  vermindert: [3, 6, 9],
+};
+
+/** Umkehrung, benannt nach dem Basston: Grundton, Terz, Quinte, Septime. */
+export type SeventhInversion = 'grundstellung' | 'quintsextakkord' | 'terzquartakkord' | 'sekundakkord';
+
+export const SEVENTH_INVERSION_LABELS: Record<SeventhInversion, string> = {
+  grundstellung: 'Grundstellung',
+  quintsextakkord: 'Quintsextakkord',
+  terzquartakkord: 'Terzquartakkord',
+  sekundakkord: 'Sekundakkord',
+};
+
+/** Lage, benannt nach dem obersten Ton: Grundton, Terz, Quinte, Septime. */
+export type SeventhPosition = 'oktavlage' | 'terzlage' | 'quintlage' | 'septlage';
+
+export const SEVENTH_POSITION_LABELS: Record<SeventhPosition, string> = {
+  oktavlage: 'Oktavlage',
+  terzlage: 'Terzlage',
+  quintlage: 'Quintlage',
+  septlage: 'Septlage',
+};
+
+export interface SeventhAnalysis {
+  root: Pitch;
+  quality: SeventhQuality;
+  inversion: SeventhInversion;
+  position: SeventhPosition;
+}
+
+/**
+ * Analysiert einen Septakkord aus beliebig verteilten Tönen, auch über zwei
+ * Systeme hinweg; Verdopplungen sind erlaubt. Gezählt wird diatonisch und in
+ * Halbtönen — die Schreibweise zählt: c e g ais ist kein Septakkord.
+ * Liefert null, wenn die Töne keinen der fünf Septakkorde bilden.
+ */
+export function analyseSeventh(pitches: Pitch[]): SeventhAnalysis | null {
+  if (pitches.length < 4) return null;
+
+  const sorted = [...pitches].sort((x, y) => midi(x) - midi(y));
+  const unique: Pitch[] = [];
+  for (const p of sorted) {
+    if (!unique.some((q) => q.step === p.step && q.alter === p.alter)) unique.push(p);
+  }
+  if (unique.length !== 4) return null;
+
+  const memberOf = (root: Pitch, note: Pitch) => ((diatonicIndex(note) - diatonicIndex(root)) % 7 + 7) % 7;
+  const inversions = Object.keys(SEVENTH_INVERSION_LABELS) as SeventhInversion[];
+  const positions = Object.keys(SEVENTH_POSITION_LABELS) as SeventhPosition[];
+
+  for (const candidate of unique) {
+    const relative = unique
+      .filter((p) => p !== candidate)
+      .map((p) => normaliseAbove(candidate, p))
+      .sort((x, y) => x.diatonic - y.diatonic);
+    if (relative.map((r) => r.diatonic).join() !== '2,4,6') continue;
+
+    const quality = (Object.keys(SEVENTH_SEMITONES) as SeventhQuality[]).find((q) =>
+      SEVENTH_SEMITONES[q].every((semitones, index) => relative[index].semitones === semitones),
+    );
+    if (!quality) continue;
+
+    return {
+      root: candidate,
+      quality,
+      inversion: inversions[memberOf(candidate, sorted[0]) / 2],
+      position: positions[memberOf(candidate, sorted[sorted.length - 1]) / 2],
+    };
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Tonarten
 // ---------------------------------------------------------------------------
 

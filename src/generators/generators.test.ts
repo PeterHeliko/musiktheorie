@@ -18,10 +18,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GENERATORS, generatorById, topicsWithGenerators } from './index';
+import { GENERATORS, generatorById, topicSections, topicsWithGenerators } from './index';
 import { deriveSeeds, makeRng } from './rng';
 import { freshSeed, questionKey, roundSeeds } from './fresh';
-import { TOPIC_GROUPS, type FilterValues, type Question } from './types';
+import { TOPIC_GROUPS, fullTitle, type FilterValues, type Question } from './types';
 import type { KeyboardTask, NotationTask, SelectTask, SingTask, Task } from '../content/schema';
 import {
   INTERVAL_OPTIONS,
@@ -30,7 +30,7 @@ import {
   intervalSizeAnswer,
   resolveOptions,
 } from '../content/options';
-import { INTERVAL_KEYBOARD, isWhiteKey, keysBetween } from '../music/piano';
+import { INTERVAL_KEYBOARD, chordExamples, isWhiteKey, keysBetween } from '../music/piano';
 import { pitchFromMidi } from '../sing/notes';
 import { VOICE_RANGES, type Voice } from '../sing/voice';
 import { fromPitch, keyInterval, scoreTask, toPitch, type InputNote } from '../scoring';
@@ -870,7 +870,7 @@ describe('Dreiklänge', () => {
   it('steht nach den Intervallen und vor den Tonarten, in zwei Gruppen', () => {
     const ids = topicsWithGenerators().map((topic) => topic.id);
     expect(ids.indexOf('dreiklaenge')).toBe(ids.indexOf('intervalle') + 1);
-    expect(ids.indexOf('tonleitern')).toBe(ids.indexOf('dreiklaenge') + 1);
+    expect(ids.indexOf('septakkorde')).toBe(ids.indexOf('dreiklaenge') + 1);
     expect(TOPIC_GROUPS.dreiklaenge!.map((group) => group.title)).toEqual(['Grundstellung', 'Umkehrungen & Lagen']);
   });
 
@@ -1215,6 +1215,333 @@ describe('Dreiklänge', () => {
   });
 });
 
+describe('Septakkorde', () => {
+  /** Halbtöne über dem Grundton, von Hand: Terz, Quinte, Septime. */
+  const SEMITONES: Record<string, [number, number, number]> = {
+    dominant: [4, 7, 10],
+    'gross-dur': [4, 7, 11],
+    'klein-moll': [3, 7, 10],
+    halbvermindert: [3, 6, 10],
+    vermindert: [3, 6, 9],
+  };
+  const ALL = Object.keys(SEMITONES);
+  const INVERSION_OF: Record<number, string> = { 0: 'grundstellung', 2: 'quintsextakkord', 4: 'terzquartakkord', 6: 'sekundakkord' };
+  const POSITION_OF: Record<number, string> = { 0: 'oktavlage', 2: 'terzlage', 4: 'quintlage', 6: 'septlage' };
+  type P = ReturnType<typeof parsePitch>;
+
+  const field = (question: Question, id = 'type') => (question.task as SelectTask).fields.find((f) => f.id === id)!;
+  const scoreKeys = (question: Question) => {
+    const measure = (question.task as SelectTask).score!.measures[0];
+    return [...(measure.bass?.[0]?.keys ?? []), ...(measure.notes[0].keys ?? [])].map(parsePitch);
+  };
+  const above = (pitches: P[]) => {
+    const sorted = [...pitches].sort((a, b) => midi(a) - midi(b));
+    return sorted.slice(1).map((p) => midi(p) - midi(sorted[0]));
+  };
+
+  /**
+   * Grundton, tiefstes und höchstes Akkordglied, von Hand: der Grundton ist
+   * der Ton, über dem alle anderen eine Terz, Quinte oder Septime weiter
+   * stehen (diatonisch gezählt). 0 = Grundton … 6 = Septime.
+   */
+  function members(pitches: P[]) {
+    const steps = 'cdefgab';
+    const degree = (p: P) => steps.indexOf(p.step);
+    const sorted = [...pitches].sort((a, b) => midi(a) - midi(b));
+    const root = sorted.find((candidate) =>
+      sorted.every((p) => [0, 2, 4, 6].includes((degree(p) - degree(candidate) + 7) % 7)),
+    )!;
+    const member = (p: P) => (degree(p) - degree(root) + 7) % 7;
+    return { root, bass: member(sorted[0]), top: member(sorted[sorted.length - 1]) };
+  }
+  function spelledName(pitch: P): string {
+    const base = pitch.step === 'b' ? 'h' : pitch.step;
+    if (pitch.alter === 0) return base;
+    if (pitch.alter === 1) return `${base}is`;
+    return ({ e: 'es', a: 'as', h: 'b' } as Record<string, string>)[base] ?? `${base}es`;
+  }
+  /** Semitöne über dem Grundton, in die Oktave gefaltet — bestimmt die Art ohne Schreibweise. */
+  function qualityOfKeys(keys: number[], root: number): string | undefined {
+    const rest = [...new Set(keys.map((key) => (key - root + 120) % 12))].filter((pc) => pc !== 0).sort((a, b) => a - b);
+    return ALL.find((quality) => SEMITONES[quality].join() === rest.join());
+  }
+
+  it('steht nach den Dreiklängen und vor den Tonarten, in zwei Gruppen', () => {
+    const ids = topicsWithGenerators().map((topic) => topic.id);
+    expect(ids.indexOf('septakkorde')).toBe(ids.indexOf('dreiklaenge') + 1);
+    expect(ids.indexOf('tonleitern')).toBe(ids.indexOf('septakkorde') + 1);
+    expect(TOPIC_GROUPS.septakkorde!.map((group) => group.title)).toEqual(['Grundstellung', 'Umkehrungen & Lagen']);
+    expect(topicSections('septakkorde').map((section) => section.generators.length)).toEqual([6, 6]);
+  });
+
+  it('sagt im Tab, welche Umkehrungen gemeint sind', () => {
+    expect(fullTitle(generatorById('septakkorde-umkehrungen-notieren')!)).toBe('Umkehrungen & Lagen notieren (Septakkorde)');
+    expect(fullTitle(generatorById('umkehrungen-notieren')!)).toBe('Umkehrungen & Lagen notieren (Dreiklänge)');
+    expect(fullTitle(generatorById('septakkorde-notieren')!)).toBe('Septakkorde notieren (Grundstellung)');
+  });
+
+  it('zeigt in Grundstellung vier Töne eng über dem Grundton, in der gefragten Art', () => {
+    const questions = generate('septakkorde-benennen');
+    for (const question of questions) {
+      const pitches = scoreKeys(question);
+      expect(pitches).toHaveLength(4);
+      expect(above(pitches)).toEqual(SEMITONES[field(question).correct]);
+      expect(members(pitches).bass).toBe(0);
+    }
+    expect(answersFor(questions, 'type')).toEqual(new Set(ALL));
+  });
+
+  it('fragt nur die angekreuzten Arten und benennt sie wie eingestellt', () => {
+    const chosen = generate('septakkorde-benennen', { chordTypes: ['dominant', 'vermindert'] });
+    expect(answersFor(chosen, 'type')).toEqual(new Set(['dominant', 'vermindert']));
+    const names = generate('septakkorde-benennen', {}, 1)[0];
+    expect(field(names).options!.map((o) => o.label)).toEqual([
+      'Dominantseptakkord',
+      'grosser Durseptakkord',
+      'kleiner Mollseptakkord',
+      'halbvermindert',
+      'vermindert',
+    ]);
+    const symbols = generate('septakkorde-benennen', { wording: 'symbole' }, 1)[0];
+    expect(field(symbols).options!.map((o) => o.label)).toEqual(['7', 'maj7', 'm7', 'm7♭5', '°7']);
+  });
+
+  it('nennt beim Notieren und Spielen den Akkord ausgeschrieben oder als Symbol', () => {
+    const NAMES: Record<string, string> = {
+      Dominantseptakkord: 'dominant',
+      'grosser Durseptakkord': 'gross-dur',
+      'kleiner Mollseptakkord': 'klein-moll',
+      'halbverminderter Septakkord': 'halbvermindert',
+      'verminderter Septakkord': 'vermindert',
+    };
+    const SYMBOLS: Record<string, string> = { '7': 'dominant', maj7: 'gross-dur', m7: 'klein-moll', 'm7♭5': 'halbvermindert', '°7': 'vermindert' };
+    for (const question of generate('septakkorde-klaviatur-spielen')) {
+      const task = question.task as KeyboardTask;
+      const match = /^(.+) auf ([A-H][a-z]*)$/.exec(task.prompt!)!;
+      expect(match, task.prompt).not.toBeNull();
+      expect(above(task.accept.map(pitchFromMidi)), task.prompt).toEqual(SEMITONES[NAMES[match[1]]]);
+    }
+    for (const question of generate('septakkorde-notieren', { wording: 'symbole' })) {
+      const task = question.task as NotationTask;
+      const match = /^([A-H](?:is|es|s)?)(7|maj7|m7|m7♭5|°7)$/.exec(task.prompt!)!;
+      expect(match, task.prompt).not.toBeNull();
+      const solution = task.solution as Extract<NotationTask['solution'], { type: 'chord' }>;
+      const pitches = solution.example.upper.map(parsePitch);
+      expect(above(pitches), task.prompt).toEqual(SEMITONES[SYMBOLS[match[2]]]);
+      expect(spelledName(pitches[0])).toBe(match[1].toLowerCase());
+    }
+  });
+
+  it('kommt ohne Doppelvorzeichen aus und hält «ohne Vorzeichen» beim Grundton', () => {
+    for (const question of generate('septakkorde-benennen')) {
+      expect(scoreKeys(question).every((p) => Math.abs(p.alter) <= 1)).toBe(true);
+    }
+    for (const question of generate('septakkorde-benennen', { accidentals: 'stammton' })) {
+      expect(scoreKeys(question)[0].alter).toBe(0);
+    }
+    for (const question of generate('septakkorde-benennen', { clefs: ['bass'] })) {
+      expect(scoreKeys(question).every((p) => midi(p) >= 43 && midi(p) <= 62)).toBe(true);
+    }
+  });
+
+  it('markiert auf der Klaviatur vier Tasten in der gefragten Art, Grundton unten', () => {
+    for (const question of generate('septakkorde-klaviatur-benennen')) {
+      const keys = (question.task as SelectTask).keyboard!.marked!;
+      expect(keys).toHaveLength(4);
+      expect(keys.slice(1).map((key) => key - keys[0])).toEqual(SEMITONES[field(question).correct]);
+      expect(keys.every((key) => key >= 48 && key <= 71)).toBe(true);
+    }
+  });
+
+  it('spielt beim Hören den Septakkord in der gefragten Art', () => {
+    for (const question of generate('septakkorde-hoeren')) {
+      const notes = question.audio?.kind === 'voicing' ? question.audio.notes.map(parsePitch) : [];
+      expect(above(notes)).toEqual(SEMITONES[field(question).correct]);
+    }
+  });
+
+  it('nimmt beim Spielen in Grundstellung jede Lage mit dem Grundton unten', () => {
+    for (const question of generate('septakkorde-klaviatur-spielen')) {
+      const task = question.task as KeyboardTask;
+      const [root, third, fifth, seventh] = task.accept;
+      expect(scoreTask(task, { keys: [root, fifth, third + 12, seventh + 12] }).earned, task.prompt).toBe(task.points);
+      expect(scoreTask(task, { keys: [third, fifth, seventh, root + 12] }).earned, task.prompt).toBe(0);
+      // Ohne Septime ist es ein Dreiklang: falsch.
+      expect(scoreTask(task, { keys: [root, third, fifth] }).earned, task.prompt).toBe(0);
+    }
+  });
+
+  it('zeigt ohne Basston vier Töne eng: die Lage folgt aus der Umkehrung', () => {
+    const coupled: Record<string, string> = {
+      grundstellung: 'septlage',
+      quintsextakkord: 'oktavlage',
+      terzquartakkord: 'terzlage',
+      sekundakkord: 'quintlage',
+    };
+    const questions = generate('septakkorde-umkehrungen-benennen', { ask: ['inv', 'pos'] });
+    for (const question of questions) {
+      const pitches = scoreKeys(question);
+      expect(pitches).toHaveLength(4);
+      expect(above(pitches)[2]).toBeLessThan(12);
+      const { bass, top } = members(pitches);
+      expect(field(question, 'inv').correct).toBe(INVERSION_OF[bass]);
+      expect(field(question, 'pos').correct).toBe(POSITION_OF[top]);
+      expect(coupled[field(question, 'inv').correct]).toBe(field(question, 'pos').correct);
+    }
+    expect(answersFor(questions, 'inv')).toEqual(new Set(Object.keys(coupled)));
+  });
+
+  it('setzt vierstimmig: Basston im zweiten System, darüber die drei übrigen eng, jeder Ton einmal', () => {
+    const questions = generate('septakkorde-umkehrungen-benennen', { ask: ['inv', 'pos'], withBass: true }, 400);
+    const pairs = new Set<string>();
+    for (const question of questions) {
+      const score = (question.task as SelectTask).score!;
+      expect(score.clef).toBe('grand');
+      expect(score.measures[0].bass?.[0].keys).toHaveLength(1);
+      const upper = score.measures[0].notes[0].keys!.map(parsePitch);
+      expect(upper).toHaveLength(3);
+      expect(midi(upper[2]) - midi(upper[0])).toBeLessThan(12);
+      const pitches = scoreKeys(question);
+      expect(new Set(pitches.map(spelledName)).size).toBe(4);
+      const { bass, top } = members(pitches);
+      expect(bass).not.toBe(top);
+      expect(field(question, 'inv').correct).toBe(INVERSION_OF[bass]);
+      expect(field(question, 'pos').correct).toBe(POSITION_OF[top]);
+      pairs.add(`${bass} ${top}`);
+    }
+    // Vier Umkehrungen × drei Lagen: der Basston liegt nie zugleich oben.
+    expect(pairs.size).toBe(12);
+  });
+
+  it('hält die eingestellten Umkehrungen und Lagen ein, auch wenn sie vierstimmig nicht zusammenpassen', () => {
+    expect(answersFor(generate('septakkorde-umkehrungen-benennen', { inversions: ['sekundakkord'] }), 'inv')).toEqual(
+      new Set(['sekundakkord']),
+    );
+    expect(
+      answersFor(generate('septakkorde-umkehrungen-hoeren', { ask: ['pos'], positions: ['terzlage', 'septlage'] }), 'pos'),
+    ).toEqual(new Set(['terzlage', 'septlage']));
+    // Nur Grundstellung und nur Oktavlage gibt es vierstimmig nicht: die
+    // Umkehrung gilt, und die richtige Lage steht trotzdem zur Wahl.
+    const conflicting = { ask: ['inv', 'pos'], inversions: ['grundstellung'], positions: ['oktavlage'], withBass: true };
+    for (const question of generate('septakkorde-umkehrungen-benennen', conflicting, 50)) {
+      expect(field(question, 'inv').correct).toBe('grundstellung');
+      expect(offered(question, 'pos')).toContain(field(question, 'pos').correct);
+    }
+  });
+
+  it('lässt beim Hören und Benennen auf der Klaviatur den verminderten weg', () => {
+    for (const id of ['septakkorde-umkehrungen-klaviatur-benennen', 'septakkorde-umkehrungen-hoeren']) {
+      const types = generatorById(id)!.filters.find((entry) => entry.key === 'chordTypes')!;
+      expect(types.kind === 'multi' && types.options.map((o) => o.value), id).not.toContain('vermindert');
+      for (const question of generate(id, { chordTypes: ['vermindert', 'dominant'], withBass: true }, 50)) {
+        const keys =
+          question.task.kind === 'select' && question.task.keyboard
+            ? question.task.keyboard.marked!
+            : question.audio?.kind === 'voicing'
+              ? question.audio.notes.map((key) => midi(parsePitch(key)))
+              : [];
+        const classes = new Set(keys.map((key) => key % 12));
+        const diminished = [...classes].some((pc) => [3, 6, 9].every((step) => classes.has((pc + step) % 12)));
+        expect(diminished, id).toBe(false);
+      }
+    }
+  });
+
+  it('nennt beim Spielen von Umkehrungen Akkord, Umkehrung und Lage, und die Lösung erfüllt sie', () => {
+    const INVERSION_MEMBER: Record<string, number> = { Grundstellung: 0, Quintsextakkord: 1, Terzquartakkord: 2, Sekundakkord: 3 };
+    const POSITION_MEMBER: Record<string, number> = { Oktavlage: 0, Terzlage: 1, Quintlage: 2, Septlage: 3 };
+    for (const question of generate('septakkorde-umkehrungen-klaviatur-spielen', { ask: ['inv', 'pos'], withBass: true })) {
+      const task = question.task as KeyboardTask;
+      const match = /^(.+), (\w+) in (\w+)$/.exec(task.prompt!)!;
+      expect(match, task.prompt).not.toBeNull();
+      expect(task.chord!.lowest).toBe(INVERSION_MEMBER[match[2]]);
+      expect(task.chord!.highest).toBe(POSITION_MEMBER[match[3]]);
+      const classes = task.chord!.tones.map((tone) => midi(parsePitch(tone)) % 12);
+      const sorted = [...task.accept].sort((a, b) => a - b);
+      expect(task.accept).toHaveLength(4);
+      expect(classes.indexOf(sorted[0] % 12)).toBe(task.chord!.lowest);
+      expect(classes.indexOf(sorted[3] % 12)).toBe(task.chord!.highest);
+      expect(qualityOfKeys(task.accept, midi(parsePitch(task.chord!.tones[0])))).toBeDefined();
+      expect(scoreTask(task, { keys: task.accept }).earned).toBe(task.points);
+    }
+  });
+
+  it('zeigt nach falschem Spielen eine vierstimmige Lage, wo eng keine passt', () => {
+    // C7 (c e g b), Terz unten und Quinte oben: eng geht das nicht.
+    const classes = [0, 4, 7, 10];
+    const examples = chordExamples(classes, { lowest: 1, highest: 2 }, 48, 71);
+    expect(examples.length).toBeGreaterThan(0);
+    for (const keys of examples) {
+      expect(keys).toHaveLength(4);
+      expect(keys[0] % 12).toBe(4);
+      expect(keys[3] % 12).toBe(7);
+      expect(new Set(keys.map((key) => key % 12)).size).toBe(4);
+    }
+    // Dreiklänge wie bisher: Basston unter allen drei.
+    expect(chordExamples([2, 6, 9], { lowest: 1, highest: 1 }, 48, 71)[0]).toHaveLength(4);
+  });
+
+  it('setzt beim Notieren vierstimmig zwei Systeme, und die Töne dürfen wandern', () => {
+    for (const question of generate('septakkorde-umkehrungen-notieren', { withBass: true, ask: ['inv', 'pos'] })) {
+      const task = question.task as NotationTask;
+      expect(task.score.clef).toBe('grand');
+      const solution = task.solution as Extract<NotationTask['solution'], { type: 'chord' }>;
+      expect(solution.example.lower).toHaveLength(1);
+      expect(solution.example.upper).toHaveLength(3);
+      const all = [...solution.example.lower!, ...solution.example.upper].map((key) => fromPitch(parsePitch(key), 'w'));
+      expect(scoreTask(task, { n: { u: all } }).earned).toBe(2);
+      expect(scoreTask(task, { n: { l: all } }).earned).toBe(2);
+      // Ohne Basston fehlt ein Akkordton: falsch.
+      expect(scoreTask(task, { n: { u: all.slice(1) } }).earned).toBe(0);
+    }
+  });
+
+  it('lässt beim Singen die vier Töne von unten nach oben singen, in der Stimmlage', () => {
+    const generator = generatorById('septakkorde-singen')!;
+    for (const voice of Object.keys(VOICE_RANGES) as Voice[]) {
+      const range = VOICE_RANGES[voice];
+      for (let i = 0; i < 100; i++) {
+        const task = generator.generate(generator.defaults, makeRng(i), { voice }).task as SingTask;
+        const tones = task.sequence!.map((key) => midi(parsePitch(key)));
+        expect(tones).toHaveLength(4);
+        expect(task.reference).toBe(task.sequence![0]);
+        // Höchstens zwei Halbtöne über die Stimmlage hinaus (SING_REACH).
+        expect(tones.every((tone) => tone >= range.low - 2 && tone <= range.high + 2), `${voice} ${task.sequence}`).toBe(true);
+        expect(Object.values(SEMITONES)).toContainEqual(tones.slice(1).map((tone) => tone - tones[0]));
+        const elsewhere = generator.generate(generator.defaults, makeRng(i), { voice: 'tief' });
+        expect(elsewhere.task.prompt).toBe(task.prompt);
+      }
+    }
+    const umkehrungen = generatorById('septakkorde-umkehrungen-singen')!;
+    expect(umkehrungen.filters.map((filter) => filter.key)).not.toContain('withBass');
+    const MEMBER: Record<string, number> = { Grundstellung: 0, Quintsextakkord: 2, Terzquartakkord: 4, Sekundakkord: 6 };
+    for (const question of generate('septakkorde-umkehrungen-singen')) {
+      const task = question.task as SingTask;
+      const pitches = task.sequence!.map(parsePitch);
+      const tones = pitches.map(midi);
+      expect(tones.every((tone, index) => index === 0 || tone > tones[index - 1]) && tones[3] - tones[0] < 12).toBe(true);
+      expect(members(pitches).bass, task.prompt).toBe(MEMBER[task.prompt!.split(', ')[1]]);
+      expect(scoreTask(task, { notes: tones }).earned).toBe(task.points);
+      expect(scoreTask(task, { notes: tones.slice(0, 3) }).earned).toBe(0);
+    }
+  });
+
+  it('fragt auf Wunsch auch den Grundton, so geschrieben, wie er dasteht', () => {
+    for (const question of generate('septakkorde-benennen', { ask: ['root', 'type'] })) {
+      const fields = (question.task as SelectTask).fields;
+      expect(fields.map((f) => f.id)).toEqual(['root', 'type']);
+      expect(fields[0].correct).toBe(spelledName(scoreKeys(question)[0]));
+    }
+    for (const question of generate('septakkorde-umkehrungen-benennen', { ask: ['root', 'type', 'inv', 'pos'], withBass: true })) {
+      const fields = (question.task as SelectTask).fields;
+      expect(fields.map((f) => f.id)).toEqual(['root', 'type', 'inv', 'pos']);
+      expect(fields[0].correct).toBe(spelledName(members(scoreKeys(question)).root));
+    }
+    const hearing = generatorById('septakkorde-umkehrungen-hoeren')!.filters.find((f) => f.key === 'ask')!;
+    expect(hearing.kind === 'multi' && hearing.options.map((o) => o.value)).toEqual(['type', 'inv', 'pos']);
+  });
+});
+
 describe('Klang nach dem Prüfen', () => {
   const WITH_SOUND = [
     'intervalle-grob-bestimmen',
@@ -1233,9 +1560,17 @@ describe('Klang nach dem Prüfen', () => {
     'umkehrungen-notieren',
     'umkehrungen-klaviatur-benennen',
     'umkehrungen-klaviatur-spielen',
+    'septakkorde-benennen',
+    'septakkorde-notieren',
+    'septakkorde-klaviatur-benennen',
+    'septakkorde-klaviatur-spielen',
+    'septakkorde-umkehrungen-benennen',
+    'septakkorde-umkehrungen-notieren',
+    'septakkorde-umkehrungen-klaviatur-benennen',
+    'septakkorde-umkehrungen-klaviatur-spielen',
   ];
 
-  it('lässt bei Intervallen und Dreiklängen das Gefragte erklingen, sonst nichts', () => {
+  it('lässt bei Intervallen und Akkorden das Gefragte erklingen, sonst nichts', () => {
     for (const generator of GENERATORS) {
       const questions = generate(generator.id, {}, 20);
       if (!WITH_SOUND.includes(generator.id)) {

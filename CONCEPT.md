@@ -13,7 +13,7 @@ shareable link for every exercise.
 | Topic                 | Decision                                                                                          |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
 | Spelling              | Swiss: «ss», never «ß» («gross», «übermässig»)                                                    |
-| Depth                 | Basics, up to triads and Stufen. Deeper topics are listed under «Später» and not planned yet.      |
+| Depth                 | Basics, up to seventh chords and Stufen. Deeper topics are listed under «Später» and not planned yet. |
 | `training`            | Retired and left as it is. Its core is copied into this repo once; no drift check.                 |
 | Hosting               | `peterheliko.github.io/musiktheorie/` (repo `PeterHeliko/musiktheorie`) for now, own domain later (migration plan in §7) |
 | Einstufungstest       | No dedicated course                                                                               |
@@ -24,7 +24,7 @@ shareable link for every exercise.
 | Visual style          | As simple as possible, "zero nonsense". The current plain look stays. Design changes only after the user has chosen between options. |
 | Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. A topic may split its list under subheadings (Intervalle: Grobbestimmung, Feinbestimmung). When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
-| Sound after checking  | Intervals and triads where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. (2026-11-24) |
+| Sound after checking  | Intervals and chords where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. (2026-11-24) |
 | No repeats            | Never the same question twice in a row, in any exercise; re-drawn via the seed, so task and round links stay reproducible (2026-11-24) |
 | Feedback              | **Show, don't say.** The task shows the solution itself: outlined answer button, outlined key, green note in the staff (beside a wrong one). The bottom bar then says only «✓ Richtig» / «✗ Falsch». Words only where the task can't show it yet; screen readers always get words. |
 
@@ -257,8 +257,53 @@ Rules (decided 2026-11-24):
   Umkehrungen & Lagen): its inversions sound and lie alike.
 - No double accidentals anywhere; roots that would need one are skipped.
 
-*Später:* Septakkorde (Dominantseptakkord first), Akkordsymbole, Hauptfunktionen T S D,
-Kadenzen hören.
+*Später:* Akkordsymbole, Hauptfunktionen T S D, Kadenzen hören.
+
+### Septakkorde
+
+After Dreiklänge, before Tonleitern & Tonarten, with the same two groups and the same six
+skills each (decided 2026-11-24).
+
+**Grundstellung:** four tones close above the root. Five types: Dominantseptakkord (Dur + kl. 7),
+grosser Durseptakkord (Dur + gr. 7), kleiner Mollseptakkord (moll + kl. 7), halbvermindert
+(vermindert + kl. 7), vermindert (vermindert + verm. 7). All five on by default. Naming asks the
+type, one tap answers.
+
+| Übung                               | Fertigkeit |     |
+| ----------------------------------- | ---------- | --- |
+| Septakkorde in Noten benennen       | Erkennen   | ✓   |
+| Septakkorde notieren                | Notieren   | ✓   |
+| Septakkorde auf Klaviatur benennen  | Klaviatur  | ✓   |
+| Septakkorde auf Klaviatur spielen   | Klaviatur  | ✓   |
+| Septakkorde hörend erkennen         | Hören      | ✓   |
+| Septakkorde singen                  | Singen     | ✓ ★ |
+
+**Umkehrungen & Lagen:** Grundstellung, Quintsextakkord, Terzquartakkord, Sekundakkord (lowest
+tone); Oktavlage, Terzlage, Quintlage, Septlage (highest tone).
+
+| Übung                                         | Fertigkeit |     |
+| --------------------------------------------- | ---------- | --- |
+| Umkehrungen & Lagen in Noten benennen         | Erkennen   | ✓   |
+| Umkehrungen & Lagen notieren                  | Notieren   | ✓   |
+| Umkehrungen & Lagen auf Klaviatur benennen    | Klaviatur  | ✓   |
+| Umkehrungen & Lagen auf Klaviatur spielen     | Klaviatur  | ✓   |
+| Umkehrungen & Lagen hörend erkennen           | Hören      | ✓   |
+| Umkehrungen & Lagen singen                    | Singen     | ✓ ★ |
+
+Rules (decided 2026-11-24):
+
+- **Naming is a setting:** written-out names («Dominantseptakkord auf G») or chord symbols
+  («G7», «Cmaj7», «Dm7», «Hm7♭5», «Cis°7»), on the answer buttons and in the prompts.
+- **One staff = four tones close.** The Lage follows from the Umkehrung (Grundstellung =
+  Septlage, Quintsextakkord = Oktavlage, Terzquartakkord = Terzlage, Sekundakkord = Quintlage).
+- **A separate bass = four-part writing:** the bass, and the other three tones close above it,
+  each tone once. Umkehrung and Lage then vary freely, except that the bass member is never on
+  top (12 of the 16 pairs).
+- **Writing and playing are free**, as for triads: any spacing, doublings allowed.
+- **Vermindert** is left out where only sound or keys count (hearing and keyboard naming of
+  Umkehrungen & Lagen): it splits the octave into four equal parts.
+- In the tab and link preview, both Umkehrungen groups add their topic: «Umkehrungen & Lagen
+  notieren (Septakkorde)», «… (Dreiklänge)».
 
 ### Tonleitern & Tonarten
 
@@ -648,7 +693,7 @@ New:
 
 ### Später
 
-Schwächen üben, singing «im Tempo», alto/tenor clef, seventh chords, chord symbols, T S D
+Schwächen üben, singing «im Tempo», alto/tenor clef, chord symbols, T S D
 and Kadenzen, Pentatonik/Kirchentonarten, Fehler finden, MIDI input.
 
 ### Out of scope

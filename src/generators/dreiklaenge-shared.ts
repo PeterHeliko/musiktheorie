@@ -138,12 +138,15 @@ function isPlainRoot(step: Step, alter: number): boolean {
  * schreiben lässt.
  */
 export function rootClasses(policy: RootPolicy, quality: ChordQuality): { step: Step; alter: number }[] {
+  return rootClassesFor(policy, (root) => buildChord(root, quality));
+}
+
+/** Dasselbe für jeden Akkordbau — die Septakkorde nutzen es auch. */
+export function rootClassesFor(policy: RootPolicy, build: (root: Pitch) => Pitch[]): { step: Step; alter: number }[] {
   const alters = policy === 'stammton' ? [0] : [-1, 0, 1];
   return STEPS.flatMap((step) => alters.map((alter) => ({ step, alter })))
     .filter(({ step, alter }) => isPlainRoot(step, alter))
-    .filter(({ step, alter }) =>
-      buildChord({ step, alter, octave: 4 }, quality).every((pitch) => Math.abs(pitch.alter) <= 1),
-    );
+    .filter(({ step, alter }) => build({ step, alter, octave: 4 }).every((pitch) => Math.abs(pitch.alter) <= 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -502,10 +505,15 @@ export const QUALITY_OPTION: SelectOption = { value: 'quality', label: 'Geschlec
 /**
  * Gefragt ist, Umkehrungen, Lagen — in dieser Reihenfolge, dazu der
  * Basston-Schalter. Ohne `bass` (Singen: drei Töne) gibt es keinen.
+ * `sets` sind die Umkehrungen und Lagen; die Septakkorde haben je vier.
  */
 export function umkehrungFilters(
   bass?: { label: string; hint: string },
   askOptions: SelectOption[] = ASK_OPTIONS,
+  sets: { inversions: SelectOption[]; positions: SelectOption[] } = {
+    inversions: OPTION_SETS.inversion,
+    positions: OPTION_SETS.position,
+  },
 ): FilterSpec[] {
   return [
     { kind: 'multi', key: 'ask', label: 'Gefragt ist', options: askOptions },
@@ -513,7 +521,7 @@ export function umkehrungFilters(
       kind: 'multi',
       key: 'inversions',
       label: 'Umkehrungen',
-      options: OPTION_SETS.inversion,
+      options: sets.inversions,
       disabledBy: (values) =>
         multi(values, 'ask', ['inv']).includes('inv') ? null : 'Gilt nur, wenn die Umkehrung gefragt ist.',
     },
@@ -521,7 +529,7 @@ export function umkehrungFilters(
       kind: 'multi',
       key: 'positions',
       label: 'Lagen',
-      options: OPTION_SETS.position,
+      options: sets.positions,
       disabledBy: (values) => {
         const ask = multi(values, 'ask', ['inv']);
         if (!ask.includes('pos')) return 'Gilt nur, wenn die Lage gefragt ist.';
@@ -593,17 +601,21 @@ export function chordSingTask(
   id: string,
   prompt: string,
   stack: Pitch[],
-  { clef, range, tolerance, untilRight }: {
+  { clef, range, tolerance, untilRight, reach = 1 }: {
     clef: 'treble' | 'bass';
     range: Window;
     tolerance: number;
     untilRight: boolean;
+    /**
+     * So viele Halbtöne darf placeInVoice die Stimmlage überschreiten: bei
+     * Dreiklängen einen, beim grossen Durseptakkord (elf Halbtöne) zwei.
+     */
+    reach?: number;
   },
 ): SingTask {
   // Platz über und unter dem System: so viel, wie der äusserste mögliche
-  // Akkordton der Stimmlage braucht (placeInVoice darf sie um einen Halbton
-  // überschreiten) — fest je Einstellung.
-  const space = staffSpace(clef, candidatePitches({ low: range.low - 1, high: range.high + 1 }, [-1, 0, 1]));
+  // Akkordton der Stimmlage braucht — fest je Einstellung.
+  const space = staffSpace(clef, candidatePitches({ low: range.low - reach, high: range.high + reach }, [-1, 0, 1]));
   // Von Anfang an Platz für alle Töne: der erste steht da, die übrigen sind
   // Leerstellen, in die SingTaskView jeden richtig gesungenen Ton grün setzt.
   const slots = stack.slice(1).map(() => ({ duration: 'w' as const, placeholder: true }));

@@ -72,8 +72,10 @@ export function keysNamed(name: string, low: number, high: number): number[] {
  *
  * `classes` sind die Akkordtöne als Tonklassen (0 = c … 11 = h), `lowest`
  * und `highest` die Indizes der Töne, die unten bzw. oben liegen müssen.
- * Zuerst drei Töne eng; geht das nicht (Umkehrung und Lage, die eng nicht
- * zusammenpassen), ein Basston unter drei engen Tönen.
+ * Zuerst alle Töne eng; geht das nicht (Umkehrung und Lage, die eng nicht
+ * zusammenpassen), ein Basston unter engen Tönen — beim Dreiklang alle drei
+ * darüber, beim Septakkord vierstimmig die drei übrigen, jeder Ton einmal
+ * (Entscheid 2026-11-24).
  */
 export function chordExamples(
   classes: readonly number[],
@@ -86,25 +88,29 @@ export function chordExamples(
     while (((key % 12) + 12) % 12 !== classes[member]) key++;
     return key;
   };
-  /** Drei Töne eng, ab einer Taste dieses Akkordglieds. */
+  /** Töne eng, ab einer Taste dieses Akkordglieds. */
   const stacks = (order: number[]) =>
     keysBetween(low, high)
       .filter((key) => key % 12 === classes[order[0]])
       .map((start) => order.slice(1).reduce((keys, member) => [...keys, above(keys[keys.length - 1], member)], [start]))
       .filter((keys) => keys[keys.length - 1] <= high);
+  const rotations = (members: number[]) =>
+    members.map((_, shift) => members.map((__, index) => members[(index + shift) % members.length]));
+  const top = (order: number[]) => order[order.length - 1];
 
-  const rotations = [0, 1, 2].map((shift) => [0, 1, 2].map((index) => (index + shift) % 3));
-  const close = rotations
-    .filter((order) => (lowest === undefined || order[0] === lowest) && (highest === undefined || order[2] === highest))
+  const all = classes.map((_, index) => index);
+  const close = rotations(all)
+    .filter((order) => (lowest === undefined || order[0] === lowest) && (highest === undefined || top(order) === highest))
     .flatMap(stacks);
   if (close.length > 0 || lowest === undefined) return close;
 
-  return rotations
-    .filter((order) => highest === undefined || order[2] === highest)
+  const upper = classes.length > 3 ? all.filter((member) => member !== lowest) : all;
+  return rotations(upper)
+    .filter((order) => highest === undefined || top(order) === highest)
     .flatMap(stacks)
-    .flatMap((upper) => {
-      let bass = upper[0] - 3;
+    .flatMap((stack) => {
+      let bass = stack[0] - 3;
       while (bass >= low && bass % 12 !== classes[lowest]) bass--;
-      return bass >= low ? [[bass, ...upper]] : [];
+      return bass >= low ? [[bass, ...stack]] : [];
     });
 }

@@ -1,7 +1,7 @@
 # Übungen Musiktheorie
 
-Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Rhythmus und
-Gehörbildung.
+Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde,
+Rhythmus und Gehörbildung.
 Jede Aufgabe wird neu gewürfelt, jede Übung hat Einstellungen für genau das, woran man
 gerade arbeitet — und jede Übung, jede Aufgabe und jede Runde lässt sich als Link teilen.
 
@@ -114,7 +114,7 @@ Link / Speicher / Filterformular
   nur «✓ Richtig» oder «✗ Falsch» (`showsSolution` in `src/ui/Feedback.tsx`). In Worten
   steht sie nur, wo die Aufgabe sie (noch) nicht zeigt: Auswahllisten, Diktat, Vorzeichen,
   Pausen. Bildschirmleser bekommen sie immer in Worten.
-- **Klang nach dem Prüfen:** Bei Intervallen und Dreiklängen in Noten, beim Notieren und auf der
+- **Klang nach dem Prüfen:** Bei Intervallen und Akkorden in Noten, beim Notieren und auf der
   Klaviatur erklingt nach dem Prüfen einmal das Gefragte, alle Töne zusammen
   (`Question.afterSound`). Vorher bleibt es still: die Antwort soll gelesen oder abgezählt
   werden, nicht gehört. Einzelne Töne klingen nicht nach.
@@ -136,7 +136,8 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 - **Akkord spielen** (`KeyboardTask.chord`): jedes Antippen nimmt eine Taste dazu oder weg.
   Richtig ist jede Lage mit allen Akkordtönen, keinem anderen, und — wo verlangt — dem
   richtigen tiefsten und höchsten Ton (`src/scoring/chord.ts`). Falsch gespielt, ist eine
-  richtige Lage in der Nähe grün umrandet.
+  richtige Lage in der Nähe grün umrandet (`chordExamples` in `src/music/piano.ts`): alle Töne
+  eng, oder — wo eng nicht geht — ein Basston darunter, beim Septakkord vierstimmig.
 - Markiert wird mit Füllung: vorgegebene Tasten blau, die gewählte hellblau, nach dem
   Prüfen grün oder rot wie die Antwortknöpfe. Nicht spielbare Tasten (schwarz in der
   Grobbestimmung) sehen aus wie alle anderen.
@@ -208,6 +209,29 @@ noch einmal zu singen, zählt nicht — auch nicht, wenn er über ein Atemholen 
 gehalten erkannt wird. Das System hat von Anfang an Platz für alle drei Töne; jeder richtig
 gesungene erscheint dort grün, und die Zeile unter der Kurve zählt mit. Der erste falsche Ton
 beendet die Aufgabe, ausser mit «Ohne Fehlerurteil».
+
+`/ueben/septakkorde-singen/` und `/ueben/septakkorde-umkehrungen-singen/` gehen genauso, mit
+vier Tönen. Ein grosser Durseptakkord umfasst elf Halbtöne und passt nicht in jede Stimmlage;
+er ragt dann höchstens zwei Halbtöne hinaus (`SING_REACH`), bei Dreiklängen einen.
+
+### Septakkorde
+
+Wie die Dreiklänge in zwei Gruppen, Grundstellung und Umkehrungen & Lagen
+(`src/generators/septakkorde-*.ts`; Notenbild, Grundtöne und Singen teilen sie mit den
+Dreiklängen). Entscheide 2026-11-24:
+
+- **Fünf Arten:** Dominantseptakkord, grosser Durseptakkord, kleiner Mollseptakkord,
+  halbvermindert, vermindert. Der Theoriekern prüft jede Aufgabe mit `analyseSeventh`.
+- **Bezeichnung** unter ⚙: ausgeschriebene Namen («Dominantseptakkord auf G») oder
+  Akkordsymbole («G7», «Hm7♭5», «Cis°7») — auf den Knöpfen und in der Aufgabe.
+- **Vier Töne eng:** die Lage folgt aus der Umkehrung (Grundstellung = Septlage,
+  Quintsextakkord = Oktavlage, Terzquartakkord = Terzlage, Sekundakkord = Quintlage).
+- **Basston abgesetzt = vierstimmig:** unten der Basston, darüber die drei übrigen Töne eng,
+  jeder Ton einmal. Umkehrung und Lage sind dann frei, nur liegt der Basston nie zugleich oben.
+  Notieren und Spielen bleiben frei wie bei den Dreiklängen (Verdopplungen erlaubt).
+- **Vermindert** fehlt beim Hören und beim Benennen auf der Klaviatur von Umkehrungen: er teilt
+  die Oktave in vier gleiche Teile, seine Umkehrungen klingen und liegen gleich.
+- Im Tab heissen die Umkehrungsübungen «… (Septakkorde)» bzw. «… (Dreiklänge)» (`fullTitle`).
 
 ---
 

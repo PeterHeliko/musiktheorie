@@ -32,6 +32,7 @@ export const PARAM_NAMES: Record<string, string> = {
   ask: 'gefragt',
   askInversion: 'umkehrung-fragen',
   bars: 'takte',
+  chordTypes: 'arten',
   clefs: 'schluessel',
   countIn: 'einzaehlen',
   degrees: 'stufen',
@@ -85,6 +86,7 @@ const VALUE_NAMES: Record<string, string> = {
   quality: 'geschlecht',
   inv: 'umkehrung',
   pos: 'lage',
+  type: 'art',
 };
 
 const VALUE_FROM_NAME: Record<string, string> = Object.fromEntries(

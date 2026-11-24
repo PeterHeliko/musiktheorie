@@ -81,7 +81,7 @@ export function metaFor(route: Route): PageMeta {
         path,
         title: SITE_NAME,
         description:
-          'Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, ' +
+          'Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde, ' +
           'Rhythmus und Gehörbildung. Unbegrenzt viele Aufgaben, frei einstellbar, ohne Konto.',
       };
     case 'ueben':
@@ -89,7 +89,7 @@ export function metaFor(route: Route): PageMeta {
         path,
         title: 'Übungen',
         description:
-          'Alle Übungen nach Thema — Töne, Rhythmus, Intervalle, Dreiklänge, ' +
+          'Alle Übungen nach Thema — Töne, Rhythmus, Intervalle, Dreiklänge, Septakkorde, ' +
           'Tonleitern und Tonarten, Melodie. Jede Aufgabe wird neu gewürfelt.',
       };
     case 'thema': {

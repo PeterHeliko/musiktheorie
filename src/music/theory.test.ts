@@ -2,6 +2,7 @@
    Wird hier eigenständig weitergeführt; es gibt keinen Abgleich mit dem Original mehr. */
 import { describe, expect, it } from 'vitest';
 import {
+  analyseSeventh,
   analyseTriad,
   buildTriad,
   degreeChordName,
@@ -182,6 +183,46 @@ describe('Dreiklangsanalyse', () => {
     for (const q of ['dur', 'moll', 'vermindert', 'uebermaessig'] as const) {
       expect(analyseTriad(buildTriad(p('d4'), q))?.quality).toBe(q);
     }
+  });
+});
+
+describe('Septakkordanalyse', () => {
+  const analyse = (...keys: string[]) => analyseSeventh(keys.map(p));
+
+  it('erkennt die fünf Septakkorde in Grundstellung', () => {
+    expect(analyse('g4', 'h4', 'd5', 'f5')?.quality).toBe('dominant');
+    expect(analyse('c4', 'e4', 'g4', 'h4')?.quality).toBe('gross-dur');
+    expect(analyse('d4', 'f4', 'a4', 'c5')?.quality).toBe('klein-moll');
+    expect(analyse('h3', 'd4', 'f4', 'a4')?.quality).toBe('halbvermindert');
+    expect(analyse('cis4', 'e4', 'g4', 'hes4')?.quality).toBe('vermindert');
+  });
+
+  it('nennt Grundton, Umkehrung und Lage', () => {
+    const quintsext = analyse('h3', 'd4', 'f4', 'g4');
+    expect(toGermanPitch(quintsext!.root)).toBe('g1');
+    expect(quintsext!.inversion).toBe('quintsextakkord');
+    expect(quintsext!.position).toBe('oktavlage');
+    expect(analyse('d4', 'f4', 'g4', 'h4')?.inversion).toBe('terzquartakkord');
+    expect(analyse('f4', 'g4', 'h4', 'd5')?.inversion).toBe('sekundakkord');
+    expect(analyse('g4', 'h4', 'd5', 'f5')?.position).toBe('septlage');
+    // Vierstimmig: Basston abgesetzt, darüber die übrigen drei.
+    const open = analyse('c3', 'e4', 'g4', 'hes4');
+    expect([open?.inversion, open?.position]).toEqual(['grundstellung', 'septlage']);
+    const spread = analyse('e3', 'hes3', 'c4', 'g4');
+    expect([spread?.inversion, spread?.position]).toEqual(['quintsextakkord', 'quintlage']);
+  });
+
+  it('zählt die Schreibweise und Verdopplungen nicht doppelt', () => {
+    expect(analyse('c4', 'e4', 'g4', 'ais4')).toBeNull();
+    expect(analyse('c4', 'e4', 'g4', 'c5')).toBeNull();
+    expect(analyse('g3', 'h3', 'd4', 'f4', 'g4')?.position).toBe('oktavlage');
+    expect(analyse('c4', 'e4', 'gis4', 'h4')).toBeNull();
+  });
+
+  it('liest den verminderten Septakkord nach der Schreibweise', () => {
+    // Dieselben Tasten, anders geschrieben: ein anderer Grundton.
+    expect(toGermanPitch(analyse('h3', 'd4', 'f4', 'as4')!.root)).toBe('h');
+    expect(toGermanPitch(analyse('d4', 'f4', 'as4', 'ces5')!.root)).toBe('d1');
   });
 });
 

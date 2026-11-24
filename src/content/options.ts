@@ -13,6 +13,8 @@ import {
   INVERSION_LABELS,
   POSITION_LABELS,
   ROMAN_NUMERALS,
+  SEVENTH_INVERSION_LABELS,
+  SEVENTH_POSITION_LABELS,
   STEPS,
   TRIAD_LABELS,
   germanNoteName,
@@ -179,6 +181,15 @@ export const OPTION_SETS: Record<string, SelectOption[]> = {
 
   position: (Object.keys(POSITION_LABELS) as (keyof typeof POSITION_LABELS)[]).map((p) =>
     opt(p, POSITION_LABELS[p]),
+  ),
+
+  /** Die vier Umkehrungen und Lagen der Septakkorde. */
+  seventhInversion: (Object.keys(SEVENTH_INVERSION_LABELS) as (keyof typeof SEVENTH_INVERSION_LABELS)[]).map((i) =>
+    opt(i, SEVENTH_INVERSION_LABELS[i]),
+  ),
+
+  seventhPosition: (Object.keys(SEVENTH_POSITION_LABELS) as (keyof typeof SEVENTH_POSITION_LABELS)[]).map((p) =>
+    opt(p, SEVENTH_POSITION_LABELS[p]),
   ),
 
   rootNote: rootNoteOptions(),
