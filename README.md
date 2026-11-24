@@ -145,6 +145,15 @@ bedeutet, entscheidet die Aufgabe. Tasten sind MIDI-Nummern, ohne Schreibweise
 - In der Übung füllt sie den Platz, den die Antworten übrig lassen, wie ein Notenbild mit
   `fit`.
 
+### Noten setzen
+
+`NotationInput.tsx`: gesetzt wird beim Loslassen, bis dahin zeigt eine blaue Vorschau, wo die
+Note landet. Wo nur ein Ton zu setzen ist (Noten schreiben, Intervalle notieren), verschwindet
+der gesetzte, sobald neu gezogen wird; abgebrochen (Loslassen ausserhalb), steht er wieder da.
+Neben den Vorzeichen stehen drei Knöpfe mit Zeichen aus padago: alles löschen, rückgängig,
+wiederholen (`EditActions` in `toolbar.tsx`; auch Strg/⌘ + Z, mit Umschalt oder Strg + Y
+wiederholen). Rückgängig gilt für jede Änderung, auch fürs Löschen, und endet mit der Aufgabe.
+
 ### Akkorde setzen
 
 `NotationTask` im Modus `chord` (`NotationInput.tsx`, `ChordInput`): Antippen setzt einen Ton,

@@ -53,7 +53,7 @@ import type {
 } from '../../scoring';
 import { judgeChordNotes, pitchSlotCorrect, toPitch } from '../../scoring';
 import { shortcutAllowed } from '../../ui/keyboard';
-import { AccidentalPalette, DurationPalette, ToolbarActions, type DurationChoice } from './toolbar';
+import { AccidentalPalette, DurationPalette, EditActions, ToolbarActions, type DurationChoice } from './toolbar';
 
 // ---------------------------------------------------------------------------
 // Gemeinsames
@@ -65,24 +65,78 @@ const LEDGER_STEPS = 6;
 /** Klickabstand in Pixeln, ab dem eine bestehende Note als getroffen gilt. */
 const HIT_TOLERANCE = 18;
 
+/** Rückgängig und wiederholen, über alle Änderungen der Antwort. */
+interface AnswerHistory {
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
 interface ModeProps {
   task: NotationTask;
   answer: NotationAnswer;
   update: (next: unknown) => void;
+  history: AnswerHistory;
   readOnly: boolean;
 }
 
+/**
+ * Jede Änderung der Antwort — setzen, Vorzeichen, Tastatur, alles löschen —
+ * merkt sich den Stand davor; Rückgängig geht dorthin zurück, Wiederholen
+ * wieder vor. Eine neue Änderung verwirft, was sich wiederholen liesse. Eine
+ * Änderung, die nichts ändert (derselbe Ton noch einmal), zählt nicht als
+ * Schritt. Der Verlauf gehört zur Aufgabe: mit der nächsten ist er weg, die
+ * Ansicht wird dafür neu aufgebaut.
+ *
+ * Der Stand wird immer frisch aus dem Speicher gelesen, nicht aus dem letzten
+ * Rendern (siehe state.tsx).
+ */
 function useNotationAnswer(task: NotationTask) {
   const { answer, setAnswer, readOnly } = useExam();
   const current = answer<NotationAnswer>(task.id) ?? {};
-  const update = useCallback(
-    (next: unknown) => {
-      const existing = (answer<NotationAnswer>(task.id) ?? {}) as NotationAnswer;
-      setAnswer(task.id, { ...existing, n: next });
+  const past = useRef<unknown[]>([]);
+  const future = useRef<unknown[]>([]);
+  // Sicherheitshalber: sollte die Ansicht doch einmal für eine andere Aufgabe
+  // weiterleben, beginnt der Verlauf neu.
+  const owner = useRef(task.id);
+  if (owner.current !== task.id) {
+    owner.current = task.id;
+    past.current = [];
+    future.current = [];
+  }
+
+  const read = () => answer<NotationAnswer>(task.id)?.n;
+  const write = (next: unknown) => {
+    const existing = (answer<NotationAnswer>(task.id) ?? {}) as NotationAnswer;
+    setAnswer(task.id, { ...existing, n: next });
+  };
+
+  const update = (next: unknown) => {
+    if (readOnly) return;
+    const before = read();
+    if (JSON.stringify(before) === JSON.stringify(next)) return;
+    past.current.push(before);
+    future.current = [];
+    write(next);
+  };
+
+  const history: AnswerHistory = {
+    undo() {
+      if (readOnly || past.current.length === 0) return;
+      future.current.push(read());
+      write(past.current.pop());
     },
-    [answer, setAnswer, task.id],
-  );
-  return { current, update, readOnly };
+    redo() {
+      if (readOnly || future.current.length === 0) return;
+      past.current.push(read());
+      write(future.current.pop());
+    },
+    canUndo: !readOnly && past.current.length > 0,
+    canRedo: !readOnly && future.current.length > 0,
+  };
+
+  return { current, update, history, readOnly };
 }
 
 /**
@@ -240,6 +294,10 @@ function useHover(live: () => RenderedScore | null, enabled: boolean) {
  *   ersetzt (die Vorschau zeichnet das SVG neu), steigen sie nicht mehr auf.
  *   Das SVG nimmt deshalb keine Zeigerereignisse an (CSS pointer-events:
  *   none), getroffen wird immer der beständige Rahmen darum.
+ *
+ * `pressed`: ob gerade gedrückt gezogen wird (Finger auf dem Glas, Maustaste
+ * unten). Wo die neue Note die gesetzte ersetzt, verschwindet diese dann
+ * sofort (PitchInput).
  */
 function usePointerPlacement(
   hover: { onMove: (event: MouseEvent) => void; onLeave: () => void },
@@ -248,6 +306,7 @@ function usePointerPlacement(
   area: RefObject<HTMLElement>,
 ) {
   const active = useRef<number | null>(null);
+  const [pressed, setPressed] = useState(false);
   // Immer die aktuelle Fassung: `commit` ist bei jedem Rendern eine neue Funktion.
   const commitRef = useRef(commit);
   commitRef.current = commit;
@@ -272,6 +331,7 @@ function usePointerPlacement(
   const finish = (event: PointerEvent, apply: boolean) => {
     if (active.current !== event.pointerId) return;
     active.current = null;
+    setPressed(false);
     const area = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const inside =
       event.clientX >= area.left &&
@@ -284,10 +344,11 @@ function usePointerPlacement(
     if (event.pointerType !== 'mouse' || !inside) hover.onLeave();
   };
 
-  return {
+  const handlers = {
     onPointerDown: (event: PointerEvent) => {
       if (!enabled || event.button !== 0) return;
       active.current = event.pointerId;
+      setPressed(true);
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
       // Kein Markieren von Text, kein Fokuswechsel beim Ziehen.
       event.preventDefault();
@@ -302,6 +363,8 @@ function usePointerPlacement(
       if (active.current === null && event.pointerType === 'mouse') hover.onLeave();
     },
   };
+
+  return { pressed, handlers };
 }
 
 /** Ton auf der mittleren Notenlinie: h¹ im Violin-, d im Bassschlüssel. */
@@ -358,8 +421,8 @@ function shiftPitch(note: InputNote, steps: number): InputNote {
 // ---------------------------------------------------------------------------
 
 export function NotationInput({ task }: { task: NotationTask }) {
-  const { current, update, readOnly } = useNotationAnswer(task);
-  const props: ModeProps = { task, answer: current, update, readOnly };
+  const { current, update, history, readOnly } = useNotationAnswer(task);
+  const props: ModeProps = { task, answer: current, update, history, readOnly };
 
   return (
     <div class="notation-input">
@@ -417,7 +480,7 @@ function solutionNote(
   return { keys: [nearest], duration: 'w', mark: 'correct' };
 }
 
-function PitchInput({ task, answer, update, readOnly }: ModeProps) {
+function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as PitchAnswer | undefined) ?? {};
   const [alter, setAlter] = useState(0);
@@ -425,6 +488,15 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
   const area = useRef<HTMLDivElement>(null);
   const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
+
+  // Bei einem einzelnen Ton zeigen die Vorzeichenknöpfe das Vorzeichen des
+  // gesetzten (siehe changeAlter). Holt Rückgängig oder Wiederholen einen Ton
+  // mit anderem Vorzeichen zurück, folgen sie ihm.
+  const single = solution.type === 'pitch' && solution.slots.length === 1 && !solution.slots[0].chord;
+  const singleAlter = single ? placed[String(solution.slots[0].slot)]?.[0]?.a : undefined;
+  useEffect(() => {
+    if (singleAlter !== undefined) setAlter(singleAlter);
+  }, [singleAlter]);
 
   // Tastatur (siehe ui/keyboard.ts). Gehorcht wird am Fenster, damit niemand
   // erst ins Notenbild klicken muss. `handleKey` entsteht bei jedem Rendern
@@ -478,8 +550,12 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
         const keys = [...(note.keys ?? []), ...own.map(noteKey)];
         return { ...note, keys, previewKeys: previewKey ? [previewKey] : undefined };
       }
-      if (own.length === 0) {
-        // Geprüft, ohne dass etwas steht (gesetzt und zurückgesetzt): an der
+      // Wird gedrückt gezogen, ersetzt die neue Note beim Loslassen die
+      // gesetzte — die verschwindet deshalb sofort, zu sehen ist nur noch die
+      // gezogene. Bricht der Zug ab (Loslassen ausserhalb), steht sie wieder da.
+      const replacing = pointer.pressed && previewKey !== null;
+      if (own.length === 0 || replacing) {
+        // Geprüft, ohne dass etwas steht (gesetzt und gelöscht): an der
         // Leerstelle steht dann gleich die Lösung.
         const solution = readOnly ? solutionNote(slots, placed) : null;
         if (solution) return solution;
@@ -516,7 +592,16 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
     }
 
     return { ...task.score, measures: [{ ...measure, notes }] };
-  }, [task.score, JSON.stringify(placed), JSON.stringify(slots), hover?.diatonic, hover?.x, alter, readOnly]);
+  }, [
+    task.score,
+    JSON.stringify(placed),
+    JSON.stringify(slots),
+    hover?.diatonic,
+    hover?.x,
+    alter,
+    readOnly,
+    pointer.pressed,
+  ]);
 
   function handleClick(event: PointerEvent) {
     // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
@@ -635,14 +720,18 @@ function PitchInput({ task, answer, update, readOnly }: ModeProps) {
             bare
           />
         )}
-        <ToolbarActions>
-          <button type="button" class="tool tool-wide" onClick={() => update({})} disabled={readOnly}>
-            Zurücksetzen
-          </button>
-        </ToolbarActions>
+        <EditActions
+          onClear={() => update({})}
+          canClear={summary.length > 0}
+          onUndo={history.undo}
+          canUndo={history.canUndo}
+          onRedo={history.redo}
+          canRedo={history.canRedo}
+          disabled={readOnly}
+        />
       </div>
 
-      <div class="score-click-area score-click-area-bare" ref={area} {...pointer}>
+      <div class="score-click-area score-click-area-bare" ref={area} {...pointer.handlers}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
@@ -701,7 +790,7 @@ function locateChord(rendered: RenderedScore | null, event: MouseEvent): ChordLo
  * Nach dem Prüfen ist jeder gesetzte Ton grün oder rot, wie bewertet; war der
  * Akkord falsch, steht eine richtige Lösung grün daneben.
  */
-function ChordInput({ task, answer, update, readOnly }: ModeProps) {
+function ChordInput({ task, answer, update, history, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as ChordAnswer | undefined) ?? {};
   const [alter, setAlter] = useState(0);
@@ -793,14 +882,18 @@ function ChordInput({ task, answer, update, readOnly }: ModeProps) {
           label="Vorzeichen für den nächsten Ton"
           bare
         />
-        <ToolbarActions>
-          <button type="button" class="tool tool-wide" onClick={() => update({})} disabled={readOnly}>
-            Zurücksetzen
-          </button>
-        </ToolbarActions>
+        <EditActions
+          onClear={() => update({})}
+          canClear={summary.length > 0}
+          onUndo={history.undo}
+          canUndo={history.canUndo}
+          onRedo={history.redo}
+          canRedo={history.canRedo}
+          disabled={readOnly}
+        />
       </div>
 
-      <div class="score-click-area score-click-area-bare" ref={area} {...pointer}>
+      <div class="score-click-area score-click-area-bare" ref={area} {...pointer.handlers}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
@@ -1083,7 +1176,7 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
         ref={wrapper}
         class={`score-click-area ${editMode === 'bearbeiten' ? 'is-editing' : ''}`}
         tabIndex={0}
-        {...pointer}
+        {...pointer.handlers}
         onKeyDown={handleKeyDown}
         role="application"
         aria-label="Noteneingabe für das Diktat"
@@ -1186,7 +1279,7 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
       <div
         ref={wrapper}
         class="score-click-area"
-        {...pointer}
+        {...pointer.handlers}
       >
         <Score spec={spec} onRendered={onRendered} />
       </div>
@@ -1294,7 +1387,7 @@ function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
         </ToolbarActions>
       </div>
 
-      <div class="score-click-area" ref={area} {...pointer}>
+      <div class="score-click-area" ref={area} {...pointer.handlers}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 

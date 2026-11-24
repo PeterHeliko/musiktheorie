@@ -250,9 +250,9 @@
 }
 
 /*
- * Noteneingabe mit nur Vorzeichen und «Zurücksetzen» (Intervall notieren):
- * beides in einer Zeile, auch auf dem Telefon — sonst belegt der eine Knopf
- * eine ganze eigene Zeile. Die Grundregel für schmale Bildschirme
+ * Noteneingabe mit nur Vorzeichen und Löschen/Rückgängig/Wiederholen
+ * (Noten schreiben, Intervall notieren, Akkorde): beides in einer Zeile, auch
+ * auf dem Telefon — sonst belegen die drei Knöpfe eine ganze eigene Zeile. Die Grundregel für schmale Bildschirme
  * (styles-base.css) gilt weiter für die volleren Leisten des Diktats.
  */
 .toolbar-one-row {
@@ -262,6 +262,21 @@
 .toolbar-one-row .palette-actions {
   margin-left: auto;
   width: auto;
+}
+
+/* Sechs Knöpfe zu 54 px brauchen 358 px. Schmaler (Telefone mit 360 oder
+   375 px) werden sie 44 px breit, die übliche Mindestgrösse zum Tippen, und
+   rücken enger zusammen — so bleibt es bis 320 px bei einer Zeile. */
+@media (max-width: 389px) {
+  .toolbar-one-row {
+    gap: 8px;
+  }
+  .toolbar-one-row .palette-actions {
+    gap: 4px;
+  }
+  .toolbar-bare .tool-glyph {
+    min-width: 44px;
+  }
 }
 
 /*

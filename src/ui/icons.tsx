@@ -39,6 +39,35 @@ export function InfoIcon() {
   );
 }
 
+/*
+ * Für die Leiste der Noteneingabe: alles löschen, rückgängig, wiederholen.
+ * Ebenfalls aus padago («i-trash», «i-undo», «i-redo»), unverändert.
+ */
+
+export function TrashIcon() {
+  return (
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4.4 6.4h15.2M9.4 6.4V4.6a1 1 0 0 1 1-1h3.2a1 1 0 0 1 1 1v1.8M6.6 6.4l.85 12.1a1.7 1.7 0 0 0 1.7 1.6h5.7a1.7 1.7 0 0 0 1.7-1.6L17.4 6.4" />
+    </svg>
+  );
+}
+
+export function UndoIcon() {
+  return (
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4.2 9.6h9.4a5.3 5.3 0 0 1 0 10.6H8.6M8 4.8 3.2 9.6 8 14.4" />
+    </svg>
+  );
+}
+
+export function RedoIcon() {
+  return (
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M19.8 9.6h-9.4a5.3 5.3 0 0 0 0 10.6h5M16 4.8l4.8 4.8-4.8 4.8" />
+    </svg>
+  );
+}
+
 /**
  * Was eine Übung verlangt, als Zeichen vor ihrem Titel in den Listen
  * (Entscheid 2026-11-24, nur dort — nicht in der Leiste der Übung):

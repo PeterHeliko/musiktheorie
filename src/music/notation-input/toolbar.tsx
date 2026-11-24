@@ -13,6 +13,9 @@
  * das Notenbild darunter.
  */
 
+import { useEffect, useRef } from 'preact/hooks';
+import { commandAllowed } from '../../ui/keyboard';
+import { RedoIcon, TrashIcon, UndoIcon } from '../../ui/icons';
 import type { Duration } from '../theory';
 
 /**
@@ -192,4 +195,82 @@ export function AccidentalPalette({
 
 export function ToolbarActions({ children }: { children: preact.ComponentChildren }) {
   return <div class="palette palette-actions">{children}</div>;
+}
+
+/**
+ * Alles löschen, rückgängig, wiederholen — an der Stelle des früheren
+ * «Zurücksetzen» (Entscheid 2026-11-24). Nur Zeichen (aus padago, siehe
+ * ui/icons.tsx), so gross wie die Vorzeichenknöpfe daneben; Bildschirmleser
+ * lesen die Beschriftung. Auch «Alles löschen» lässt sich rückgängig machen.
+ *
+ * Mit der Tastatur: Strg/⌘ + Z, mit Umschalt (oder Strg + Y) wiederholen.
+ */
+export function EditActions({
+  onClear,
+  canClear,
+  onUndo,
+  canUndo,
+  onRedo,
+  canRedo,
+  disabled,
+}: {
+  onClear: () => void;
+  canClear: boolean;
+  onUndo: () => void;
+  canUndo: boolean;
+  onRedo: () => void;
+  canRedo: boolean;
+  disabled?: boolean;
+}) {
+  // Der Tastenhorcher bleibt derselbe und sieht über die Ref immer den
+  // aktuellen Stand.
+  const latest = useRef({ onUndo, canUndo, onRedo, canRedo, disabled });
+  latest.current = { onUndo, canUndo, onRedo, canRedo, disabled };
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if ((key !== 'z' && key !== 'y') || !commandAllowed(event)) return;
+      const state = latest.current;
+      if (state.disabled) return;
+      if (key === 'y' || event.shiftKey) {
+        if (!state.canRedo) return;
+        event.preventDefault();
+        state.onRedo();
+      } else {
+        if (!state.canUndo) return;
+        event.preventDefault();
+        state.onUndo();
+      }
+    };
+    globalThis.addEventListener('keydown', listener);
+    return () => globalThis.removeEventListener('keydown', listener);
+  }, []);
+
+  return (
+    <ToolbarActions>
+      <button type="button" class="tool tool-glyph" aria-label="Alles löschen" onClick={onClear} disabled={disabled || !canClear}>
+        <TrashIcon />
+      </button>
+      <button
+        type="button"
+        class="tool tool-glyph"
+        aria-label="Rückgängig"
+        aria-keyshortcuts="Control+Z Meta+Z"
+        onClick={onUndo}
+        disabled={disabled || !canUndo}
+      >
+        <UndoIcon />
+      </button>
+      <button
+        type="button"
+        class="tool tool-glyph"
+        aria-label="Wiederholen"
+        aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y"
+        onClick={onRedo}
+        disabled={disabled || !canRedo}
+      >
+        <RedoIcon />
+      </button>
+    </ToolbarActions>
+  );
 }

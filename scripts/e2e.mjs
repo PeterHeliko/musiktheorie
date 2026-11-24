@@ -317,7 +317,7 @@ async function main() {
       let answerable = true;
       try {
         await page.waitForSelector(
-          '.question .choice, .question select, .question .notation-input svg, .question .sing-mic button, .question .piano-key:not([disabled])',
+          '.question .choice, .question select, .question .notation-input .score svg, .question .sing-mic button, .question .piano-key:not([disabled])',
           { timeout: 5000 },
         );
       } catch {
@@ -433,8 +433,8 @@ async function main() {
     // ------------------------------------------------------------ Noteneingabe
     console.log('\nNoteneingabe');
     await page.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.notation-input svg');
-    const staff = page.locator('.notation-input svg').first();
+    await page.waitForSelector('.notation-input .score svg');
+    const staff = page.locator('.notation-input .score svg').first();
     const box = await staff.boundingBox();
     // In die rechte Hälfte klicken: dort liegt der zu ergänzende Ton.
     await page.mouse.click(box.x + box.width * 0.72, box.y + box.height * 0.45);
@@ -448,8 +448,8 @@ async function main() {
     // Ein Akkord über zwei Systeme: oben und unten setzen, wegnehmen, prüfen.
     console.log('\nNoteneingabe: Akkord im Klaviersystem');
     await page.goto(exercise('umkehrungen-notieren', '?mit-bass=ja'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.notation-input svg');
-    const grandBox = await page.locator('.notation-input svg').first().boundingBox();
+    await page.waitForSelector('.notation-input .score svg');
+    const grandBox = await page.locator('.notation-input .score svg').first().boundingBox();
     const summary = () => page.locator('.input-summary').innerText();
     // Ein Drittel von oben liegt im oberen System, vier Fünftel im unteren.
     const upperSpot = { x: grandBox.x + grandBox.width * 0.55, y: grandBox.y + grandBox.height * 0.3 };
@@ -472,7 +472,7 @@ async function main() {
     const exampleShown = await eventually(
       page,
       () =>
-        [...document.querySelectorAll('.notation-input svg .vf-stavenote')].filter((note) =>
+        [...document.querySelectorAll('.notation-input .score svg .vf-stavenote')].filter((note) =>
           note.outerHTML.includes('#00d903'),
         ).length >= 2,
     );
@@ -487,14 +487,14 @@ async function main() {
     await page.goto(exercise('intervalle-notieren', '?intervalle=g3&richtung=auf&aufgabe=3&v=2'), {
       waitUntil: 'networkidle',
     });
-    await page.waitForSelector('.notation-input svg');
+    await page.waitForSelector('.notation-input .score svg');
     await page.keyboard.press('f');
     await page.keyboard.press('ArrowUp');
     await page.waitForTimeout(80);
     check(/fis/.test(await page.locator('.input-summary').innerText()), 'fis¹ gesetzt');
     await page.keyboard.press('Enter');
     await page.waitForSelector('.verdict');
-    const staffNotes = page.locator('.notation-input svg .vf-stavenote');
+    const staffNotes = page.locator('.notation-input .score svg .vf-stavenote');
     check((await page.locator('.verdict-text').innerText()) === 'Falsch', 'die Leiste sagt nur «Falsch»');
     // VexFlow schreibt die Farbe an die Gruppe der Note oder an ihre Teile.
     const notationColours = await staffNotes.evaluateAll((notes) =>
@@ -519,7 +519,7 @@ async function main() {
     // ------------------------------------------------- Ziehen und loslassen
     console.log('\nNoteneingabe: ziehen, gesetzt wird beim Loslassen');
     await page.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.notation-input svg');
+    await page.waitForSelector('.notation-input .score svg');
     const area = await page.locator('.score-click-area').boundingBox();
     const prüfen = page.locator('button:has-text("Prüfen")');
     await page.mouse.move(area.x + area.width * 0.72, area.y + area.height * 0.3);
@@ -543,23 +543,72 @@ async function main() {
       `ein Vorzeichen gilt auch für den gesetzten Ton («${sharpened}»)`,
     );
 
-    await page.locator('.toolbar button:has-text("Zurücksetzen")').click();
+    // Noch einmal ziehen: die gesetzte Note verschwindet sofort, zu sehen sind
+    // nur der vorgegebene Ton und die gezogene Vorschau. Abgebrochen, steht
+    // die gesetzte wieder da.
+    const heads = () => page.locator('.score-click-area svg .vf-notehead').count();
+    const headsBefore = await heads();
+    await page.mouse.move(area.x + area.width * 0.72, area.y + area.height * 0.35);
+    await page.mouse.down();
+    await page.mouse.move(area.x + area.width * 0.72, area.y + area.height * 0.55, { steps: 6 });
+    const headsWhileDragging = await heads();
+    const blueWhileDragging = await page
+      .locator('.score-click-area svg [fill="#5aa9dd"], .score-click-area svg [stroke="#5aa9dd"]')
+      .count();
+    check(
+      headsBefore === 2 && headsWhileDragging === 2 && blueWhileDragging > 0,
+      `beim erneuten Ziehen steht nur noch die gezogene Note (Köpfe: ${headsBefore} → ${headsWhileDragging})`,
+    );
+    await page.mouse.move(area.x + area.width * 0.72, area.y + area.height + 80, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    check(
+      (await page.locator('.input-summary').innerText()) === sharpened && (await heads()) === 2,
+      'abgebrochen, steht die gesetzte Note wieder da',
+    );
+
+    // Löschen, rückgängig, wiederholen — mit den Knöpfen und mit Strg + Z.
+    const tool = (label) => page.locator(`.toolbar button[aria-label="${label}"]`);
+    const shown = () => page.locator('.input-summary').innerText();
+    check(
+      (await tool('Alles löschen').count()) === 1 && (await page.locator('.toolbar button:has-text("Zurücksetzen")').count()) === 0,
+      'Löschen, Rückgängig und Wiederholen ersetzen «Zurücksetzen»',
+    );
+    check(await tool('Wiederholen').isDisabled(), 'ohne Rückgängig gibt es nichts zu wiederholen');
+    await tool('Rückgängig').click();
+    await page.waitForTimeout(80);
+    const undoneText = await shown();
+    const naturalPressed = await page.locator('.toolbar button[aria-label="ohne Vorzeichen"]').getAttribute('aria-pressed');
+    check(
+      undoneText === placedText && naturalPressed === 'true',
+      `Rückgängig nimmt das Kreuz zurück, die Vorzeichenknöpfe folgen («${undoneText}», ohne Vorzeichen gedrückt: ${naturalPressed})`,
+    );
+    await tool('Wiederholen').click();
+    check((await shown()) === sharpened, 'Wiederholen setzt es wieder');
+    await tool('Alles löschen').click();
+    check(!/Gesetzt:/.test(await shown()) && (await tool('Alles löschen').isDisabled()), 'Alles löschen nimmt den Ton weg');
+    await page.keyboard.press('Control+z');
+    check((await shown()) === sharpened, 'Strg + Z holt ihn zurück');
+    await page.keyboard.press('Control+Shift+z');
+    check(!/Gesetzt:/.test(await shown()), 'Strg + Umschalt + Z löscht wieder');
+
     await page.mouse.move(area.x + area.width * 0.5, area.y + area.height * 0.5);
     await page.mouse.down();
     await page.mouse.move(area.x + area.width * 0.5, area.y + area.height + 80, { steps: 6 });
     await page.mouse.up();
     await page.waitForTimeout(150);
-    // «Zurücksetzen» zählt selbst als Eingabe (Prüfen wird frei) — ob eine Note
+    // Löschen zählt selbst als Eingabe (Prüfen wird frei) — ob eine Note
     // steht, sagt die Zeile unter dem Notenbild.
-    const afterCancel = await page.locator('.input-summary').innerText();
+    const afterCancel = await shown();
     check(!/Gesetzt:/.test(afterCancel), `Loslassen ausserhalb des Notenbilds bricht ab («${afterCancel}»)`);
+    await page.screenshot({ path: join(SHOTS, 'noteneingabe-leiste.png'), fullPage: true });
 
     // ------------------------------------------------- Ziehen mit dem Finger
     console.log('\nNoteneingabe mit dem Finger (Telefon)');
     const touch = await browser.newContext({ ...devices['iPhone 13'] });
     const touchPage = await touch.newPage();
     await touchPage.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
-    await touchPage.waitForSelector('.notation-input svg');
+    await touchPage.waitForSelector('.notation-input .score svg');
     await touchPage.locator('.score-click-area').scrollIntoViewIfNeeded();
     const scrollBefore = await touchPage.locator('.session-body').evaluate((el) => el.scrollTop);
     const touchArea = await touchPage.locator('.score-click-area').boundingBox();
@@ -583,7 +632,7 @@ async function main() {
     // ------------------------------------------------- Tastatur
     console.log('\nTastatur');
     await page.goto(exercise('intervalle-notieren'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.notation-input svg');
+    await page.waitForSelector('.notation-input .score svg');
     const typed = async () => (await page.locator('.input-summary').innerText()).replace(/^Gesetzt:\s*/, '').trim();
     const press = async (key) => {
       await page.keyboard.press(key);
@@ -700,7 +749,7 @@ async function main() {
     // ------------------------------------------------- Grobbestimmung
     console.log('\nGrobbestimmung: nur die Grösse, keine Vorzeichen');
     await page.goto(exercise('intervalle-grob-notieren'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.notation-input svg');
+    await page.waitForSelector('.notation-input .score svg');
     check(
       (await page.locator('.toolbar button[aria-label^="Kreuz"]').count()) === 0,
       'Notieren: keine Vorzeichen in der Werkzeugleiste',
@@ -1173,7 +1222,7 @@ async function main() {
     // ---------------------------------------------------------------- Teilen
     console.log('\nTeilen');
     await page.goto(exercise('intervalle-notieren', '?schluessel=bass'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.notation-input svg');
+    await page.waitForSelector('.notation-input .score svg');
     const original = await scoreFingerprint(page);
     await openSettings();
     const links = await page.locator('.share-url').evaluateAll((inputs) => inputs.map((input) => input.value));
@@ -1188,7 +1237,7 @@ async function main() {
     const other = await browser.newContext();
     const otherPage = await other.newPage();
     await otherPage.goto(links[1], { waitUntil: 'networkidle' });
-    await otherPage.waitForSelector('.notation-input svg');
+    await otherPage.waitForSelector('.notation-input .score svg');
     check((await scoreFingerprint(otherPage)) === original, 'der Aufgabenlink zeigt anderswo genau dieselbe Aufgabe');
 
     await otherPage.goto(exercise('intervalle-notieren', '?aufgabe=1abc&v=999'), { waitUntil: 'networkidle' });

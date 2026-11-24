@@ -5,6 +5,8 @@
  *  - Beim Intervall notieren: Tonname setzt den Ton, ↑/↓ verschiebt ihn um
  *    einen Halbton, mit Umschalt um eine Oktave, ⌫ nimmt ihn weg
  *    (`NotationInput`).
+ *  - Wo Noten gesetzt werden: Strg/⌘ + Z macht rückgängig, mit Umschalt (oder
+ *    Strg + Y) wiederholt es (`EditActions` in notation-input/toolbar.tsx).
  *
  * Die Kürzel gelten auf der ganzen Seite, ohne dass erst etwas angeklickt
  * werden muss — ausser dort, wo die Tasten schon etwas anderes bedeuten.
@@ -19,6 +21,18 @@
 export function shortcutAllowed(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing) return false;
   if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (document.querySelector('[aria-modal="true"]')) return false;
+  const target = event.target;
+  return !(target instanceof Element && target.closest('input, select, textarea, [contenteditable]'));
+}
+
+/**
+ * Dasselbe für Befehle MIT Strg bzw. ⌘ (rückgängig, wiederholen): sonst wie
+ * `shortcutAllowed`. In einem Eingabefeld gehört Strg + Z dem Feld.
+ */
+export function commandAllowed(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.isComposing || event.altKey) return false;
+  if (!event.ctrlKey && !event.metaKey) return false;
   if (document.querySelector('[aria-modal="true"]')) return false;
   const target = event.target;
   return !(target instanceof Element && target.closest('input, select, textarea, [contenteditable]'));
