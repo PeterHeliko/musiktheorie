@@ -279,6 +279,25 @@
   }
 }
 
+/* Auf dem Telefon (hochkant und quer) etwas kleiner, damit das System mehr
+   Platz bekommt (Entscheid 2026-11-25): 44 × 40 px statt 54 × 52, 44 px
+   bleiben die übliche Mindestbreite zum Tippen. */
+@media (max-width: 600px), (max-height: 520px) {
+  .toolbar-bare .tool-glyph {
+    min-width: 44px;
+    min-height: 40px;
+    padding: 2px 6px;
+  }
+  .toolbar-bare .tool-symbol-accidental {
+    font-size: 1.7rem;
+    height: 1.9rem;
+  }
+  .toolbar-bare .tool-glyph .icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /*
  * Schlanke Eingabe (Intervall notieren): keine Box um die Leiste, kein
  * gestrichelter Rahmen um das Notenbild. Die drei Vorzeichenknöpfe tragen nur
