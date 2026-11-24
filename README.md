@@ -183,7 +183,8 @@ singt.
   der Abstand zum gespielten oder zum selbst nachgesungenen Ausgangston.
 - Diese Regeln stehen nur in `src/sing/judge.ts`; Ansicht und Bewertung nutzen beide sie.
 - Nach dem Urteil steht im System neben dem Ausgangston der Zielton grün, ein falscher Ton
-  rot davor — in der Oktave, die dem Zielton am nächsten liegt.
+  rot davor — in der Oktave, die dem Zielton am nächsten liegt. «Abspielen» spielt dann die
+  ganze Lösung: die Töne einzeln, dann zusammen.
 - **Stimmlage** (hoch/mittel/tief) ist persönlich: unter ⚙, auf dem Gerät gespeichert, nie
   im Link. Ein Aufgabenlink fragt bei allen dasselbe Intervall, in der eigenen Lage.
 - **Schlüssel** ist eine gewöhnliche Einstellung, unabhängig von der Stimmlage. Der
