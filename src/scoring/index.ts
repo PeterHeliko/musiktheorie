@@ -411,7 +411,7 @@ function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswe
   );
   // Richtig gesungene Töne heissen wie notiert, in der gesungenen Oktave; ein
   // falscher, wie man ihn meist liest.
-  const sung = verdict.right.map(({ verdict: note }, step) =>
+  const sung = verdict.right.map(({ step, verdict: note }) =>
     toGermanPitch({ ...targets[step], octave: targets[step].octave + note.octaveShift }),
   );
   if (verdict.wrong) sung.push(nameFromMidi(Math.round(verdict.wrong.note)));

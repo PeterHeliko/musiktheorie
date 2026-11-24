@@ -191,8 +191,9 @@ singt.
 - Die Browserprüfung singt mit dem künstlichen «g» einmal richtig und einmal falsch.
 
 `/ueben/dreiklaenge-singen/` und `/ueben/umkehrungen-singen/`: der tiefste Ton des Akkords
-erklingt und steht im System; gesungen werden alle drei Töne von unten nach oben, jeder in
-beliebiger Oktave (`judgeSequence` in `src/sing/judge.ts`). Einen schon richtig gesungenen Ton
+erklingt und steht im System; gesungen wird der Dreiklang von unten nach oben, jeder Ton in
+beliebiger Oktave (`judgeSequence` in `src/sing/judge.ts`). Den vorgespielten Ton darf man
+mitsingen, muss aber nicht — wie beim Intervall. Einen schon richtig gesungenen Ton
 noch einmal zu singen, zählt nicht — auch nicht, wenn er über ein Atemholen hinweg zweimal als
 gehalten erkannt wird. Das System hat von Anfang an Platz für alle drei Töne; jeder richtig
 gesungene erscheint dort grün, und die Zeile unter der Kurve zählt mit. Der erste falsche Ton

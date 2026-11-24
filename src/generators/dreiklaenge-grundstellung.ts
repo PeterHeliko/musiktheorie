@@ -441,7 +441,8 @@ export const dreiklaengeSingen: Generator<SingingFilters> = {
   skill: 'singen',
   version: 1,
   title: 'Dreiklänge singen',
-  instruction: 'Du hörst den Grundton. Singe die drei Töne des Dreiklangs von unten nach oben, mit dem Grundton.',
+  instruction:
+    'Du hörst den Grundton. Singe den Dreiklang Ton für Ton von unten nach oben; den Grundton darfst du mitsingen.',
   hint: SING_HINT,
 
   filters: [qualityFilter(), SUS4_FILTER, ROOT_FILTER, ...SING_FILTERS],

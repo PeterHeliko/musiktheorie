@@ -203,6 +203,17 @@ describe('judgeSequence', () => {
     expect(verdict.roles).toEqual(['right', 'repeat', 'right', 'repeat', 'right']);
   });
 
+  it('lässt den vorgespielten Ton weg, wer will', () => {
+    // D-Dur als Quartsextakkord: a erklingt, gesungen wird d fis — oder a d fis.
+    const quartsext = { reference: 57, targets: [57, 62, 66], tolerance: 50 };
+    const without = judgeSequence(quartsext, [62, 66]);
+    expect(without.correct).toBe(true);
+    expect(without.right.map((entry) => entry.step)).toEqual([1, 2]);
+    expect(judgeSequence(quartsext, [57, 62, 66]).right.map((entry) => entry.step)).toEqual([0, 1, 2]);
+    // Mit d begonnen, das ist der zweite Ton: noch nicht entschieden, nichts falsch.
+    expect(judgeSequence(quartsext, [62])).toMatchObject({ done: false, wrong: null, reached: 2 });
+  });
+
   it('nimmt einen schon richtig gesungenen Ton noch einmal nicht übel', () => {
     // fis über ein Atemholen hinweg noch einmal erkannt, dann a: richtig.
     const verdict = judgeSequence(goal, [62, 66, 66.3, 69]);
@@ -224,7 +235,8 @@ describe('judgeSequence', () => {
     expect(swapped.correct).toBe(false);
     expect(swapped.wrong).toMatchObject({ index: 1, expected: 1 });
     expect(swapped.roles).toEqual(['right', 'wrong', 'after']);
-    expect(judgeSequence(goal, [66]).wrong).toMatchObject({ index: 0, expected: 0 });
+    // Ohne den vorgespielten Ton gleich den dritten: verlangt war der zweite.
+    expect(judgeSequence(goal, [69]).wrong).toMatchObject({ index: 0, expected: 1 });
   });
 
   it('wertet einen zu ungenauen Ton als falsch', () => {

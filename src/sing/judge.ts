@@ -143,8 +143,14 @@ export interface SequenceVerdict {
   correct: boolean;
   /** Je gehaltenem Ton, in der gesungenen Reihenfolge. */
   roles: SequenceRole[];
-  /** Je richtig gesungenem Ton der Folge: welcher gehaltene Ton es war. */
-  right: { index: number; note: number; verdict: NoteVerdict }[];
+  /**
+   * Die richtig gesungenen Töne: welcher Ton der Folge (`step`) und welcher
+   * gehaltene Ton es war. Der vorgespielte erste fehlt, wenn er nicht
+   * mitgesungen wurde.
+   */
+  right: { step: number; index: number; note: number; verdict: NoteVerdict }[];
+  /** Wie viele Töne der Folge erledigt sind — der vorgespielte zählt mit, sobald es weitergeht. */
+  reached: number;
   /** Der entscheidende falsche Ton und welcher Ton der Folge verlangt war, oder null. */
   wrong: { index: number; note: number; verdict: NoteVerdict; expected: number } | null;
 }
@@ -153,12 +159,15 @@ export interface SequenceVerdict {
  * Das Urteil über eine gesungene Tonfolge. Wie beim Intervall: die Oktave
  * jedes Tons ist egal, die Reihenfolge zählt.
  *
+ * Der erste Ton der Folge ist der vorgespielte. Ihn mitzusingen ist erlaubt,
+ * aber nicht nötig — wie beim Intervall singen. Wer gleich mit dem zweiten
+ * beginnt, liegt richtig; ein kurz angesungener, nicht gehaltener
+ * Ausgangston darf deshalb nichts kosten.
+ *
  * Einen schon richtig gesungenen Ton noch einmal zu singen, ist kein Fehler —
- * er wird übergangen, solange er nicht selbst noch verlangt ist. Das gilt
- * auch für den vorgespielten Ton vor dem ersten. Ohne diese Regel zählte ein
- * Ton, der über ein Atemholen hinweg oder nach kurzem Schwanken noch einmal
- * als gehalten erkannt wird (hold.ts), gegen den nächsten — und stünde rot
- * da, obwohl er richtig war.
+ * er wird übergangen, solange er nicht selbst noch verlangt ist. Sonst zählte
+ * ein Ton, der über ein Atemholen hinweg oder nach kurzem Schwanken noch
+ * einmal als gehalten erkannt wird (hold.ts), gegen den nächsten.
  */
 export function judgeSequence(
   goal: SequenceGoal,
@@ -170,6 +179,7 @@ export function judgeSequence(
   let wrong: SequenceVerdict['wrong'] = null;
   let at = 0;
   let done = false;
+  const samePitch = (a: number, b: number) => pitchClass(a) === pitchClass(b);
 
   notes.forEach((note, index) => {
     if (done) {
@@ -178,15 +188,16 @@ export function judgeSequence(
     }
     const sung = [goal.reference, ...goal.targets.slice(0, at)];
     const remaining = goal.targets.slice(at);
-    const again = sung.some((tone) => pitchClass(tone) === pitchClass(note));
-    if (again && !remaining.some((tone) => pitchClass(tone) === pitchClass(note))) {
+    if (at > 0 && sung.some((tone) => samePitch(tone, note)) && !remaining.some((tone) => samePitch(tone, note))) {
       roles.push('repeat');
       return;
     }
+    // Nicht der vorgespielte Ton: der gilt als gegeben, weiter mit dem zweiten.
+    if (at === 0 && goal.targets.length > 1 && !samePitch(goal.targets[0], note)) at = 1;
     const verdict = judgeNote({ reference: goal.reference, target: goal.targets[at], tolerance: goal.tolerance }, note);
     if (verdict.correct) {
       roles.push('right');
-      right.push({ index, note, verdict });
+      right.push({ step: at, index, note, verdict });
       at++;
       done = at === goal.targets.length;
       return;
@@ -198,5 +209,5 @@ export function judgeSequence(
     }
   });
 
-  return { done, correct: done && wrong === null, roles, right, wrong };
+  return { done, correct: done && wrong === null, roles, right, reached: at, wrong };
 }

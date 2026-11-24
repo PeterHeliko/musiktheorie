@@ -1413,8 +1413,9 @@ async function main() {
     );
 
     // Dreiklänge singen, mit demselben g. Feste Aufgaben (Stimmlage «mittel»):
-    //  - G-Dur, g h d: das g ist der erste Ton, dann wartet die Übung auf h;
-    //  - E-Dur, e gis h: das g als erster Ton ist falsch.
+    //  - G-Dur, g h d: das g ist der vorgespielte Ton, mitgesungen; dann
+    //    wartet die Übung auf h;
+    //  - E-Dur, e gis h: das e darf man weglassen, aber das g ist nicht gis.
     console.log('\nDreiklänge singen mit künstlichem Mikrofon');
     await singPage.goto(`${BASE}ueben/dreiklaenge-singen/?geschlechter=dur&vorzeichen=stammton&aufgabe=8&v=1`, {
       waitUntil: 'networkidle',
@@ -1426,15 +1427,15 @@ async function main() {
     let counted = '';
     try {
       await singPage.waitForFunction(
-        () => document.querySelector('.sing-status')?.textContent?.includes('1 von 3'),
+        () => document.querySelector('.sing-status')?.textContent?.includes('Ausgangston erkannt'),
         null,
         { timeout: 12_000 },
       );
-      counted = '1 von 3';
+      counted = 'Ausgangston erkannt.';
     } catch {
       counted = await singPage.locator('.sing-status').innerText();
     }
-    check(counted === '1 von 3', `das g zählt als erster Ton, die Übung zählt mit («${counted}»)`);
+    check(counted === 'Ausgangston erkannt.', `das g ist der vorgespielte Ton, mitgesungen («${counted}»)`);
     // VexFlow zeichnet nach dem Zählen neu — darauf warten.
     await eventually(singPage, () => {
       const notes = [...document.querySelectorAll('.sing-task .score svg .vf-stavenote')];

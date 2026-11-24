@@ -249,8 +249,10 @@ Rules (decided 2026-11-24):
   both. Right means: the lowest tone is the asked chord member (Umkehrung), the highest is the
   asked one (Lage), all three tones are there, and no other. In notation the spelling counts
   (fis, not ges); on the keyboard only the key.
-- **Singing:** the chord's lowest tone sounds; sing all three tones from the bottom up, each
-  held as in Intervalle singen, any octave, order counts.
+- **Singing:** the chord's lowest tone sounds; sing the chord from the bottom up, each tone
+  held as in Intervalle singen, any octave, order counts. Singing the played tone along is
+  allowed but not required, as in Intervalle singen. Repeating a tone already sung right never
+  counts against you.
 - **Übermässig** is left out where only sound or keys count (hearing and keyboard naming of
   Umkehrungen & Lagen): its inversions sound and lie alike.
 - No double accidentals anywhere; roots that would need one are skipped.

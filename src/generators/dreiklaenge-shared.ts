@@ -548,8 +548,9 @@ export const UMKEHRUNG_DEFAULTS = {
 
 /**
  * Dreiklänge singen (Entscheid 2026-11-24): der tiefste Ton erklingt und
- * steht im System, gesungen werden alle drei Töne von unten nach oben —
- * jeder in beliebiger Oktave, die Reihenfolge zählt (`judgeSequence`).
+ * steht im System, gesungen wird der Dreiklang von unten nach oben — jeder
+ * Ton in beliebiger Oktave, die Reihenfolge zählt, den vorgespielten darf
+ * man mitsingen (`judgeSequence`).
  */
 export const SING_FILTERS: FilterSpec[] = [
   CLEF_FILTER,

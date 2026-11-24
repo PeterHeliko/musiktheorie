@@ -614,7 +614,7 @@ function singInstruction(ask: string[]): string {
       : ask.includes('inv')
         ? 'in der verlangten Umkehrung'
         : 'in der verlangten Lage';
-  return `Du hörst den tiefsten Ton. Singe die drei Töne des Dreiklangs ${what} von unten nach oben, mit dem tiefsten.`;
+  return `Du hörst den tiefsten Ton. Singe den Dreiklang ${what} Ton für Ton von unten nach oben; den tiefsten darfst du mitsingen.`;
 }
 
 interface SingingFilters extends FilterValues {

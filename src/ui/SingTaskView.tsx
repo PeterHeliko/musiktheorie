@@ -17,10 +17,11 @@
  *     kommt.
  *
  * Eine Tonfolge (`task.sequence`, Dreiklänge singen): gesungen wird Ton für
- * Ton in der verlangten Reihenfolge, der erste ist der vorgespielte. Jeder
- * richtige Ton wird in der Kurve grün, die Zeile darunter zählt mit; der
- * erste falsche beendet die Aufgabe (mit «Ohne Fehlerurteil» nicht). Die
- * Regeln stehen in `judgeSequence`.
+ * Ton in der verlangten Reihenfolge. Der erste ist der vorgespielte; ihn
+ * mitzusingen ist erlaubt, aber nicht nötig. Jeder richtige Ton wird in der
+ * Kurve und im System grün, die Zeile darunter zählt mit; der erste falsche
+ * beendet die Aufgabe (mit «Ohne Fehlerurteil» nicht). Die Regeln stehen in
+ * `judgeSequence`.
  *
  * Das Mikrofon bleibt über die Aufgaben hinweg offen; geschlossen wird es
  * beim Verlassen der Übung (ExercisePage).
@@ -89,7 +90,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
       sequence && { reference: midi(reference), targets: sequence.map(midi), tolerance: task.tolerance },
     [task],
   );
-  const [reached, setReached] = useState(0);
+  /** Welche Töne der Folge schon richtig gesungen sind (0 = der vorgespielte). */
+  const [sungSteps, setSungSteps] = useState<number[]>([]);
   const events = useMemo<AudioEvent[]>(() => [{ pitches: [reference], quarters: REFERENCE_QUARTERS }], [task]);
 
   const [mic, setMic] = useState<MicState>(() => (openedMicrophone() ? 'on' : 'off'));
@@ -200,7 +202,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
         ? (held) => {
             const verdict = judgeSequence(sequenceGoal, held, { untilRight });
             const role = verdict.roles[verdict.roles.length - 1];
-            setReached(verdict.right.length);
+            setSungSteps(verdict.right.map((entry) => entry.step));
             if (role === 'repeat' || role === 'after') return { kind: 'reference' };
             const mark = role === 'right' ? 'right' : 'wrong';
             if (!verdict.done) return { kind: 'progress', mark };
@@ -232,12 +234,12 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const score = useMemo(() => {
     if (sequence && sequenceGoal) {
       const verdict = sung ? judgeSequence(sequenceGoal, sung, { untilRight: task.untilRight }) : null;
-      return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, reached);
+      return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, sungSteps);
     }
     if (!sung) return task.score;
     const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
     return verdict.note === null ? task.score : verdictScore(task, target, verdict);
-  }, [task, sung, reached]);
+  }, [task, sung, sungSteps]);
 
   const status =
     phase === 'playing'
@@ -245,9 +247,11 @@ export function SingTaskView({ task }: { task: SingTask }) {
       : phase !== 'listening'
         ? ''
         : sequence
-          ? reached === 0
-            ? 'Jetzt singen, zuerst den vorgespielten Ton.'
-            : `${reached} von ${sequence.length} Tönen gesungen.`
+          ? sungAfterReference(sungSteps) > 0
+            ? `${sungAfterReference(sungSteps)} von ${sequence.length - 1} Tönen gesungen.`
+            : sungSteps.includes(0)
+              ? 'Ausgangston erkannt.'
+              : 'Jetzt singen.'
           : heardReference
             ? 'Ausgangston erkannt.'
             : 'Jetzt singen.';
@@ -348,16 +352,21 @@ function verdictScore(task: SingTask, target: Pitch, verdict: SungVerdict): Scor
   };
 }
 
+/** Wie viele Töne nach dem vorgespielten schon richtig gesungen sind. */
+function sungAfterReference(sungSteps: number[]): number {
+  return sungSteps.filter((step) => step > 0).length;
+}
+
 /**
  * Das System während einer Tonfolge: jeder richtig gesungene Ton steht grün
  * an seinem Platz, in der notierten Lage; die übrigen Plätze sind noch leer
  * (chordSingTask hält sie von Anfang an frei).
  */
-function progressScore(task: SingTask, reached: number): ScoreSpec {
-  if (reached === 0) return task.score;
+function progressScore(task: SingTask, sungSteps: number[]): ScoreSpec {
+  if (sungSteps.length === 0) return task.score;
   const [measure] = task.score.measures;
   const notes = measure.notes.map((note, step): NoteSpec => {
-    if (step >= reached) return note;
+    if (!sungSteps.includes(step)) return note;
     if (step === 0) return { ...note, mark: 'correct' };
     return { keys: [task.sequence![step]], duration: 'w', mark: 'correct' };
   });
@@ -386,7 +395,8 @@ function sequenceScore(task: SingTask, sequence: Pitch[], verdict: SequenceVerdi
     const isWrong = verdict.wrong?.expected === step;
     if (step === 0) {
       // Der vorgespielte Ton steht schon da; richtig nachgesungen wird er grün.
-      notes.push({ keys: [task.reference], duration: 'w', ...(verdict.right.length > 0 ? { mark: 'correct' } : {}) });
+      const sungIt = verdict.right.some((entry) => entry.step === 0);
+      notes.push({ keys: [task.reference], duration: 'w', ...(sungIt ? { mark: 'correct' } : {}) });
       if (isWrong) notes.push(wrongNote(expected, verdict.wrong!.note));
       return;
     }
