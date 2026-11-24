@@ -11,7 +11,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import type { ScoreSpec } from '../content/schema';
 import { renderScore, type RenderedScore } from '../music/render';
-import { REFIT_EVENT } from './refit';
+import { REFIT_EVENT, SCORE_FITTED_EVENT } from './refit';
 
 export { REFIT_EVENT };
 
@@ -85,7 +85,22 @@ function fitToRoom(container: HTMLDivElement, { maxScale, minScale = 0 }: NonNul
   const room = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
   // Die Spalte umschliesst die Ränder ihres Inhalts (display: flow-root,
   // styles.css) — sonst fehlten sie hier.
-  const others = column.getBoundingClientRect().height - svg.getBoundingClientRect().height;
+  const others = column.getBoundingClientRect().height - svg.getBoundingClientRect().height + reserved(column);
   const height = Math.min(Math.max(room - others, 20, drawnHeight * minScale), drawnHeight * maxScale);
   svg.style.width = `${Math.floor((height * drawnWidth) / drawnHeight)}px`;
+  globalThis.dispatchEvent(new Event(SCORE_FITTED_EVENT));
+}
+
+/**
+ * Was sich selbst einpasst und deshalb mit einem festen Mindestplatz zählt
+ * statt mit seiner jetzigen Höhe (`data-fit-reserve`, die Klaviatur unter
+ * dem Notenbild): sonst hinge die Grösse des Bilds davon ab, wie gross die
+ * Klaviatur gerade ist. Gerechnet als Unterschied zur jetzigen Höhe.
+ */
+function reserved(column: Element): number {
+  let difference = 0;
+  for (const element of column.querySelectorAll<HTMLElement>('[data-fit-reserve]')) {
+    difference += Number(element.dataset.fitReserve) - element.getBoundingClientRect().height;
+  }
+  return difference;
 }

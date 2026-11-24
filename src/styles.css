@@ -1685,7 +1685,7 @@
 .piano {
   position: relative;
   width: 100%;
-  max-width: min(100%, 640px);
+  max-width: min(100%, var(--piano-max-width, 640px));
   aspect-ratio: var(--piano-ratio);
   margin: 0 auto;
   user-select: none;
@@ -1781,6 +1781,12 @@
 
 .keyboard-task .piano {
   margin-top: 8px;
+}
+
+/* Die Note über der Klaviatur (Noten auf Klaviatur spielen), mittig wie diese. */
+.keyboard-task > .score {
+  display: flex;
+  justify-content: center;
 }
 
 /* ------------------------------------------------- Aufgabe in der Übung */

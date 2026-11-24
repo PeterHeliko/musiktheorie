@@ -673,10 +673,11 @@ describe('Töne', () => {
     expect(first.id).toBe('toene');
     expect(first.title).toBe('Töne');
     expect(first.generators.map((generator) => generator.title)).toEqual([
-      'Töne auf Klaviatur benennen',
-      'Töne auf Klaviatur spielen',
+      'Tasten benennen',
+      'Tonnamen auf Klaviatur spielen',
       'Noten benennen',
       'Noten schreiben',
+      'Noten auf Klaviatur spielen',
     ]);
   });
 
@@ -768,15 +769,132 @@ describe('Töne', () => {
   });
 
   it('bleibt beim Notenbenennen ohne Vorzeichen bei Stammtönen und im Schlüssel', () => {
+    const seen = new Set<string>();
     for (const question of generate('noten-benennen', { accidentals: 'stammton', clefs: ['bass'] })) {
       const score = (question.task as SelectTask).score!;
-      const pitch = parsePitch(score.measures[0].notes[0].keys![0]);
-      expect(pitch.alter).toBe(0);
+      const key = score.measures[0].notes[0].keys![0];
+      seen.add(key);
+      expect(parsePitch(key).alter).toBe(0);
       expect(score.clef).toBe('bass');
-      const window = windowFor('bass', 'eng');
-      expect(midi(pitch)).toBeGreaterThanOrEqual(window.low);
-      expect(midi(pitch)).toBeLessThanOrEqual(window.high);
       expect(optionValues(question)).toEqual(WHITE_NAMES);
+    }
+    // Vorgabe im Bassschlüssel: G bis d¹, jede Stelle dazwischen kommt vor.
+    expect([...seen].sort()).toEqual(['a2', 'b2', 'c3', 'c4', 'd3', 'd4', 'e3', 'f3', 'g2', 'g3', 'a3', 'b3'].sort());
+  });
+
+  /** Stelle im System, von Hand: c4 = 28, jede Stufe eins. */
+  const position = (key: string) => {
+    const pitch = parsePitch(key);
+    return pitch.octave * 7 + 'cdefgab'.indexOf(pitch.step);
+  };
+
+  it('hält Noten im eingestellten Umfang, gemessen an der Stelle im System', () => {
+    // Violinschlüssel a¹ bis d²: ein as¹ steht auf dem Platz von a¹ und gehört dazu.
+    const filters = { trebleLowest: 'a1', trebleHighest: 'd2' };
+    for (const id of ['noten-benennen', 'noten-klaviatur-spielen']) {
+      const seen = new Set<string>();
+      for (const question of generate(id, filters)) {
+        const score = (question.task as SelectTask | KeyboardTask).score!;
+        const key = score.measures[0].notes[0].keys![0];
+        seen.add(key);
+        expect(position(key), `${id}: ${key}`).toBeGreaterThanOrEqual(position('a4'));
+        expect(position(key), `${id}: ${key}`).toBeLessThanOrEqual(position('d5'));
+      }
+      // Vier Stellen, je drei Schreibweisen.
+      expect(seen.size, id).toBe(12);
+      expect(seen.has('ab4') && seen.has('d#5'), id).toBe(true);
+    }
+  });
+
+  it('nimmt je Schlüssel seinen eigenen Umfang', () => {
+    const filters = {
+      clefs: ['treble', 'bass'],
+      accidentals: 'stammton',
+      trebleLowest: 'c3',
+      trebleHighest: 'c3',
+      bassLowest: 'C',
+      bassHighest: 'C',
+    };
+    const clefs = new Set<string>();
+    for (const question of generate('noten-benennen', filters)) {
+      const score = (question.task as SelectTask).score!;
+      clefs.add(score.clef);
+      expect(score.measures[0].notes[0].keys).toEqual([score.clef === 'treble' ? 'c6' : 'c2']);
+    }
+    expect(clefs).toEqual(new Set(['treble', 'bass']));
+  });
+
+  it('bringt einen vertauschten Umfang aus einem Link wieder in Reihenfolge', () => {
+    for (const question of generate('noten-benennen', { accidentals: 'stammton', trebleLowest: 'e2', trebleHighest: 'c2' })) {
+      const key = (question.task as SelectTask).score!.measures[0].notes[0].keys![0];
+      expect(['c5', 'd5', 'e5']).toContain(key);
+    }
+  });
+
+  it('gibt dem System so viel Platz, wie der Umfang braucht, und nicht mehr', () => {
+    const space = (filters: FilterValues) => (generate('noten-benennen', filters, 1)[0].task as SelectTask).score!.space!;
+    // Nur Töne im System: es bleibt beim Platz des Violinschlüssels.
+    expect(space({ accidentals: 'stammton', trebleLowest: 'f1', trebleHighest: 'e2' })).toEqual({ above: 15, below: 17 });
+    // Weiter hinaus braucht mehr, mit Vorzeichen noch mehr.
+    const wide = space({ accidentals: 'stammton', trebleLowest: 'g', trebleHighest: 'c3' });
+    const wideSigns = space({ trebleLowest: 'g', trebleHighest: 'c3' });
+    expect(wide.above).toBeGreaterThan(15);
+    expect(wide.below).toBeGreaterThan(17);
+    expect(wideSigns.above).toBeGreaterThan(wide.above);
+    expect(wideSigns.below).toBeGreaterThan(wide.below);
+    // Ein gesperrter Schlüssel zählt nicht mit.
+    expect(space({ bassLowest: 'C', bassHighest: 'g1' })).toEqual(space({}));
+  });
+
+  it('spannt die Klaviatur zwischen tiefstem und höchstem Ton auf', () => {
+    const filters = { lowest: 'e1', highest: 'a1' };
+    const marked = new Set<number>();
+    for (const question of generate('toene-klaviatur-benennen', filters)) {
+      const task = question.task as SelectTask;
+      expect(task.keyboard).toMatchObject({ low: 64, high: 69 });
+      marked.add(task.keyboard!.marked![0]);
+      // Nur die Namen, die auf dieser Klaviatur liegen.
+      expect(new Set(optionValues(question))).toEqual(new Set(['e', 'f', 'fis', 'ges', 'g', 'gis', 'as', 'a']));
+    }
+    expect([...marked].sort()).toEqual(keysBetween(64, 69));
+
+    const prompts = new Set<string>();
+    for (const question of generate('toene-klaviatur-spielen', filters)) {
+      const task = question.task as KeyboardTask;
+      prompts.add(task.prompt!);
+      expect(task.keyboard).toEqual({ low: 64, high: 69 });
+      expect(task.accept).toEqual(keysBetween(64, 69).filter((key) => keyNamesOf(key).includes(task.prompt!)));
+    }
+    expect(prompts).toEqual(new Set(['e', 'f', 'fis', 'ges', 'g', 'gis', 'as', 'a']));
+  });
+
+  it('akzeptiert beim Spielen einer Note jede Taste ihres Klangs: fes ist e', () => {
+    const names = new Set<string>();
+    for (const question of generate('noten-klaviatur-spielen', { clefs: ['treble', 'bass'] })) {
+      const task = question.task as KeyboardTask;
+      expect(task.keyboard).toEqual(INTERVAL_KEYBOARD);
+      expect(task.sound).toBe(true);
+      expect(task.prompt).toBeUndefined();
+      const key = task.score!.measures[0].notes[0].keys![0];
+      names.add(spelled(key));
+      const sounding = midi(parsePitch(key)) % 12;
+      expect(task.accept).toEqual(
+        keysBetween(INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high).filter((entry) => entry % 12 === sounding),
+      );
+      expect(task.accept).toHaveLength(2);
+    }
+    expect(names.has('fes') || names.has('ces') || names.has('eis') || names.has('his')).toBe(true);
+    const fes = generate('noten-klaviatur-spielen').find(
+      (question) => spelled((question.task as KeyboardTask).score!.measures[0].notes[0].keys![0]) === 'fes',
+    )!;
+    expect(fes.task.kind === 'keyboard' && fes.task.accept).toEqual([52, 64]);
+  });
+
+  it('spielt Noten ohne Vorzeichen nur auf weissen Tasten', () => {
+    for (const question of generate('noten-klaviatur-spielen', { accidentals: 'stammton' })) {
+      const task = question.task as KeyboardTask;
+      expect(task.whiteOnly).toBe(true);
+      expect(parsePitch(task.score!.measures[0].notes[0].keys![0]).alter).toBe(0);
     }
   });
 

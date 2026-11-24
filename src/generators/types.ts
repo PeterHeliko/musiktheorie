@@ -114,7 +114,19 @@ export type FilterSpec =
       /** So viele müssen mindestens angekreuzt bleiben. Vorgabe 1. */
       min?: number;
     })
-  | (FilterBase & { kind: 'single'; options: SelectOption[] })
+  | (FilterBase & {
+      kind: 'single';
+      options: SelectOption[];
+      /**
+       * Als Schieberegler über die Optionen, in ihrer Reihenfolge, statt als
+       * Knöpfe: für lange, geordnete Listen wie Tonhöhen (tiefster Ton c¹).
+       * `notAbove` bzw. `notBelow` nennt einen zweiten Regler mit denselben
+       * Optionen, den dieser nicht überholen darf; er wird mitgeschoben. Der
+       * Generator muss die Reihenfolge trotzdem selbst herstellen, denn ein
+       * Link kann beide vertauscht liefern.
+       */
+      slider?: { notAbove?: string; notBelow?: string };
+    })
   | (FilterBase & { kind: 'toggle' })
   | (FilterBase & {
       kind: 'range';

@@ -153,10 +153,11 @@ The first topic: before counting intervals, you need to know the notes.
 
 | Übung                                                                   | Fertigkeit |     |
 | ----------------------------------------------------------------------- | ---------- | --- |
-| Töne auf Klaviatur benennen                                             | Klaviatur  | ✓   |
-| Töne auf Klaviatur spielen                                              | Klaviatur  | ✓   |
-| Noten benennen (Violin- und Bassschlüssel, im System / mit Hilfslinien) | Erkennen   | ✓   |
+| Tasten benennen                                                         | Klaviatur  | ✓   |
+| Tonnamen auf Klaviatur spielen                                          | Klaviatur  | ✓   |
+| Noten benennen (Violin- und Bassschlüssel)                              | Erkennen   | ✓   |
 | Noten schreiben (Name gegeben → setzen)                                 | Notieren   | ✓   |
+| Noten auf Klaviatur spielen (Note gegeben → Taste)                      | Klaviatur  |     |
 | Oktavbezeichnungen (grosse, kleine, ein-/zweigestrichene Oktave)        | Erkennen   |     |
 | Tonhöhen vergleichen (höher / tiefer / gleich)                          | Hören      |     |
 | Ton nachsingen                                                          | Singen     | ★   |
@@ -166,8 +167,20 @@ in any octave the keyboard (c to h¹, as for Intervalle) or the staff allows. Oc
 their own exercise. Names are lowercase. Answers are one grid: a column per letter, ♯ names
 above, ♭ names below; without accidentals only c–h. On the keyboard a black key has two names
 and both are right; ces, fes, eis and his don't appear there (those keys are h, e, f, c). In
-the score the spelling is the question: fes is fes. The default is ♭ ♯ with black keys; no
+the score the spelling is the question: fes is fes. Playing a note from the score accepts its
+key in any octave; fes is played on the e key. The default is ♭ ♯ with black keys; no
 double accidentals. Naming keys is silent, as for Intervalle.
+
+*Tiefster Ton / Höchster Ton* (2026-11-25): on the keyboard exercises with a keyboard of their
+own (Tasten benennen, Tonnamen spielen) they are the keyboard's two ends, C to c³, default c
+to h¹; only names that lie on that keyboard are asked or offered. On the score exercises
+(Noten benennen, Noten auf Klaviatur spielen) they are the lowest and highest written
+position, one pair per clef (treble f to e³, bass C to g¹; three ledger lines), greyed out
+while that clef is off. The position counts, not the sound: ces¹ belongs to a range from c¹.
+Defaults are the former «im System» (treble c¹ to g², bass G to d¹); the pair replaced the
+«Lage» setting. Noten schreiben has none: any octave counts there anyway. In the settings
+they are sliders; the lower one pushes the upper one along. In links they read
+`tiefster=c1&hoechster=g2`, `violin-tiefster=…`, `bass-hoechster=…`.
 
 *Später:* Alt- und Tenorschlüssel, Doppelvorzeichen, enharmonische Verwechslung.
 
@@ -746,6 +759,7 @@ New:
 
 - Klaviatur component (display + input).
 - Noten benennen, Noten schreiben and the Töne keyboard exercises (done 2026-11-24);
+  Noten auf Klaviatur spielen, tiefster und höchster Ton (done 2026-11-25);
   Oktavbezeichnungen.
 - Klaviatur exercises for notes, intervals and triads.
 - Tonleiter notieren, Dreiklang notieren.

@@ -31,6 +31,14 @@ import { judgeChordKeys, scaleKeysCorrect, type KeyboardAnswer } from '../scorin
 import { pitchFromMidi } from '../sing/notes';
 import { useExam } from '../state';
 import { PianoKeyboard, type KeyState } from './PianoKeyboard';
+import { Score } from './Score';
+
+/**
+ * Mit einem Notenbild darüber (Noten auf Klaviatur spielen) behält die
+ * Klaviatur mindestens so viel Höhe; das Bild bekommt den Rest. Quer auf dem
+ * Telefon sind das breite, gut treffbare Tasten und ein noch lesbares System.
+ */
+const KEYBOARD_RESERVE = 100;
 
 /** Eine angetippte Taste klingt eine Sekunde und dann kurz aus. */
 const KEY_SECONDS = 1;
@@ -102,6 +110,7 @@ export function KeyboardTaskView({
     <div class="keyboard-task">
       {task.prompt && <p class="task-prompt task-prompt-strong">{task.prompt}</p>}
       {context && <p class="task-context">{context}</p>}
+      {task.score && <Score spec={task.score} />}
       <PianoKeyboard
         low={task.keyboard.low}
         high={task.keyboard.high}
@@ -112,6 +121,7 @@ export function KeyboardTaskView({
         multiple={Boolean(task.chord || task.scale)}
         disabled={readOnly}
         fit
+        reserve={task.score ? KEYBOARD_RESERVE : undefined}
         label={task.prompt ? `Klaviatur: ${task.prompt}` : 'Klaviatur'}
       />
     </div>

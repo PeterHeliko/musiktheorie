@@ -23,7 +23,7 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { nameFromMidi } from '../sing/notes';
 import { isWhiteKey, keysBetween, whiteIndex } from '../music/piano';
-import { REFIT_EVENT } from './refit';
+import { REFIT_EVENT, SCORE_FITTED_EVENT } from './refit';
 
 export type KeyState = 'selected' | 'right' | 'wrong' | 'solution';
 
@@ -43,6 +43,17 @@ const MIN_HEIGHT = 72;
 /** Breiter wird sie nur, wenn die Höhe knapp ist (weisse Tasten ≈ 45 px). */
 const MAX_WIDTH = 640;
 
+/**
+ * Eine weisse Taste wird nie breiter als die grösste einer Klaviatur mit zwei
+ * Oktaven (14 weisse Tasten): rund 46 px, oder so breit, wie die zwei Oktaven
+ * sie im selben Platz bekämen, falls das mehr ist (quer auf dem Telefon). Eine
+ * Klaviatur mit wenigen Tasten (tiefster und höchster Ton nah beieinander)
+ * zieht so keine riesigen Tasten über die ganze Breite; ab 14 Tasten ändert
+ * sich nichts.
+ */
+const TWO_OCTAVES = 14;
+const MAX_KEY_WIDTH = MAX_WIDTH / TWO_OCTAVES;
+
 export function PianoKeyboard({
   low,
   high,
@@ -53,6 +64,7 @@ export function PianoKeyboard({
   multiple = false,
   disabled = false,
   fit = false,
+  reserve,
   label,
 }: {
   /** Tiefste und höchste Taste (MIDI), beide weiss. */
@@ -76,6 +88,12 @@ export function PianoKeyboard({
    * quer auf dem Telefon ganz sichtbar.
    */
   fit?: boolean;
+  /**
+   * Mit `fit` unter einem Notenbild, das sich ebenfalls einpasst: so viel
+   * Höhe (px) behält die Klaviatur mindestens. Das Notenbild rechnet mit
+   * diesem Platz, die Klaviatur nimmt danach, was übrig bleibt.
+   */
+  reserve?: number;
   /** Was die Klaviatur zeigt, für Bildschirmleser. */
   label: string;
 }) {
@@ -100,9 +118,11 @@ export function PianoKeyboard({
     refit();
     globalThis.addEventListener('resize', refit);
     globalThis.addEventListener(REFIT_EVENT, refit);
+    globalThis.addEventListener(SCORE_FITTED_EVENT, refit);
     return () => {
       globalThis.removeEventListener('resize', refit);
       globalThis.removeEventListener(REFIT_EVENT, refit);
+      globalThis.removeEventListener(SCORE_FITTED_EVENT, refit);
     };
   }, [fit, ratio]);
 
@@ -156,7 +176,8 @@ export function PianoKeyboard({
       class={`piano ${interactive ? 'is-interactive' : ''}`}
       role={interactive ? (multiple ? 'group' : 'radiogroup') : 'img'}
       aria-label={label}
-      style={{ '--piano-ratio': String(ratio) }}
+      style={{ '--piano-ratio': String(ratio), '--piano-max-width': `${Math.round(Math.min(MAX_WIDTH, whiteCount * MAX_KEY_WIDTH))}px` }}
+      data-fit-reserve={fit && reserve ? reserve : undefined}
     >
       {keys.filter(isWhiteKey).map(render)}
       {keys.filter((key) => !isWhiteKey(key)).map(render)}
@@ -170,8 +191,9 @@ export function PianoKeyboard({
  * Passt sie in ihrem Seitenverhältnis (WHITE_LENGTH), bleibt es dabei, höchstens
  * MAX_WIDTH breit. Wird die Höhe knapp — quer auf dem Telefon —, nimmt sie
  * stattdessen die ganze Spalte in der Breite und wird niedriger: breite
- * Tasten treffen sich besser als lange (Entscheid 2026-11-24). Die Tasten
- * sind in Prozent gesetzt und folgen jedem Seitenverhältnis.
+ * Tasten treffen sich besser als lange (Entscheid 2026-11-24). Mit weniger
+ * als 14 weissen Tasten nur ein entsprechender Teil davon (MAX_KEY_WIDTH). Die
+ * Tasten sind in Prozent gesetzt und folgen jedem Seitenverhältnis.
  */
 function fitToRoom(piano: HTMLElement, ratio: number): void {
   const body = piano.closest<HTMLElement>('.session-body');
@@ -183,9 +205,11 @@ function fitToRoom(piano: HTMLElement, ratio: number): void {
   const available = room - others;
   const columnStyle = getComputedStyle(column);
   const full = column.clientWidth - parseFloat(columnStyle.paddingLeft) - parseFloat(columnStyle.paddingRight);
-  const natural = Math.min(full, MAX_WIDTH) / ratio;
+  const capped = ratio * WHITE_LENGTH * Math.max(MAX_KEY_WIDTH, full / TWO_OCTAVES);
+  const widest = Math.min(full, MAX_WIDTH, capped);
+  const natural = widest / ratio;
   const [width, height] =
-    available >= natural ? [Math.min(full, MAX_WIDTH), natural] : [full, Math.max(available, MIN_HEIGHT)];
+    available >= natural ? [widest, natural] : [Math.min(full, capped), Math.max(available, MIN_HEIGHT)];
   piano.style.width = `${Math.floor(width)}px`;
   piano.style.height = `${Math.floor(height)}px`;
   piano.style.maxWidth = '100%';

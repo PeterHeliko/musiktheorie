@@ -31,10 +31,11 @@ const slow = process.argv.includes('--slow');
 
 /** Alle Übungen mit Titel im Tab (samt Gruppe) — muss zu src/generators/ passen. */
 const MODES = {
-  'toene-klaviatur-benennen': 'Töne auf Klaviatur benennen',
-  'toene-klaviatur-spielen': 'Töne auf Klaviatur spielen',
+  'toene-klaviatur-benennen': 'Tasten benennen',
+  'toene-klaviatur-spielen': 'Tonnamen auf Klaviatur spielen',
   'noten-benennen': 'Noten benennen',
   'noten-schreiben': 'Noten schreiben',
+  'noten-klaviatur-spielen': 'Noten auf Klaviatur spielen',
   'notenwerte-zuordnen': 'Notenwerte und Pausenzeichen zuordnen',
   'pausen-ergaenzen': 'Fehlende Pausen ergänzen',
   'intervalle-grob-bestimmen': 'Intervalle in Noten benennen (Grobbestimmung)',
@@ -1102,9 +1103,41 @@ async function main() {
     );
     await page.screenshot({ path: join(SHOTS, 'klaviatur-septakkord-vierstimmig.png'), fullPage: true });
 
+    // Noten auf Klaviatur spielen: die Note steht im System, jede Oktave
+    // zählt. Nur c¹ im Umfang, damit die richtige Taste feststeht.
+    await page.goto(
+      exercise('noten-klaviatur-spielen', '?vorzeichen=stammton&violin-tiefster=c1&violin-hoechster=c1'),
+      { waitUntil: 'networkidle' },
+    );
+    await page.waitForSelector('.question .keyboard-task .score svg');
+    check(
+      (await page.locator('.question .keyboard-task .task-prompt').count()) === 0 &&
+        (await page.locator('.question .keyboard-task .piano').count()) === 1,
+      'Noten auf Klaviatur: Notenbild über der Klaviatur, kein Name',
+    );
+    await keyAt(page, 48).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Richtig' && (await keyAt(page, 48).getAttribute('data-state')) === 'right',
+      'das c der anderen Oktave zählt auch',
+    );
+    await page.locator('.session-bar button:has-text("Weiter")').click();
+    await page.waitForSelector('.question .piano-key:not([disabled])');
+    await keyAt(page, 50).click();
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Falsch' &&
+        (await keyAt(page, 50).getAttribute('data-state')) === 'wrong' &&
+        (await keyAt(page, 48).getAttribute('data-state')) === 'solution' &&
+        (await keyAt(page, 60).getAttribute('data-state')) === 'solution',
+      'falsch: beide c grün umrandet',
+    );
+
     const pianoPhone = await browser.newContext({ ...devices['iPhone 13'] });
     const pianoPhonePage = await pianoPhone.newPage();
-    for (const id of ['intervalle-klaviatur-spielen', 'intervalle-klaviatur-benennen']) {
+    for (const id of ['intervalle-klaviatur-spielen', 'intervalle-klaviatur-benennen', 'noten-klaviatur-spielen']) {
       await pianoPhonePage.goto(exercise(id), { waitUntil: 'networkidle' });
       await pianoPhonePage.waitForSelector('.question .piano');
       const pianoBox = await pianoPhonePage.locator('.question .piano').boundingBox();
@@ -1133,6 +1166,21 @@ async function main() {
         : await pianoLandscapePage.locator('.question .piano').boundingBox();
       check(bottom.y + bottom.height <= barTop + 1, `${id}, quer: alles ohne Scrollen sichtbar`);
       await pianoLandscapePage.screenshot({ path: join(SHOTS, `telefon-quer-${id}.png`) });
+    }
+    // Notenbild und Klaviatur teilen sich die Höhe: die Klaviatur behält
+    // ihren Mindestplatz, das System den Rest.
+    await pianoLandscapePage.goto(exercise('noten-klaviatur-spielen'), { waitUntil: 'networkidle' });
+    await pianoLandscapePage.waitForSelector('.question .keyboard-task .score svg');
+    await pianoLandscapePage.waitForTimeout(200);
+    {
+      const barTop = (await pianoLandscapePage.locator('.session-bar').boundingBox()).y;
+      const piano = await pianoLandscapePage.locator('.question .piano').boundingBox();
+      const staff = await pianoLandscapePage.locator('.question .keyboard-task .score svg').boundingBox();
+      check(
+        piano.y + piano.height <= barTop + 1 && piano.height >= 95 && staff.height >= 60,
+        `noten-klaviatur-spielen, quer: System ${Math.round(staff.height)} px und Klaviatur ${Math.round(piano.height)} px hoch, ohne Scrollen`,
+      );
+      await pianoLandscapePage.screenshot({ path: join(SHOTS, 'telefon-quer-noten-klaviatur-spielen.png') });
     }
     await pianoLandscape.close();
 
@@ -1319,6 +1367,55 @@ async function main() {
       await eventually(page, () => !new URL(location.href).searchParams.has('intervalle')),
       'und die Adresszeile ist wieder kurz',
     );
+
+    // Tiefster und höchster Ton: Schieberegler, der tiefste schiebt den
+    // höchsten mit.
+    await page.goto(exercise('toene-klaviatur-benennen'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.question');
+    await openSettings();
+    const slider = (label) => page.locator('.filter-field', { has: page.locator('.filter-label', { hasText: label }) });
+    check(
+      (await slider('Tiefster Ton').locator('output').innerText()) === 'c' &&
+        (await slider('Höchster Ton').locator('output').innerText()) === 'h¹',
+      'Tiefster und höchster Ton: Vorgabe c bis h¹',
+    );
+    await slider('Tiefster Ton')
+      .locator('input[type="range"]')
+      .evaluate((input) => {
+        input.value = '22';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    check(
+      (await slider('Tiefster Ton').locator('output').innerText()) === 'd²' &&
+        (await slider('Höchster Ton').locator('output').innerText()) === 'd²',
+      'der tiefste über den höchsten geschoben nimmt ihn mit',
+    );
+    await closeSettings();
+    check(
+      await eventually(page, () => {
+        const params = new URL(location.href).searchParams;
+        return params.get('tiefster') === 'd2' && params.get('hoechster') === 'd2';
+      }),
+      'beide stehen deutsch in der Adresszeile (tiefster=d2&hoechster=d2)',
+    );
+    await page.waitForSelector('.question .piano');
+    check(
+      (await page.locator('.question .piano-key').count()) === 1,
+      'die Klaviatur hat dann eine einzige Taste',
+    );
+    await openSettings();
+    await page.locator('.sheet button:has-text("Auf Vorgabe zurücksetzen")').click();
+    await closeSettings();
+
+    await page.goto(exercise('noten-benennen'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.question');
+    await openSettings();
+    check(
+      (await slider('Tiefster Ton im Bassschlüssel').locator('.filter-locked').innerText()) === 'Nur mit Bassschlüssel.' &&
+        (await slider('Tiefster Ton im Violinschlüssel').locator('.filter-locked').count()) === 0,
+      'Noten benennen: die Regler des nicht gewählten Schlüssels sind gesperrt',
+    );
+    await closeSettings();
 
     // ---------------------------------------------------------------- Teilen
     console.log('\nTeilen');

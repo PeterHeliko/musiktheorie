@@ -23,7 +23,7 @@ export function FilterFields({
   values: FilterValues;
   onChange: (next: FilterValues) => void;
 }) {
-  const set = (key: string, value: FilterValues[string]) => onChange({ ...values, [key]: value });
+  const set = (key: string, value: FilterValues[string]) => onChange(withPushed(filters, { ...values, [key]: value }, key));
   return (
     <>
       {filters.map((filter) => (
@@ -31,6 +31,21 @@ export function FilterFields({
       ))}
     </>
   );
+}
+
+/**
+ * Ein Schieberegler, der seinen Partner überholt hätte (tiefster Ton über dem
+ * höchsten), schiebt ihn mit: beide stehen danach auf demselben Wert.
+ */
+function withPushed(filters: FilterSpec[], values: FilterValues, changed: string): FilterValues {
+  const filter = filters.find((entry) => entry.key === changed);
+  if (filter?.kind !== 'single' || !filter.slider) return values;
+  const index = (key: string) => filter.options.findIndex((option) => option.value === values[key]);
+  const own = index(changed);
+  const { notAbove, notBelow } = filter.slider;
+  if (notAbove && index(notAbove) >= 0 && own > index(notAbove)) return { ...values, [notAbove]: values[changed] };
+  if (notBelow && index(notBelow) >= 0 && own < index(notBelow)) return { ...values, [notBelow]: values[changed] };
+  return values;
 }
 
 function FilterField({
@@ -180,6 +195,35 @@ function SingleField({
   set: (key: string, value: string) => void;
 }) {
   const current = values[filter.key] as string | undefined;
+  if (filter.slider) {
+    const inputId = `filter-${filter.key}`;
+    const index = Math.max(
+      0,
+      filter.options.findIndex((option) => option.value === current),
+    );
+    const label = filter.options[index]?.label ?? '';
+    return (
+      <div class="filter-range">
+        <input
+          id={inputId}
+          type="range"
+          min={0}
+          max={filter.options.length - 1}
+          step={1}
+          value={index}
+          aria-label={filter.label}
+          aria-valuetext={label}
+          onInput={(event) => {
+            const option = filter.options[Number((event.target as HTMLInputElement).value)];
+            if (option) set(filter.key, option.value);
+          }}
+        />
+        <output for={inputId} class="filter-range-value">
+          {label}
+        </output>
+      </div>
+    );
+  }
   return (
     <div class="filter-options" role="radiogroup" aria-label={filter.label}>
       {filter.options.map((option) => (

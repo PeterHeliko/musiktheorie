@@ -348,6 +348,8 @@ export interface KeyboardTask extends TaskBase {
   kind: 'keyboard';
   /** Umfang und vorgegebene Tasten. */
   keyboard: KeyboardSpec;
+  /** Notenbild über der Klaviatur, etwa die Note, deren Taste gesucht ist. */
+  score?: ScoreSpec;
   /**
    * Richtige Tasten; genau eine davon ist zu wählen. Bei `chord` eine
    * richtige Lösung, alle Tasten zusammen.

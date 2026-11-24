@@ -5,49 +5,64 @@
  *
  * Gefragt ist immer nur der Name, nie die Oktave (Entscheid 2026-11-24):
  * «fis», nicht «fis¹». Wer spielt oder schreibt, darf jede Oktave nehmen, die
- * die Klaviatur oder das System hergibt. Die Oktavbezeichnungen (kleines c,
- * c¹) werden einmal eine eigene Übung.
+ * die Klaviatur oder das System hergibt. Das gilt auch für «Noten auf
+ * Klaviatur spielen» (Entscheid 2026-11-25): die Note im System ist ein Ton,
+ * keine bestimmte Taste. Die Oktavbezeichnungen (kleines c, c¹) werden
+ * einmal eine eigene Übung.
  *
  * Antwortknöpfe sind ein Raster: eine Spalte je Stammton, darüber die
  * Namen mit ♯, darunter die mit ♭ (Entscheid 2026-11-24).
  *
  *  - Klaviatur: Eine Taste hat keine Schreibweise. Eine schwarze heisst cis
  *    oder des, beides ist richtig; eine weisse heisst wie ihr Stammton, also
- *    e und nicht fes. Ces, fes, eis und his kommen auf der Klaviatur deshalb
- *    nicht vor (`KEY_NAMES`).
+ *    e und nicht fes. Ces, fes, eis und his kommen als Tastennamen deshalb
+ *    nicht vor (`keyNames`).
  *  - Notenbild: Hier ist die Schreibweise die Frage. Ein fes ist ein fes,
- *    auch wenn es wie e klingt.
+ *    auch wenn es wie e klingt; gespielt wird es auf der Taste e.
  *
- * Die Klaviatur ist dieselbe wie bei den Intervallen (c bis h¹); Benennen
- * bleibt auch hier stumm.
+ * Tiefster und höchster Ton (Entscheid 2026-11-25): bei den Übungen mit
+ * Klaviatur die Enden der Klaviatur (Vorgabe c bis h¹ wie bei den
+ * Intervallen), bei denen mit Notenbild die tiefste und höchste notierte
+ * Stelle, je Schlüssel ein Paar. Gemeint ist die Stelle im System: ein ces¹
+ * steht auf dem Platz von c¹ und gehört dazu. «Noten schreiben» hat keines,
+ * dort zählt ohnehin jede Oktave. Benennen bleibt stumm.
  */
 
-import type { KeyboardTask, NotationTask, SelectField, SelectOption, SelectTask } from '../content/schema';
-import { INTERVAL_KEYBOARD, KEY_NAMES, isWhiteKey, keyNames, keysBetween, keysNamed } from '../music/piano';
-import { STEPS, diatonicIndex, germanNoteName, midi, naturalAt, parsePitch, type Pitch, type Step } from '../music/theory';
+import type { KeyboardTask, NotationTask, ScoreSpec, SelectField, SelectOption, SelectTask } from '../content/schema';
+import { INTERVAL_KEYBOARD, isWhiteKey, keyNames, keysBetween, keysNamed } from '../music/piano';
+import {
+  STEPS,
+  diatonicIndex,
+  germanNoteName,
+  midi,
+  naturalAt,
+  parsePitch,
+  toGermanPitch,
+  type Pitch,
+  type Step,
+} from '../music/theory';
+import { superscriptOctave } from '../sing/curve';
 import { KEY_COLOUR_OPTIONS } from './intervalle-klaviatur';
 import type { Rng } from './rng';
 import {
   ACCIDENTAL_OPTIONS,
   CLEF_OPTIONS,
-  WIDTH_OPTIONS,
   altersFor,
-  candidatePitches,
   insist,
-  intervalSpace,
   pitchKey,
   taskId,
   wholeNoteScore,
-  windowFor,
   type AccidentalPolicy,
 } from './shared';
-import { multi, single, type FilterValues, type Generator, type Question } from './types';
+import { multi, single, type FilterSpec, type FilterValues, type Generator, type Question } from './types';
 
 /**
  * Vorzeichen bis ♭ ♯. Doppelvorzeichen gehören nicht zu den Grundlagen, und
  * das Raster hätte für sie keine Zeile.
  */
 const ACCIDENTALS = ACCIDENTAL_OPTIONS.filter((option) => option.value !== 'alle');
+
+type Clef = 'treble' | 'bass';
 
 /**
  * Tonname klein geschrieben («fis», «b», «h»): ohne Oktave gemeint. Gross
@@ -101,19 +116,132 @@ function noteNameField(correct: string[], names: string[]): SelectField {
   };
 }
 
-/** Die Namen, die auf der Klaviatur vorkommen: die der weissen Tasten oder alle. */
-function keyboardNames(whiteOnly: boolean): string[] {
-  return whiteOnly ? keysBetween(60, 71).filter(isWhiteKey).flatMap(keyNames) : KEY_NAMES;
+// ---------------------------------------------------------------------------
+// Tiefster und höchster Ton
+// ---------------------------------------------------------------------------
+
+/**
+ * Die Stammtöne, die ein Schieberegler anbietet, von `low` bis `high`
+ * (Tonangaben wie «c4»). Im Link stehen sie deutsch: «C», «c», «c1» —
+ * gezeigt als «C», «c», «c¹».
+ */
+function pitchScale(low: string, high: string): { pitches: Pitch[]; options: SelectOption[] } {
+  const pitches: Pitch[] = [];
+  for (let index = diatonicIndex(parsePitch(low)); index <= diatonicIndex(parsePitch(high)); index++) {
+    pitches.push(naturalAt(index));
+  }
+  const options = pitches.map((pitch) => {
+    const value = toGermanPitch(pitch);
+    return { value, label: superscriptOctave(value) };
+  });
+  return { pitches, options };
 }
 
-const ALL_KEYS = keysBetween(INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high);
+type PitchScale = ReturnType<typeof pitchScale>;
+
+/**
+ * Klaviatur: so weit die Klaviertöne reichen (public/samples, C bis c³).
+ * Auf dem Telefon werden die Tasten bei vier Oktaven schmal; wer das will,
+ * soll es dürfen.
+ */
+const KEYBOARD_SCALE = pitchScale('c2', 'c6');
+
+/**
+ * Notenbild: drei Hilfslinien über und unter das System, wie beim Setzen
+ * (LEDGER_STEPS in NotationInput.tsx). Im Bassschlüssel unten nur bis C:
+ * darunter begänne die Kontraoktave, und die braucht hier niemand.
+ */
+const STAFF_SCALES: Record<Clef, PitchScale> = {
+  treble: pitchScale('f3', 'e6'),
+  bass: pitchScale('c2', 'g4'),
+};
+
+/** Die Schlüssel, wie die Filter sie nennen. */
+const CLEF_WORDS: Record<Clef, string> = { treble: 'Violinschlüssel', bass: 'Bassschlüssel' };
+
+interface RangeKeys {
+  low: string;
+  high: string;
+}
+
+const KEYBOARD_KEYS: RangeKeys = { low: 'lowest', high: 'highest' };
+const STAFF_KEYS: Record<Clef, RangeKeys> = {
+  treble: { low: 'trebleLowest', high: 'trebleHighest' },
+  bass: { low: 'bassLowest', high: 'bassHighest' },
+};
+
+/** Vorgabe der Klaviatur: c bis h¹, wie bei den Intervallen. */
+const KEYBOARD_DEFAULTS = { lowest: 'c', highest: 'h1' };
+
+/**
+ * Vorgabe im Notenbild: das frühere «im System» — bis eine Hilfslinie unter
+ * bzw. zwei über das System, wo die Lesehilfe c¹ liegt.
+ */
+const STAFF_DEFAULTS = { trebleLowest: 'c1', trebleHighest: 'g2', bassLowest: 'G', bassHighest: 'd1' };
+
+/** Die zwei Schieberegler eines Umfangs. Der tiefste kann den höchsten nicht überholen. */
+function rangeFilters(
+  keys: RangeKeys,
+  scale: PitchScale,
+  where = '',
+  disabledBy?: (values: FilterValues) => string | null,
+): FilterSpec[] {
+  const lock = disabledBy ? { disabledBy } : {};
+  return [
+    { kind: 'single', key: keys.low, label: `Tiefster Ton${where}`, options: scale.options, slider: { notAbove: keys.high }, ...lock },
+    { kind: 'single', key: keys.high, label: `Höchster Ton${where}`, options: scale.options, slider: { notBelow: keys.low }, ...lock },
+  ];
+}
+
+/**
+ * Tiefster und höchster Ton aus den Filterwerten. Was sich nicht lesen lässt,
+ * fällt auf die Vorgabe zurück; vertauschte Werte (aus einem Link) werden
+ * wieder in Reihenfolge gebracht.
+ */
+function chosenRange(
+  values: FilterValues,
+  keys: RangeKeys,
+  scale: PitchScale,
+  defaults: Record<string, string>,
+): { low: Pitch; high: Pitch } {
+  const at = (key: string) => {
+    const index = scale.options.findIndex((entry) => entry.value === single(values, key, defaults[key]));
+    return index >= 0 ? index : scale.options.findIndex((entry) => entry.value === defaults[key]);
+  };
+  const [a, b] = [at(keys.low), at(keys.high)];
+  insist(a >= 0 && b >= 0, 'Vorgabe des Umfangs fehlt in der Auswahl');
+  return { low: scale.pitches[Math.min(a, b)], high: scale.pitches[Math.max(a, b)] };
+}
 
 // ---------------------------------------------------------------------------
-// Klaviatur: benennen
+// Klaviatur mit Umfang
+// ---------------------------------------------------------------------------
+
+/** Die Klaviatur, die die Einstellungen verlangen. Beide Enden sind Stammtöne, also weiss. */
+function chosenKeyboard(values: FilterValues): { low: number; high: number } {
+  const { low, high } = chosenRange(values, KEYBOARD_KEYS, KEYBOARD_SCALE, KEYBOARD_DEFAULTS);
+  return { low: midi(low), high: midi(high) };
+}
+
+/**
+ * Die Namen der Tasten von `low` bis `high`, ohne Doppelte, von unten nach
+ * oben. Was nicht auf der Klaviatur liegt, wird weder gefragt noch
+ * angeboten: eine Antwort, die nie richtig sein kann, prüft kein Wissen.
+ */
+function namesOn(keys: number[]): string[] {
+  return [...new Set(keys.flatMap(keyNames))];
+}
+
+const keyboardFilters = rangeFilters(KEYBOARD_KEYS, KEYBOARD_SCALE);
+
+// ---------------------------------------------------------------------------
+// Klaviatur: Tasten benennen
 // ---------------------------------------------------------------------------
 
 interface KeyNamingFilters extends FilterValues {
   keyColours: string;
+  lowest: string;
+  highest: string;
 }
 
 export const toeneKlaviaturBenennen: Generator<KeyNamingFilters> = {
@@ -121,19 +249,21 @@ export const toeneKlaviaturBenennen: Generator<KeyNamingFilters> = {
   topic: 'toene',
   skill: 'klaviatur',
   version: 1,
-  title: 'Töne auf Klaviatur benennen',
+  title: 'Tasten benennen',
   instruction: 'Wie heisst die markierte Taste?',
   hint:
     'Orientiere dich an den schwarzen Tasten: c liegt links neben den zwei schwarzen, f links neben den drei. ' +
     'Eine schwarze Taste hat zwei Namen; beide sind richtig.',
 
-  filters: [{ kind: 'single', key: 'keyColours', label: 'Tasten', options: KEY_COLOUR_OPTIONS }],
+  filters: [{ kind: 'single', key: 'keyColours', label: 'Tasten', options: KEY_COLOUR_OPTIONS }, ...keyboardFilters],
 
-  defaults: { keyColours: 'alle' },
+  defaults: { keyColours: 'alle', ...KEYBOARD_DEFAULTS },
 
   generate(values, rng: Rng): Question {
     const whiteOnly = single(values, 'keyColours', 'alle') === 'weiss';
-    const key = rng.pick(whiteOnly ? ALL_KEYS.filter(isWhiteKey) : ALL_KEYS);
+    const keyboard = chosenKeyboard(values);
+    const keys = keysBetween(keyboard.low, keyboard.high).filter((key) => !whiteOnly || isWhiteKey(key));
+    const key = rng.pick(keys);
     const names = keyNames(key);
 
     // Unabhängig nachgerechnet: jeder Name, als Ton gelesen, ist diese Taste.
@@ -142,19 +272,21 @@ export const toeneKlaviaturBenennen: Generator<KeyNamingFilters> = {
     const task: SelectTask = {
       id: taskId('tkb', rng),
       kind: 'select',
-      keyboard: { ...INTERVAL_KEYBOARD, marked: [key] },
-      fields: [noteNameField(names, keyboardNames(whiteOnly))],
+      keyboard: { ...keyboard, marked: [key] },
+      fields: [noteNameField(names, namesOn(keys))],
     };
     return { task };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Klaviatur: spielen
+// Klaviatur: Tonnamen spielen
 // ---------------------------------------------------------------------------
 
 interface KeyPlayingFilters extends FilterValues {
   accidentals: string;
+  lowest: string;
+  highest: string;
 }
 
 export const toeneKlaviaturSpielen: Generator<KeyPlayingFilters> = {
@@ -162,27 +294,29 @@ export const toeneKlaviaturSpielen: Generator<KeyPlayingFilters> = {
   topic: 'toene',
   skill: 'klaviatur',
   version: 1,
-  title: 'Töne auf Klaviatur spielen',
+  title: 'Tonnamen auf Klaviatur spielen',
   instruction: 'Tippe eine Taste des genannten Tons an.',
   hint: 'Jede Oktave zählt. Die angetippte Taste erklingt; mit «Prüfen» gibst du sie ab.',
 
-  filters: [{ kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS }],
+  filters: [{ kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS }, ...keyboardFilters],
 
-  defaults: { accidentals: 'einfach' },
+  defaults: { accidentals: 'einfach', ...KEYBOARD_DEFAULTS },
 
   generate(values, rng: Rng): Question {
     const whiteOnly = policyOf(values) === 'stammton';
-    const name = rng.pick(keyboardNames(whiteOnly));
-    const accept = keysNamed(name, INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high);
+    const keyboard = chosenKeyboard(values);
+    const keys = keysBetween(keyboard.low, keyboard.high).filter((key) => !whiteOnly || isWhiteKey(key));
+    const name = rng.pick(namesOn(keys));
+    const accept = keysNamed(name, keyboard.low, keyboard.high);
 
-    insist(accept.length >= 2, `«${name}» liegt nicht in beiden Oktaven`);
+    insist(accept.length > 0, `«${name}» liegt nicht auf der Klaviatur`);
     for (const key of accept) insist(keyIs(key, name), `Taste ${key} ist kein «${name}»`);
 
     const task: KeyboardTask = {
       id: taskId('tks', rng),
       kind: 'keyboard',
       prompt: name,
-      keyboard: { ...INTERVAL_KEYBOARD },
+      keyboard,
       accept,
       ...(whiteOnly ? { whiteOnly: true } : {}),
       sound: true,
@@ -194,58 +328,144 @@ export const toeneKlaviaturSpielen: Generator<KeyPlayingFilters> = {
 };
 
 // ---------------------------------------------------------------------------
+// Notenbild mit Umfang
+// ---------------------------------------------------------------------------
+
+function clefsOf(values: FilterValues): Clef[] {
+  const chosen = multi(values, 'clefs', ['treble']).filter((clef): clef is Clef => clef === 'treble' || clef === 'bass');
+  return chosen.length > 0 ? chosen : ['treble'];
+}
+
+/** Die vier Schieberegler; die eines Schlüssels, der nicht gewählt ist, sind gesperrt. */
+const staffFilters: FilterSpec[] = (['treble', 'bass'] as const).flatMap((clef) =>
+  rangeFilters(STAFF_KEYS[clef], STAFF_SCALES[clef], ` im ${CLEF_WORDS[clef]}`, (values) =>
+    clefsOf(values).includes(clef) ? null : `Nur mit ${CLEF_WORDS[clef]}.`,
+  ),
+);
+
+function staffRange(values: FilterValues, clef: Clef): { low: Pitch; high: Pitch } {
+  return chosenRange(values, STAFF_KEYS[clef], STAFF_SCALES[clef], STAFF_DEFAULTS);
+}
+
+/** Jede Note, die zwischen den beiden Stellen im System steht, mit den erlaubten Vorzeichen. */
+function writtenBetween(low: Pitch, high: Pitch, alters: number[]): Pitch[] {
+  const out: Pitch[] = [];
+  for (let index = diatonicIndex(low); index <= diatonicIndex(high); index++) {
+    for (const alter of alters) out.push({ ...naturalAt(index), alter });
+  }
+  return out;
+}
+
+/** Äusserste Notenlinien je Schlüssel. */
+const STAFF_LINES: Record<Clef, { bottom: Pitch; top: Pitch }> = {
+  treble: { bottom: parsePitch('e4'), top: parsePitch('f5') },
+  bass: { bottom: parsePitch('g2'), top: parsePitch('a3') },
+};
+
+/**
+ * Wie weit Schlüssel und Noten über und unter das System reichen, in px bei
+ * Linienabstand 10. Gemessen an den gezeichneten Pixeln (Stand 2026-11):
+ * ein Notenkopf reicht 5 über und unter seine Mitte, ein ♭ 18 darüber, ein ♯
+ * 14 darunter. Eine Stufe im System sind 5. Der Bassschlüssel bleibt im
+ * System; 1 deckt die Strichstärke der äussersten Linien.
+ */
+const CLEF_REACH: Record<Clef, { above: number; below: number }> = {
+  treble: { above: 14, below: 16 },
+  bass: { above: 1, below: 1 },
+};
+const HEAD = 5;
+const FLAT_ABOVE = 18;
+const SHARP_BELOW = 14;
+
+/**
+ * Platz über und unter dem System: so viel, wie der tiefste und der höchste
+ * Ton der gewählten Schlüssel brauchen, plus 1 Luft. Fest je Einstellung
+ * statt je Aufgabe, damit das System nicht von Aufgabe zu Aufgabe springt;
+ * aber nicht mehr als nötig, denn leerer Platz ist verlorene Grösse.
+ */
+function noteSpace(values: FilterValues, clefs: Clef[], policy: AccidentalPolicy): NonNullable<ScoreSpec['space']> {
+  const accidentals = policy !== 'stammton';
+  const reach = clefs.map((clef) => {
+    const { low, high } = staffRange(values, clef);
+    const stepsAbove = diatonicIndex(high) - diatonicIndex(STAFF_LINES[clef].top);
+    const stepsBelow = diatonicIndex(STAFF_LINES[clef].bottom) - diatonicIndex(low);
+    return {
+      above: Math.max(CLEF_REACH[clef].above, stepsAbove * 5 + (accidentals ? FLAT_ABOVE : HEAD)),
+      below: Math.max(CLEF_REACH[clef].below, stepsBelow * 5 + (accidentals ? SHARP_BELOW : HEAD)),
+    };
+  });
+  return {
+    above: Math.max(...reach.map((entry) => entry.above)) + 1,
+    below: Math.max(...reach.map((entry) => entry.below)) + 1,
+  };
+}
+
+/**
+ * Eine Note im gewählten Umfang, mit ihrem Namen — nachgerechnet: der Name,
+ * wieder als Ton gelesen, ist dieselbe Note.
+ */
+function pickStaffNote(
+  values: FilterValues,
+  rng: Rng,
+): { clef: Clef; clefs: Clef[]; policy: AccidentalPolicy; pitch: Pitch; name: string } {
+  const policy = policyOf(values);
+  const clefs = clefsOf(values);
+  const clef = rng.pick(clefs);
+  const { low, high } = staffRange(values, clef);
+  const pitches = writtenBetween(low, high, altersFor(policy));
+  insist(pitches.length > 0, 'keine Töne in diesem Umfang');
+  const pitch = rng.pick(pitches);
+
+  const name = nameOf(pitch.step, pitch.alter);
+  const back = pitchOfName(name, pitch.octave);
+  insist(
+    back.step === pitch.step && back.alter === pitch.alter && midi(back) === midi(pitch),
+    `${pitchKey(pitch)} heisst nicht «${name}»`,
+  );
+  return { clef, clefs, policy, pitch, name };
+}
+
+const staffNoteFilters: FilterSpec[] = [
+  { kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS },
+  { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
+  ...staffFilters,
+];
+
+interface StaffNoteFilters extends FilterValues {
+  accidentals: string;
+  clefs: string[];
+  trebleLowest: string;
+  trebleHighest: string;
+  bassLowest: string;
+  bassHighest: string;
+}
+
+const STAFF_NOTE_DEFAULTS: StaffNoteFilters = { accidentals: 'einfach', clefs: ['treble'], ...STAFF_DEFAULTS };
+
+// ---------------------------------------------------------------------------
 // Notenbild: benennen
 // ---------------------------------------------------------------------------
 
-interface NoteNamingFilters extends FilterValues {
-  accidentals: string;
-  clefs: string[];
-  width: string;
-}
-
-export const notenBenennen: Generator<NoteNamingFilters> = {
+export const notenBenennen: Generator<StaffNoteFilters> = {
   id: 'noten-benennen',
   topic: 'toene',
   skill: 'erkennen',
-  version: 1,
+  // 2: tiefster und höchster Ton statt «Lage»; gewürfelt wird nach der Stelle im System.
+  version: 2,
   title: 'Noten benennen',
   instruction: 'Wie heisst die Note?',
   hint: 'Gefragt ist nur der Name, nicht die Oktave. Das Vorzeichen gehört zum Namen: fis, nicht f.',
 
-  filters: [
-    { kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS },
-    { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
-    { kind: 'single', key: 'width', label: 'Lage', options: WIDTH_OPTIONS },
-  ],
+  filters: staffNoteFilters,
 
-  defaults: { accidentals: 'einfach', clefs: ['treble'], width: 'eng' },
+  defaults: STAFF_NOTE_DEFAULTS,
 
   generate(values, rng: Rng): Question {
-    const policy = policyOf(values);
-    const clefs = multi(values, 'clefs', this.defaults.clefs);
-    const width = single(values, 'width', 'eng');
-
-    const clef = rng.pick(clefs) as 'treble' | 'bass';
-    const pitches = candidatePitches(windowFor(clef, width), altersFor(policy));
-    insist(pitches.length > 0, 'keine Töne in dieser Lage');
-    const pitch = rng.pick(pitches);
-
-    const name = nameOf(pitch.step, pitch.alter);
-    const back = pitchOfName(name, pitch.octave);
-    insist(
-      back.step === pitch.step && back.alter === pitch.alter && midi(back) === midi(pitch),
-      `${pitchKey(pitch)} heisst nicht «${name}»`,
-    );
-
+    const { clef, clefs, policy, pitch, name } = pickStaffNote(values, rng);
     const task: SelectTask = {
       id: taskId('nb', rng),
       kind: 'select',
-      // Platz um das System wie bei der Intervallbestimmung: fest je
-      // Einstellung, damit es nicht von Aufgabe zu Aufgabe springt.
-      score: wholeNoteScore([pitchKey(pitch)], clef, {
-        width: 110,
-        space: intervalSpace(clefs, width, policy),
-      }),
+      score: wholeNoteScore([pitchKey(pitch)], clef, { width: 110, space: noteSpace(values, clefs, policy) }),
       fields: [noteNameField([name], staffNames(policy).map((candidate) => candidate.name))],
     };
     return { task };
@@ -257,17 +477,13 @@ export const notenBenennen: Generator<NoteNamingFilters> = {
 // ---------------------------------------------------------------------------
 
 /**
- * Äusserste Notenlinien je Schlüssel, und wie weit das Eingabe-Widget
- * darüber hinaus setzen lässt (LEDGER_STEPS in NotationInput.tsx).
+ * Wie weit das Eingabe-Widget über die äussersten Linien hinaus setzen lässt
+ * (LEDGER_STEPS in NotationInput.tsx).
  */
-const STAFF_LINES: Record<'treble' | 'bass', { bottom: Pitch; top: Pitch }> = {
-  treble: { bottom: parsePitch('e4'), top: parsePitch('f5') },
-  bass: { bottom: parsePitch('g2'), top: parsePitch('a3') },
-};
 const INPUT_LEDGER_STEPS = 6;
 
 /** Der Ton in jeder Oktave, die sich im System setzen lässt. */
-function settableOctaves(step: Step, alter: number, clef: 'treble' | 'bass'): Pitch[] {
+function settableOctaves(step: Step, alter: number, clef: Clef): Pitch[] {
   const lowest = diatonicIndex(STAFF_LINES[clef].bottom) - INPUT_LEDGER_STEPS;
   const highest = diatonicIndex(STAFF_LINES[clef].top) + INPUT_LEDGER_STEPS;
   const out: Pitch[] = [];
@@ -302,7 +518,7 @@ export const notenSchreiben: Generator<NoteWritingFilters> = {
   generate(values, rng: Rng): Question {
     const policy = policyOf(values);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
-    const clef = rng.pick(clefs) as 'treble' | 'bass';
+    const clef = rng.pick(clefs) as Clef;
 
     const { name, step, alter } = rng.pick(staffNames(policy));
     const accept = settableOctaves(step, alter, clef);
@@ -335,5 +551,50 @@ export const notenSchreiben: Generator<NoteWritingFilters> = {
           ? 'Jede Oktave zählt. Tippe die Stelle im System an oder ziehe dorthin.'
           : undefined,
     };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Notenbild auf der Klaviatur spielen
+// ---------------------------------------------------------------------------
+
+/** Die Klaviatur zum Spielen: c bis h¹, jeder Ton liegt zweimal darauf. */
+const PLAYING_KEYS = keysBetween(INTERVAL_KEYBOARD.low, INTERVAL_KEYBOARD.high);
+
+export const notenKlaviaturSpielen: Generator<StaffNoteFilters> = {
+  id: 'noten-klaviatur-spielen',
+  topic: 'toene',
+  skill: 'klaviatur',
+  version: 1,
+  title: 'Noten auf Klaviatur spielen',
+  instruction: 'Tippe eine Taste der Note an.',
+  hint: 'Jede Oktave zählt. Die angetippte Taste erklingt; mit «Prüfen» gibst du sie ab.',
+
+  filters: staffNoteFilters,
+
+  defaults: STAFF_NOTE_DEFAULTS,
+
+  generate(values, rng: Rng): Question {
+    const { clef, clefs, policy, pitch, name } = pickStaffNote(values, rng);
+    // Fes ist die Taste e: gesucht ist der Klang, nicht die Schreibweise.
+    const accept = PLAYING_KEYS.filter((key) => keyIs(key, name));
+    insist(accept.length >= 2, `«${name}» liegt nicht in beiden Oktaven`);
+    for (const key of accept) insist((midi(pitch) - key) % 12 === 0, `Taste ${key} ist kein ${pitchKey(pitch)}`);
+
+    const whiteOnly = policy === 'stammton';
+    const task: KeyboardTask = {
+      id: taskId('nks', rng),
+      kind: 'keyboard',
+      // Wie bei «Noten benennen»; die Klaviatur darunter behält ihren
+      // Mindestplatz (KeyboardTaskView).
+      score: wholeNoteScore([pitchKey(pitch)], clef, { width: 110, space: noteSpace(values, clefs, policy) }),
+      keyboard: { ...INTERVAL_KEYBOARD },
+      accept,
+      ...(whiteOnly ? { whiteOnly: true } : {}),
+      sound: true,
+      describe: { by: 'name' },
+      points: 2,
+    };
+    return { task };
   },
 };
