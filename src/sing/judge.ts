@@ -133,6 +133,17 @@ export interface SequenceGoal {
   targets: number[];
   /** So weit darf ein Ton danebenliegen (Cent). */
   tolerance: number;
+  /**
+   * Der letzte Ton ist frei (die Oktave am Ende einer Tonleiter): Ton für Ton
+   * ist die Folge mit dem vorletzten zu Ende, im Tempo darf der letzte Schlag
+   * stumm bleiben.
+   */
+  optionalLast?: boolean;
+}
+
+/** Wie viele Töne der Folge gesungen sein müssen. */
+export function requiredTones(goal: SequenceGoal): number {
+  return goal.optionalLast ? goal.targets.length - 1 : goal.targets.length;
 }
 
 /** Wie ein gehaltener Ton in der Folge zählt. */
@@ -205,7 +216,7 @@ export function judgeSequence(goal: SequenceGoal, notes: readonly number[]): Seq
       roles.push('right');
       right.push({ step: at, index, note, verdict });
       at++;
-      done = at === goal.targets.length;
+      done = at >= requiredTones(goal);
       return;
     }
     roles.push('wrong');
@@ -268,6 +279,11 @@ export function judgeTimed(
   const wrong: SequenceVerdict['wrong'] = [];
   const missing: number[] = [];
   beats.slice(0, goal.targets.length).forEach((note, step) => {
+    if (note === null && step >= requiredTones(goal)) {
+      // Der freie letzte Ton, nicht gesungen: zählt nicht.
+      roles.push('after');
+      return;
+    }
     if (note === null) {
       roles.push('missing');
       missing.push(step);

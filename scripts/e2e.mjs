@@ -1480,6 +1480,53 @@ async function main() {
       `die Startseite listet die Kurse mit Fortschritt (${courseRows.join(' | ').replace(/\n/g, ' ')})`,
     );
 
+    // ------------------------------------------------- Tonleitern und Tonarten
+    console.log('\nTonleitern und Tonarten');
+    // Tonleiter notieren: gezogen wird irgendwo im System (hier ganz links,
+    // beim Schlüssel), gesetzt in den aktiven Platz, der danach weiterrückt.
+    // C-Dur ohne die Oktave am Ende ist richtig.
+    await page.goto(exercise('tonleitern-notieren', '?tonleitern=dur&max-vorzeichen=0'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.slot-button.is-active');
+    check((await page.locator('.slot-button.is-active').innerText()) === '2', 'Tonleiter notieren: Platz 2 ist zuerst aktiv');
+    const stave = await page.locator('.score-click-area svg .vf-stave').first().boundingBox();
+    const halfSpace = stave.height / 8;
+    for (let step = 0; step < 6; step++) {
+      await page.mouse.click(stave.x + 15, stave.y + stave.height + halfSpace - step * halfSpace);
+      await page.waitForTimeout(80);
+    }
+    check(
+      /d1, e1, f1, g1, a1, h1/.test(await page.locator('.input-summary').innerText()) &&
+        (await page.locator('.slot-button.is-active').innerText()) === '8',
+      `neben den Noten gezogen, landet jeder Ton im aktiven Platz, der weiterrückt («${await page.locator('.input-summary').innerText()}»)`,
+    );
+    await page.locator('.slot-button', { hasText: '3' }).click();
+    check((await page.locator('.slot-button.is-active').innerText()) === '3', 'eine Nummer antippen wählt den Platz');
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Richtig' && (await page.locator('.score-solution').count()) === 0,
+      'ohne die Oktave am Ende: Richtig',
+    );
+    await page.screenshot({ path: join(SHOTS, 'tonleitern-notieren-plaetze.png') });
+
+    // Vorzeichen setzen: das fis im untersten Zwischenraum ist richtig, aber
+    // üblich steht es oben. Bernsteinfarben daneben, mit einer Zeile.
+    await page.goto(exercise('vorzeichen-setzen', '?max-vorzeichen=1&art=kreuz'), { waitUntil: 'networkidle' });
+    await page.waitForSelector('.notation-input .score svg');
+    const keyStave = await page.locator('.score-click-area svg .vf-stave').first().boundingBox();
+    await page.mouse.click(keyStave.x + keyStave.width * 0.35, keyStave.y + keyStave.height - keyStave.height / 8);
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    // VexFlow zeichnet nach dem Prüfen neu — darauf warten.
+    const amber = await eventually(page, () => document.querySelector('.score-click-area svg')?.outerHTML.includes('#e09a00'));
+    check(
+      (await page.locator('.verdict-text').innerText()) === 'Richtig' &&
+        (await page.locator('.input-summary.is-usual').innerText()) === 'Andere Platzierung üblich' &&
+        amber,
+      'Vorzeichen in anderer Oktave: Richtig, die übliche Platzierung bernsteinfarben daneben',
+    );
+    await page.screenshot({ path: join(SHOTS, 'vorzeichen-andere-oktave.png') });
+
     // ------------------------------------------------------------------- Fehler
     console.log('\nSauberkeit');
     // Der Abbruch einer laufenden Wiedergabe meldet sich als AbortError; das

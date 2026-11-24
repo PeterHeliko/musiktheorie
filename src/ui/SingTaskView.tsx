@@ -47,6 +47,7 @@ import {
   judgeSung,
   judgeTimed,
   beatPitch,
+  requiredTones,
   type TimedFrame,
   rolesOf,
   type SequenceGoal,
@@ -104,7 +105,12 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const sequence = useMemo(() => task.sequence?.map(parsePitch) ?? null, [task]);
   const sequenceGoal = useMemo<SequenceGoal | null>(
     () =>
-      sequence && { reference: midi(reference), targets: sequence.map(midi), tolerance: task.tolerance },
+      sequence && {
+        reference: midi(reference),
+        targets: sequence.map(midi),
+        tolerance: task.tolerance,
+        optionalLast: task.optionalLast,
+      },
     [task],
   );
   /** Wie weit die Folge ist: richtig und falsch gesungene Töne. */
@@ -362,8 +368,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
         ? ''
         : sequence && tempo
           ? tempoStatus(clock, sequence.length)
-          : sequence
-            ? sequenceStatus(progress, sequence.length)
+          : sequence && sequenceGoal
+            ? sequenceStatus(progress, requiredTones(sequenceGoal))
           : heardReference
             ? 'Ausgangston erkannt.'
             : 'Jetzt singen.';
@@ -484,12 +490,12 @@ function tempoStatus(clock: number | null, length: number): string {
   return `Ton ${Math.min(clock + 1, length)} von ${length}`;
 }
 
-/** Die Zeile unter der Kurve während einer Tonfolge. */
+/** Die Zeile unter der Kurve während einer Tonfolge; `length` = so viele Töne sind verlangt. */
 function sequenceStatus(progress: SequenceVerdict | null, length: number): string {
   if (!progress) return 'Jetzt singen.';
   const after = progress.right.filter((entry) => entry.step > 0).length;
   const lastWrong = progress.roles[progress.roles.length - 1] === 'wrong';
-  if (lastWrong) return `${after} von ${length - 1} Tönen gesungen — der letzte war daneben, versuch ihn noch einmal.`;
+  if (lastWrong) return `${after} von ${length - 1} Tönen gesungen. Der letzte war daneben, versuch ihn noch einmal.`;
   if (after > 0) return `${after} von ${length - 1} Tönen gesungen.`;
   return progress.right.some((entry) => entry.step === 0) ? 'Ausgangston erkannt.' : 'Jetzt singen.';
 }

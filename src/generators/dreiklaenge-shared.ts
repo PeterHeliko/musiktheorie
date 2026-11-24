@@ -595,7 +595,7 @@ export function metronomeOf(values: FilterValues): number | undefined {
 /** Die Anweisung, mit Metronom ergänzt: dort zählt auch der erste Ton. */
 export function withTempo(task: SingTask, instruction: string): string {
   return task.tempo
-    ? `${instruction} Mit Metronom: nach dem ersten Ton wird eingezählt, dann singst du auf jeden Schlag einen Ton — auch den ersten. Die Zeit wartet nicht.`
+    ? `${instruction} Mit Metronom: nach dem ersten Ton wird eingezählt, dann singst du auf jeden Schlag einen Ton, auch den ersten. Die Zeit wartet nicht.`
     : instruction;
 }
 

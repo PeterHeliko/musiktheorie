@@ -29,6 +29,10 @@
   --bad: #b3261e;
   --bad-soft: #fdecea;
   --warn-soft: #fff6e0;
+  /* Bernstein: richtig, aber anders üblich (Vorzeichen setzen). Wie beim Grün
+     die Fläche bzw. das Zeichen hell, die Schrift auf Weiss dunkler (6:1). */
+  --warn: #e09a00;
+  --warn-ink: #8a5300;
   --radius: 8px;
   --focus: 0 0 0 3px rgba(29, 111, 165, 0.35);
 }
@@ -623,6 +627,11 @@ button:focus-visible {
   margin: 0;
   font-size: 0.85rem;
   color: var(--ink-soft);
+}
+
+.input-summary.is-usual {
+  color: var(--warn-ink);
+  font-weight: 600;
 }
 
 /* Umschalter zwischen Eingeben und Bearbeiten. */

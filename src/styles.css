@@ -296,6 +296,45 @@
   padding: 0;
 }
 
+/* Ein Eingabe-System mit `fit` (Tonleiter notieren), das schmaler als die
+   Spalte wird (quer): mittig wie die Aufgabe darüber. */
+.score-click-area .score-fit svg,
+.score-solution .score-fit svg {
+  margin-inline: auto;
+}
+
+/* Tonleiter notieren: die Nummern der Plätze unter dem System, je unter
+   ihrem Platz (NotationInput.tsx misst die Lage). Der aktive ist blau: in ihn
+   setzt das nächste Ziehen, wo im System es auch ist. */
+.slot-row {
+  position: relative;
+  height: 38px;
+  margin: 2px 0 6px;
+}
+
+.slot-button {
+  position: absolute;
+  top: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.slot-button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
 /*
  * Vorzeichen aus Bravura. Wie bei den Notenzeichen (styles-base.css) liegt
  * die Grundlinie dank `line-height: 0` in der Kastenmitte; ♮ und ♯ sind um

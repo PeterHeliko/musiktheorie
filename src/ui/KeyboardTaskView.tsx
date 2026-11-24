@@ -27,7 +27,7 @@ import { player, samplesFor } from '../audio/player';
 import type { KeyboardTask } from '../content/schema';
 import { chordExamples, isWhiteKey, keysBetween } from '../music/piano';
 import { midi, parsePitch } from '../music/theory';
-import { judgeChordKeys, type KeyboardAnswer } from '../scoring';
+import { judgeChordKeys, scaleKeysCorrect, type KeyboardAnswer } from '../scoring';
 import { pitchFromMidi } from '../sing/notes';
 import { useExam } from '../state';
 import { PianoKeyboard, type KeyState } from './PianoKeyboard';
@@ -63,8 +63,9 @@ export function KeyboardTaskView({
   const states: Record<number, KeyState> = {};
   if (revealed && task.scale) {
     // Eine Tonleiter: jede getippte Taste grün oder rot, jede fehlende grün
-    // umrandet.
-    for (const key of task.accept) states[key] = 'solution';
+    // umrandet — die freie Oktave nur, wenn sonst etwas nicht stimmte.
+    const right = scaleKeysCorrect(task, chosen);
+    for (const key of task.accept) if (!right || !(task.optional ?? []).includes(key)) states[key] = 'solution';
     for (const key of chosen) states[key] = task.accept.includes(key) ? 'right' : 'wrong';
   } else if (revealed && task.chord) {
     // Ein Akkord: jede gespielte Taste grün oder rot; war er falsch, steht

@@ -25,6 +25,7 @@ import { nameFromMidi, pitchFromMidi } from '../sing/notes';
 import {
   DURATION_LABELS,
   germanNoteName,
+  keySignaturePitches,
   keySignatureSteps,
   midi,
   parsePitch,
@@ -70,13 +71,23 @@ export type MarkAnswer = number[];
  * `marks` sagt für jedes gesetzte Zeichen, in der Reihenfolge des Setzens, ob
  * es an seiner Stelle der richtige Stammton ist — so färbt die Ansicht nach
  * dem Prüfen jedes Zeichen grün oder rot. Ganz richtig ist der Satz, wenn
- * dazu keines fehlt und keines zu viel ist.
+ * dazu keines fehlt und keines zu viel ist. `unusual`: richtig, aber nicht
+ * alle in der üblichen Oktave (`keySignaturePitches`).
  */
-export function judgeKeySignature(accidentals: number, value: KeysigAnswer): { correct: boolean; marks: boolean[] } {
+export function judgeKeySignature(
+  accidentals: number,
+  value: KeysigAnswer,
+  clef: 'treble' | 'bass' = 'treble',
+): { correct: boolean; marks: boolean[]; unusual: boolean } {
   const { steps, sign } = keySignatureSteps(accidentals);
   const signRight = accidentals === 0 || value.sign === sign;
   const marks = value.placed.map((placed, index) => signRight && placed.s === steps[index]);
-  return { correct: value.placed.length === steps.length && marks.every(Boolean), marks };
+  const correct = value.placed.length === steps.length && marks.every(Boolean);
+  // Richtig, aber nicht an den üblichen Stellen: zählt, verdient aber einen
+  // Hinweis (Entscheid 2026-11-24).
+  const usual = keySignaturePitches(accidentals, clef);
+  const unusual = correct && value.placed.some((placed, index) => placed.o !== usual[index].octave);
+  return { correct, marks, unusual };
 }
 /** Ein frei gesetzter Akkord: Töne im oberen (bzw. einzigen) und im unteren System. */
 export interface ChordAnswer {
@@ -193,6 +204,8 @@ export function pitchSlotCorrect(slot: PitchSlotSolution, notes: InputNote[]): b
     const wanted = [...accepted].sort((a, b) => midi(a) - midi(b));
     return givenPitches.length === wanted.length && givenPitches.every((p, i) => samePitch(p, wanted[i]));
   }
+  // Leer gelassen, wo das erlaubt ist (die Oktave am Ende einer Tonleiter).
+  if (slot.optional && notes.length === 0) return true;
   // Genau ein Ton, der einer der zulässigen Varianten entspricht.
   return notes.length === 1 && accepted.some((p) => samePitch(p, toPitch(notes[0])));
 }
@@ -205,17 +218,21 @@ function scoreNotation(task: NotationTask, answer: NotationAnswer | undefined): 
   switch (solution.type) {
     case 'pitch': {
       const placed = (given as PitchAnswer | undefined) ?? {};
-      const perSlot = task.points / solution.slots.length;
+      // Die Punkte teilen sich die verlangten Plätze. Ein freier Platz (die
+      // Oktave am Ende einer Tonleiter) zählt erst mit, wenn dort etwas
+      // steht — leer bringt er weder Punkte noch Abzug.
+      const perSlot = task.points / Math.max(1, solution.slots.filter((slot) => !slot.optional).length);
       return solution.slots.map((slot) => {
         const notes = placed[String(slot.slot)] ?? [];
         const accepted = slot.accept.map(parsePitch);
         const correct = pitchSlotCorrect(slot, notes);
+        const possible = slot.optional && notes.length === 0 ? 0 : perSlot;
 
         return {
           id: `${id}_s${slot.slot}`,
           label: task.prompt ?? 'Noteneingabe',
-          earned: correct ? perSlot : 0,
-          possible: perSlot,
+          earned: correct ? possible : 0,
+          possible,
           studentResponse: notes.length ? notes.map((n) => toGermanPitch(toPitch(n))).join(' ') : '—',
           correctResponse: slot.chord
             ? accepted.map(toGermanPitch).join(' ')
@@ -418,7 +435,12 @@ function describeSung(name: string, cents: number | null): string {
  */
 function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswer | undefined): Detail[] {
   const targets = sequence.map(parsePitch);
-  const goal = { reference: midi(parsePitch(task.reference)), targets: targets.map(midi), tolerance: task.tolerance };
+  const goal = {
+    reference: midi(parsePitch(task.reference)),
+    targets: targets.map(midi),
+    tolerance: task.tolerance,
+    optionalLast: task.optionalLast,
+  };
   const timed = task.tempo !== undefined;
   const verdict = timed ? judgeTimed(goal, answer?.beats ?? []) : judgeSequence(goal, answer?.notes ?? []);
   // In der gesungenen Reihenfolge: richtige Töne heissen wie notiert, in der
@@ -525,6 +547,16 @@ function sameKeys(a: readonly number[], b: readonly number[]): boolean {
   return a.length === b.length && sorted(a) === sorted(b);
 }
 
+/**
+ * Eine Tonleiter auf der Klaviatur: genau die Tasten aus `accept`, die
+ * freigestellten (`optional`, die Oktave) dürfen fehlen.
+ */
+export function scaleKeysCorrect(task: KeyboardTask, keys: readonly number[]): boolean {
+  const required = task.accept.filter((key) => !(task.optional ?? []).includes(key));
+  const extra = keys.filter((key) => !required.includes(key));
+  return sameKeys(keys.filter((key) => required.includes(key)), required) && extra.every((key) => task.accept.includes(key));
+}
+
 function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): Detail[] {
   const keys = answer?.keys ?? [];
   if (task.chord) {
@@ -543,7 +575,7 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
     ];
   }
   if (task.scale) {
-    const correct = sameKeys(keys, task.accept);
+    const correct = scaleKeysCorrect(task, keys);
     return [
       {
         id: `${task.id}_tonleiter`,

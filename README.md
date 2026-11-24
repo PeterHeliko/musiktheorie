@@ -193,8 +193,10 @@ wiederholen). Rückgängig gilt für jede Änderung, auch fürs Löschen, und en
 Zeichen mit), gesetzt wird beim Loslassen, dieselbe Stelle noch einmal nimmt ein Zeichen weg.
 Nach dem Prüfen ist jedes Zeichen grün oder rot — richtig ist es, wenn es an seiner Stelle in
 der Reihenfolge der richtige Stammton ist, die Oktave zählt nicht. War der Satz falsch, steht
-der richtige grün daneben (`keySignaturePitches`). Ohne Vorzeichen (C-Dur, a-Moll) lässt sich
-das leere System gleich prüfen.
+der richtige grün daneben (`keySignaturePitches`). Stimmt der Satz, steht aber nicht ganz an
+den üblichen Stellen (eine andere Oktave), bleibt es «Richtig»; die übliche Platzierung steht
+dann bernsteinfarben daneben, darunter «Andere Platzierung üblich». Ohne Vorzeichen (C-Dur,
+a-Moll) lässt sich das leere System gleich prüfen.
 
 ### Akkorde setzen
 
@@ -303,8 +305,17 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
 
 - **Tonleitern notieren:** der Grundton steht da (abwärts der obere), die übrigen sieben Töne
   werden gesetzt, jeder an seinem Platz — Vorzeichen vor den Noten, ohne Tonartvorzeichen.
-  Jeder Ton zählt einzeln. Nach dem Prüfen sind die eigenen Töne grün oder rot, und war nicht
-  alles richtig, steht die ganze Leiter grün in einem zweiten System darunter, Ton unter Ton.
+  Ein Platz ist aktiv (seine Nummer unter dem System blau): gezogen wird irgendwo im System,
+  gesetzt in den aktiven Platz. So lässt sich neben der Note ziehen, und der Finger verdeckt sie
+  nicht. Danach rückt er zum nächsten leeren; die Nummern wählen ihn von Hand, ♭ ♮ ♯ ändern den
+  Ton darin (Tastatur: ← → wechseln den Platz). Jeder Ton zählt einzeln. Nach dem Prüfen sind
+  die eigenen Töne grün oder rot, und war nicht alles richtig, steht die ganze Leiter grün in
+  einem zweiten System darunter, Ton unter Ton. Quer passt sich das System der Höhe an
+  (`fit` mit `minScale`: kleiner nicht, sonst trifft man keine Linie).
+- **Die Oktave am Ende ist freigestellt** (Entscheid 2026-11-24) beim Notieren (der letzte
+  Platz darf leer bleiben, `PitchSlotSolution.optional`), auf der Klaviatur
+  (`KeyboardTask.optional`) und beim Singen (nach dem siebten Ton ist Schluss; im Tempo darf
+  der achte Schlag stumm bleiben, `SingTask.optionalLast`). Steht sie da, muss sie stimmen.
 - **Tonleitern auf Klaviatur markieren** (`KeyboardTask.scale`): der Grundton ist blau, die
   übrigen Töne bis zur Oktave werden angetippt (dazu oder weg, sie klingen); den Grundton
   tippt man nicht an. Richtig ist genau diese Menge, die Reihenfolge zählt nicht. Nach dem

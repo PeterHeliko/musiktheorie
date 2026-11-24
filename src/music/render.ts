@@ -147,7 +147,7 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlter
     const glyphNote = new GlyphNote(ACCIDENTAL_GLYPHS[spec.glyph], { duration: spec.duration }, { line });
     if (spec.preview) glyphNote.setStyle(PREVIEW_STYLE);
     if (spec.mark) {
-      const colour = spec.mark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR;
+      const colour = markColour(spec.mark);
       glyphNote.setStyle({ fillStyle: colour, strokeStyle: colour });
     }
     return glyphNote;
@@ -230,15 +230,20 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlter
     note.setStyle(PREVIEW_STYLE);
   }
   if (spec.mark) {
-    const colour = spec.mark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR;
+    const colour = markColour(spec.mark);
     note.setStyle({ fillStyle: colour, strokeStyle: colour });
   }
   return note;
 }
 
-/** Rückmeldung nach dem Prüfen — dieselben Farben wie --good / --bad. */
+/** Rückmeldung nach dem Prüfen — dieselben Farben wie --good / --bad / --warn. */
 export const CORRECT_COLOUR = '#00d903';
 export const WRONG_COLOUR = '#b3261e';
+export const USUAL_COLOUR = '#e09a00';
+
+function markColour(mark: NonNullable<NoteSpec['mark']>): string {
+  return mark === 'correct' ? CORRECT_COLOUR : mark === 'usual' ? USUAL_COLOUR : WRONG_COLOUR;
+}
 
 /** Farbe für vorgegebene Töne, die der Prüfling nicht ändern darf. */
 export const HIGHLIGHT_COLOUR = '#1d6fa5';
@@ -457,8 +462,14 @@ export function noteHeadCentre(note: DrawnNote): number {
   if (typeof candidate.getNoteHeadBeginX === 'function' && typeof candidate.getNoteHeadEndX === 'function') {
     return (candidate.getNoteHeadBeginX() + candidate.getNoteHeadEndX()) / 2;
   }
-  return note.getAbsoluteX();
+  // Eine Leerstelle (GhostNote) hat keinen Kopf: ihre Lage ist der linke
+  // Rand, wo ein Kopf beginnen würde. Die Mitte eines ganzen Kopfs liegt eine
+  // halbe Kopfbreite weiter.
+  return note.getAbsoluteX() + WHOLE_HEAD_WIDTH / 2;
 }
+
+/** Breite eines Ganzen-Notenkopfs in Zeicheneinheiten (Bravura, Linienabstand 10). */
+const WHOLE_HEAD_WIDTH = 16;
 
 /**
  * Wandelt ein Pointer-Ereignis in Koordinaten des SVG-Systems um. Nötig, weil

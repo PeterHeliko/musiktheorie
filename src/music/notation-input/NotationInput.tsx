@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { RefObject } from 'preact';
-import type { MeasureSpec, NotationTask, NoteSpec, ScoreSpec } from '../../content/schema';
+import type { MeasureSpec, NotationTask, NoteSpec, PitchSlotSolution, ScoreSpec } from '../../content/schema';
 import { useExam } from '../../state';
 import { Score } from '../../ui/Score';
 import {
@@ -481,6 +481,32 @@ function solutionNote(
   return { keys: [nearest], duration: 'w', mark: 'correct' };
 }
 
+/** Der aktive Platz: der gewählte, sonst der erste leere, sonst der erste. */
+function pickActive(slots: PitchSlotSolution[], placed: PitchAnswer, active: number | null): PitchSlotSolution {
+  return (
+    slots.find((slot) => slot.slot === active) ??
+    slots.find((slot) => !(placed[String(slot.slot)] ?? []).length) ??
+    slots[0]
+  );
+}
+
+/** Der nächste leere Platz nach `after`, sonst der erste leere davor; null, wenn alle stehen. */
+function nextEmpty(slots: PitchSlotSolution[], placed: PitchAnswer, after: number): number | null {
+  const empty = slots.filter((slot) => !(placed[String(slot.slot)] ?? []).length).map((slot) => slot.slot);
+  return empty.find((slot) => slot > after) ?? empty[0] ?? null;
+}
+
+/** Der nächste Ton vor diesem Platz: gesetzt oder vorgegeben. */
+function previousNote(task: NotationTask, slots: PitchSlotSolution[], placed: PitchAnswer, slot: number): Pitch | null {
+  for (let index = slot - 1; index >= 0; index--) {
+    const own = slots.some((entry) => entry.slot === index) ? placed[String(index)]?.[0] : undefined;
+    if (own) return toPitch(own);
+    const given = task.score.measures[0]?.notes[index]?.keys?.[0];
+    if (given && !slots.some((entry) => entry.slot === index)) return parsePitch(given);
+  }
+  return null;
+}
+
 function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as PitchAnswer | undefined) ?? {};
@@ -490,14 +516,61 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const area = useRef<HTMLDivElement>(null);
   const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
 
-  // Bei einem einzelnen Ton zeigen die Vorzeichenknöpfe das Vorzeichen des
-  // gesetzten (siehe changeAlter). Holt Rückgängig oder Wiederholen einen Ton
-  // mit anderem Vorzeichen zurück, folgen sie ihm.
-  const single = solution.type === 'pitch' && solution.slots.length === 1 && !solution.slots[0].chord;
-  const singleAlter = single ? placed[String(solution.slots[0].slot)]?.[0]?.a : undefined;
+  /**
+   * Mehrere Plätze für je einen Ton (Tonleiter notieren, Entscheid
+   * 2026-11-24): einer ist aktiv. Gezogen wird irgendwo im System, gesetzt in
+   * den aktiven Platz — so lässt sich neben der Note ziehen, und der Finger
+   * verdeckt sie nicht. Danach rückt der aktive Platz zum nächsten leeren;
+   * die Nummern unter dem System wählen ihn von Hand.
+   */
+  const sequential = solution.type === 'pitch' && solution.slots.length > 1 && !solution.slots.some((s) => s.chord);
+  const [active, setActive] = useState<number | null>(null);
+  const activeSlot = sequential && solution.type === 'pitch' ? pickActive(solution.slots, placed, active) : null;
+
+  /**
+   * Der Platz, dem Vorzeichen und Tastatur gelten: der einzige (Intervall
+   * notieren) oder der aktive (Tonleiter notieren). Bei Akkorden keiner.
+   */
+  const current =
+    solution.type === 'pitch' && solution.slots.length === 1 && !solution.slots[0].chord ? solution.slots[0] : activeSlot;
+
+  // Die Vorzeichenknöpfe zeigen das Vorzeichen des Tons im aktuellen Platz
+  // (siehe changeAlter). Holt Rückgängig oder Wiederholen einen Ton mit
+  // anderem Vorzeichen zurück, oder wird ein anderer Platz gewählt, folgen sie ihm.
+  const currentAlter = current ? placed[String(current.slot)]?.[0]?.a : undefined;
   useEffect(() => {
-    if (singleAlter !== undefined) setAlter(singleAlter);
-  }, [singleAlter]);
+    if (currentAlter !== undefined) setAlter(currentAlter);
+  }, [currentAlter, current?.slot]);
+
+  // Die Nummern unter dem System stehen unter ihren Plätzen: aus der
+  // gezeichneten Lage gemessen, wie die Knöpfe beim Halbtonschritte-Markieren.
+  const [slotXs, setSlotXs] = useState<number[]>([]);
+  const measureSlots = useCallback(() => {
+    const result = live();
+    const box = area.current;
+    if (!result || !box) return;
+    const svgRect = result.svg.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+    if (svgRect.width === 0) return;
+    const scale = svgRect.width / result.width;
+    const xs = (result.notes[0] ?? []).map((note) => svgRect.left - boxRect.left + noteHeadCentre(note) * scale);
+    setSlotXs((previous) =>
+      previous.length === xs.length && previous.every((x, i) => Math.abs(x - xs[i]) < 0.5) ? previous : xs,
+    );
+  }, [live]);
+  const onScoreRendered = useCallback(
+    (result: RenderedScore, element: HTMLDivElement) => {
+      onRendered(result, element);
+      if (sequential) requestAnimationFrame(measureSlots);
+    },
+    [onRendered, measureSlots, sequential],
+  );
+  useEffect(() => {
+    if (!sequential || typeof ResizeObserver === 'undefined' || !area.current) return;
+    const observer = new ResizeObserver(() => measureSlots());
+    observer.observe(area.current);
+    return () => observer.disconnect();
+  }, [sequential, measureSlots]);
 
   // Tastatur (siehe ui/keyboard.ts). Gehorcht wird am Fenster, damit niemand
   // erst ins Notenbild klicken muss. `handleKey` entsteht bei jedem Rendern
@@ -533,7 +606,7 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
 
   const spec = useMemo<ScoreSpec>(() => {
     const measure = task.score.measures[0];
-    const target = hover ? slotNear(hover.x) : null;
+    const target = hover ? (activeSlot ?? slotNear(hover.x)) : null;
 
     const notes: NoteSpec[] = measure.notes.map((note, index) => {
       const slot = slots.find((s) => s.slot === index);
@@ -608,6 +681,7 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     alter,
     readOnly,
     pointer.pressed,
+    activeSlot?.slot,
   ]);
 
   /**
@@ -635,10 +709,17 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     const hit = locate(live(), event);
     if (!hit) return;
 
-    const target = slotNear(hit.x);
+    const target = activeSlot ?? slotNear(hit.x);
     const key = String(target.slot);
     const own = placed[key] ?? [];
     const incoming = noteFrom(hit.diatonic, alter, { duration: 'w', dotted: false });
+    if (activeSlot) {
+      // Gesetzt in den aktiven Platz; dann weiter zum nächsten leeren.
+      const next = { ...placed, [key]: [incoming] };
+      update(next);
+      setActive(nextEmpty(slots, next, target.slot) ?? target.slot);
+      return;
+    }
 
     if (target.chord) {
       // Gleiche Position noch einmal angeklickt = wieder entfernen.
@@ -666,8 +747,8 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
 
   function changeAlter(next: number) {
     setAlter(next);
-    if (!lone || readOnly) return;
-    const key = String(lone.slot);
+    if (!current || readOnly) return;
+    const key = String(current.slot);
     const own = placed[key];
     if (own?.length === 1 && own[0].a !== next) update({ ...placed, [key]: [{ ...own[0], a: next }] });
   }
@@ -686,11 +767,22 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
    *  - ⌫ oder Entf: den gesetzten Ton wegnehmen.
    */
   function handleKey(event: KeyboardEvent) {
-    if (solution.type !== 'pitch' || !lone || readOnly || !shortcutAllowed(event)) return;
-    const key = String(lone.slot);
+    if (solution.type !== 'pitch' || !current || readOnly || !shortcutAllowed(event)) return;
+    const key = String(current.slot);
     const own = placed[key]?.[0];
-    // Ohne vorgegebenen Ton beginnen die Pfeile auf der Mittellinie.
-    const from: Pitch = own ? { step: own.s, alter: own.a, octave: own.o } : (given ?? middleLine(task.score.clef));
+    if (activeSlot && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      // Den aktiven Platz wechseln.
+      event.preventDefault();
+      const index = slots.findIndex((slot) => slot.slot === activeSlot.slot);
+      const neighbour = slots[index + (event.key === 'ArrowRight' ? 1 : -1)];
+      if (neighbour) setActive(neighbour.slot);
+      return;
+    }
+    // Leer geht es vom nächsten Ton davor aus (bei der Tonleiter dem vorigen
+    // Platz), sonst vom vorgegebenen; ohne beide von der Mittellinie.
+    const before = activeSlot ? previousNote(task, slots, placed, activeSlot.slot) : null;
+    const anchor = before ?? given;
+    const from: Pitch = own ? { step: own.s, alter: own.a, octave: own.o } : (anchor ?? middleLine(task.score.clef));
 
     let next: Pitch;
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -703,11 +795,16 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     } else if (event.key === 'Backspace' || event.key === 'Delete') {
       if (!own) return;
       event.preventDefault();
-      update({});
+      if (lone) {
+        update({});
+      } else {
+        const { [key]: _removed, ...rest } = placed;
+        update(rest);
+      }
       return;
     } else {
       const letter = task.noNameKeys ? undefined : KEY_LETTERS.get(event.key.toLowerCase());
-      if (!letter || (!own && !given) || (task.noAccidentals && letter.alter !== 0)) return;
+      if (!letter || (!own && !anchor) || (task.noAccidentals && letter.alter !== 0)) return;
       next = nearestWithStep(letter.step, letter.alter, from);
     }
 
@@ -756,8 +853,26 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
       </div>
 
       <div class="score-click-area score-click-area-bare" ref={area} {...pointer.handlers}>
-        <Score spec={spec} onRendered={onRendered} />
+        <Score spec={spec} onRendered={onScoreRendered} />
       </div>
+
+      {activeSlot && !readOnly && (
+        <div class="slot-row" role="group" aria-label="Platz wählen">
+          {slots.map((slot) => (
+            <button
+              key={slot.slot}
+              type="button"
+              class={`slot-button ${slot.slot === activeSlot.slot ? 'is-active' : ''}`}
+              style={{ left: `${slotXs[slot.slot] ?? 0}px`, visibility: slotXs.length ? 'visible' : 'hidden' }}
+              aria-pressed={slot.slot === activeSlot.slot}
+              aria-label={`Ton ${slot.slot + 1}`}
+              onClick={() => setActive(slot.slot)}
+            >
+              {slot.slot + 1}
+            </button>
+          ))}
+        </div>
+      )}
 
       {solutionBelow && (
         <div class="score-solution" role="img" aria-label={`Lösung: ${slots.map((slot) => toGermanPitch(parsePitch(slot.accept[0]))).join(', ')}`}>
@@ -772,6 +887,8 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
           </>
         ) : isChord ? (
           'Setze zwei Töne über den vorgegebenen Grundton. Gesetzt wird beim Loslassen.'
+        ) : activeSlot ? (
+          'Ziehe auf die Tonhöhe, gern auch neben der Note. Gesetzt wird beim Loslassen in den blauen Platz.'
         ) : (
           'Auf die gewünschte Tonhöhe tippen oder dorthin ziehen. Gesetzt wird beim Loslassen.'
         )}
@@ -1336,6 +1453,8 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
  *
  * Nach dem Prüfen ist jedes Zeichen grün oder rot (`judgeKeySignature`); war
  * der Satz falsch, steht der richtige grün daneben, an den üblichen Stellen.
+ * Stimmt er, steht aber nicht ganz an den üblichen Stellen (eine andere
+ * Oktave), steht der übliche bernsteinfarben daneben, mit einer Zeile darunter.
  */
 /** Zeichenbreite mit dem richtigen Satz daneben: zwei Takte à sieben Zeichen samt Schlüssel. */
 const KEYSIG_SOLUTION_WIDTH = 270;
@@ -1360,7 +1479,8 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
   const spec = useMemo<ScoreSpec>(() => {
     if (solution.type !== 'keysig') return task.score;
     const glyph = value.sign > 0 ? ('sharp' as const) : ('flat' as const);
-    const judged = readOnly ? judgeKeySignature(solution.accidentals, value) : null;
+    const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+    const judged = readOnly ? judgeKeySignature(solution.accidentals, value, clef) : null;
     const notes: NoteSpec[] = value.placed.map((entry, index) => ({
       keys: [`${entry.s}${entry.o}`],
       duration: 'w',
@@ -1371,14 +1491,15 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
       const { step, octave } = diatonicToStep(hover.diatonic);
       notes.push({ keys: [`${step}${octave}`], duration: 'w', glyph, preview: true });
     }
-    if (judged && !judged.correct) {
-      // Der richtige Satz als zweiter Takt, damit der eigene bleibt, wo er war.
-      const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+    if (judged && (!judged.correct || judged.unusual)) {
+      // Der richtige Satz als zweiter Takt, damit der eigene bleibt, wo er
+      // war: grün, wenn der eigene falsch war; bernsteinfarben, wenn er
+      // stimmt, aber anders üblich ist (Entscheid 2026-11-24).
       const right: NoteSpec[] = keySignaturePitches(solution.accidentals, clef).map((pitch) => ({
         keys: [`${pitch.step}${pitch.octave}`],
         duration: 'w',
         glyph: pitch.alter > 0 ? 'sharp' : 'flat',
-        mark: 'correct',
+        mark: judged.correct ? 'usual' : 'correct',
       }));
       // Beide Takte sind gleich breit und brauchen Platz für sieben Zeichen;
       // breiter als nötig machte das ganze Bild nur kleiner.
@@ -1392,6 +1513,8 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
   }, [task.score, JSON.stringify(value), hover?.diatonic, readOnly]);
 
   if (solution.type !== 'keysig') return null;
+  const usualElsewhere =
+    readOnly && judgeKeySignature(solution.accidentals, value, task.score.clef === 'bass' ? 'bass' : 'treble').unusual;
 
   function handleClick(event: PointerEvent) {
     // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
@@ -1434,11 +1557,15 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
-      <p class="input-summary">
-        {value.placed.length > 0
-          ? `Gesetzt: ${value.placed.length} ${value.sign > 0 ? (value.placed.length === 1 ? 'Kreuz' : 'Kreuze') : 'b'}`
-          : 'Wähle ♭ oder ♯ und setze die Vorzeichen der Reihe nach. Noch einmal auf dieselbe Stelle tippen nimmt eines weg.'}
-      </p>
+      {usualElsewhere ? (
+        <p class="input-summary is-usual">Andere Platzierung üblich</p>
+      ) : (
+        <p class="input-summary">
+          {value.placed.length > 0
+            ? `Gesetzt: ${value.placed.length} ${value.sign > 0 ? (value.placed.length === 1 ? 'Kreuz' : 'Kreuze') : 'b'}`
+            : 'Wähle ♭ oder ♯ und setze die Vorzeichen der Reihe nach. Noch einmal auf dieselbe Stelle tippen nimmt eines weg.'}
+        </p>
+      )}
     </>
   );
 }

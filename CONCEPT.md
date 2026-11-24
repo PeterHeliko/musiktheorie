@@ -336,8 +336,14 @@ Rules (decided 2026-11-24):
 - **Vorzeichen setzen** uses the new note editor; after checking, each accidental is green or
   red, and a wrong set gets the right one green beside it.
 - **Tonleitern notieren:** the tonic is given, the other seven notes go into fixed slots, with
-  accidentals before the notes (no key signature). Each note scores on its own; after
+  accidentals before the notes (no key signature). One slot is active (its number below the
+  staff); a drag anywhere in the staff sets that slot, so the finger can stay beside the note,
+  and the cursor moves on to the next empty slot. Each note scores on its own; after
   checking, the whole scale stands green in a second staff below.
+- **The repeated tonic at the end is optional** in Notieren, Klaviatur and Singen; if
+  written, played or sung, it must be right.
+- **Vorzeichen setzen, right but in another octave than usual:** still right; the usual
+  placement stands amber beside it, with «Andere Platzierung üblich».
 - **Klaviatur markieren:** the tonic key is blue; tap the other tones up to the octave (down
   from the upper tonic). Right is exactly that set of keys.
 - **Singen:** like Dreiklänge singen, eight notes; the solution plays the scale without a

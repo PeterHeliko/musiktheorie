@@ -70,9 +70,10 @@ export function Score({
  *
  * Eine Untergrenze gibt es nicht: die Antworten müssen immer ganz sichtbar
  * sein, auch auf dem quer gehaltenen Telefon. Nur ein paar Pixel bleiben,
- * damit das Bild nicht ganz verschwindet.
+ * damit das Bild nicht ganz verschwindet. Ausnahme `minScale`: in ein System,
+ * in das gesetzt wird, muss man noch treffen können.
  */
-function fitToRoom(container: HTMLDivElement, { maxScale }: NonNullable<ScoreSpec['fit']>): void {
+function fitToRoom(container: HTMLDivElement, { maxScale, minScale = 0 }: NonNullable<ScoreSpec['fit']>): void {
   const svg = container.querySelector('svg');
   const body = container.closest<HTMLElement>('.session-body');
   const column = body?.firstElementChild;
@@ -85,6 +86,6 @@ function fitToRoom(container: HTMLDivElement, { maxScale }: NonNullable<ScoreSpe
   // Die Spalte umschliesst die Ränder ihres Inhalts (display: flow-root,
   // styles.css) — sonst fehlten sie hier.
   const others = column.getBoundingClientRect().height - svg.getBoundingClientRect().height;
-  const height = Math.min(Math.max(room - others, 20), drawnHeight * maxScale);
+  const height = Math.min(Math.max(room - others, 20, drawnHeight * minScale), drawnHeight * maxScale);
   svg.style.width = `${Math.floor((height * drawnWidth) / drawnHeight)}px`;
 }

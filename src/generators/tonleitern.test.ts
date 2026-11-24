@@ -44,25 +44,38 @@ describe('Vorzeichen setzen', () => {
 
   it('färbt jedes gesetzte Zeichen nach seiner Stelle in der Reihenfolge', () => {
     // A-Dur: fis cis gis.
-    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'f', o: 5 }, { s: 'c', o: 5 }, { s: 'g', o: 5 }] })).toEqual({
+    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'f', o: 5 }, { s: 'c', o: 5 }, { s: 'g', o: 5 }] })).toMatchObject({
       correct: true,
       marks: [true, true, true],
     });
     // Vertauscht: nur das erste stimmt.
-    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'f', o: 5 }, { s: 'g', o: 5 }, { s: 'c', o: 5 }] })).toEqual({
+    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'f', o: 5 }, { s: 'g', o: 5 }, { s: 'c', o: 5 }] })).toMatchObject({
       correct: false,
       marks: [true, false, false],
     });
     // Eines fehlt: was steht, ist richtig, der Satz nicht.
-    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'f', o: 5 }, { s: 'c', o: 5 }] })).toEqual({
+    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'f', o: 5 }, { s: 'c', o: 5 }] })).toMatchObject({
       correct: false,
       marks: [true, true],
     });
     // Falsche Art: alles rot.
-    expect(judgeKeySignature(-1, { sign: 1, placed: [{ s: 'b', o: 4 }] })).toEqual({ correct: false, marks: [false] });
+    expect(judgeKeySignature(-1, { sign: 1, placed: [{ s: 'b', o: 4 }] })).toMatchObject({ correct: false, marks: [false] });
     // Ohne Vorzeichen: leer ist richtig, gleich welche Art gewählt ist.
     expect(judgeKeySignature(0, { sign: -1, placed: [] }).correct).toBe(true);
-    expect(judgeKeySignature(0, { sign: 1, placed: [{ s: 'f', o: 5 }] })).toEqual({ correct: false, marks: [false] });
+    expect(judgeKeySignature(0, { sign: 1, placed: [{ s: 'f', o: 5 }] })).toMatchObject({ correct: false, marks: [false] });
+  });
+
+  it('merkt an, wenn ein richtiger Satz nicht an den üblichen Stellen steht', () => {
+    // G-Dur: fis im untersten Zwischenraum statt auf der obersten Linie.
+    expect(judgeKeySignature(1, { sign: 1, placed: [{ s: 'f', o: 4 }] }, 'treble')).toEqual({
+      correct: true,
+      marks: [true],
+      unusual: true,
+    });
+    expect(judgeKeySignature(1, { sign: 1, placed: [{ s: 'f', o: 5 }] }, 'treble').unusual).toBe(false);
+    expect(judgeKeySignature(1, { sign: 1, placed: [{ s: 'f', o: 3 }] }, 'bass').unusual).toBe(false);
+    // Falsch ist falsch, auch in einer anderen Oktave: kein Hinweis.
+    expect(judgeKeySignature(2, { sign: 1, placed: [{ s: 'f', o: 4 }] }, 'treble').unusual).toBe(false);
   });
 
   it('bewertet mit derselben Regel', () => {
@@ -260,7 +273,13 @@ describe('Tonleitern notieren', () => {
             : [],
         );
       const right = task.solution.slots.map((slot) => slot.accept[0]);
-      expect(scoreTask(task, { n: answer(right) }).earned).toBe(7);
+      expect(scoreTask(task, { n: answer(right) })).toMatchObject({ earned: 7, possible: 7 });
+      // Ohne die Oktave am Ende: ebenso ganz richtig.
+      const withoutOctave = answer(right);
+      delete withoutOctave['7'];
+      expect(scoreTask(task, { n: withoutOctave })).toMatchObject({ earned: 6, possible: 6 });
+      // Leer: nichts.
+      expect(scoreTask(task, { n: {} }).earned).toBe(0);
       // Ein Vorzeichen daneben kostet genau diesen Ton.
       const slipped = task.solution.slots.map((slot) => {
         const pitch = parsePitch(slot.accept[0]);
@@ -268,7 +287,7 @@ describe('Tonleitern notieren', () => {
       });
       slipped[2] = { ...slipped[2], a: slipped[2].a === 1 ? 0 : slipped[2].a + 1 };
       const placed = Object.fromEntries(task.solution.slots.map((slot, index) => [String(slot.slot), [slipped[index]]]));
-      expect(scoreTask(task, { n: placed }).earned).toBe(6);
+      expect(scoreTask(task, { n: placed })).toMatchObject({ earned: 6, possible: 7 });
       // Die Leiter selbst: aufwärts oder abwärts, jeder Schritt eine Stufe.
       const up = task.prompt!.endsWith('aufwärts');
       const values = scale.map(midi);
@@ -300,7 +319,12 @@ describe('Tonleitern auf Klaviatur markieren', () => {
       expect(task.accept.every((key) => (up ? key > tonic : key < tonic))).toBe(true);
       expect(task.accept).toContain(up ? tonic + 12 : tonic - 12);
       expect(scoreTask(task, { keys: [...task.accept].reverse() }).earned).toBe(task.points);
-      expect(scoreTask(task, { keys: task.accept.slice(1) }).earned).toBe(0);
+      // Ohne die Oktave: richtig; ohne einen anderen Ton: falsch.
+      const octave = up ? tonic + 12 : tonic - 12;
+      expect(task.optional).toEqual([octave]);
+      expect(scoreTask(task, { keys: task.accept.filter((key) => key !== octave) }).earned).toBe(task.points);
+      const required = task.accept.filter((key) => key !== octave);
+      expect(scoreTask(task, { keys: task.accept.filter((key) => key !== required[2]) }).earned).toBe(0);
       expect(scoreTask(task, { keys: [...task.accept, tonic + (up ? 13 : -13)] }).earned).toBe(0);
     }
   });
@@ -323,8 +347,10 @@ describe('Tonleitern singen', () => {
         expect(task.reference).toBe(task.sequence![0]);
         const values = task.sequence!.map((key) => midi(parsePitch(key)));
         expect(Math.abs(values[7] - values[0])).toBe(12);
-        // Richtig gesungen, eine Oktave tiefer: richtig.
+        // Richtig gesungen, eine Oktave tiefer: richtig — auch ohne die Oktave am Ende.
         expect(scoreTask(task, { notes: values.map((value) => value - 12) }).earned).toBe(task.points);
+        expect(scoreTask(task, { notes: values.slice(0, 7) }).earned).toBe(task.points);
+        expect(scoreTask(task, { notes: values.slice(0, 6) }).earned).toBe(0);
       }
     }
   });
@@ -336,7 +362,9 @@ describe('Tonleitern singen', () => {
       expect(question.instruction).toMatch(/Metronom/);
       const values = task.sequence!.map((key) => midi(parsePitch(key)));
       expect(scoreTask(task, { notes: [], beats: values }).earned).toBe(task.points);
-      expect(scoreTask(task, { notes: [], beats: [...values.slice(0, 7), null] }).earned).toBe(0);
+      // Der letzte Schlag (die Oktave) darf stumm bleiben, ein anderer nicht.
+      expect(scoreTask(task, { notes: [], beats: [...values.slice(0, 7), null] }).earned).toBe(task.points);
+      expect(scoreTask(task, { notes: [], beats: [...values.slice(0, 6), null, values[7]] }).earned).toBe(0);
     }
   });
 });

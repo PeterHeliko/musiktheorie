@@ -54,8 +54,12 @@ export interface NoteSpec {
    * denen zu einem vorgegebenen Ton dazugesetzt wird.
    */
   previewKeys?: string[];
-  /** Nach dem Prüfen: selbst gesetzte Note grün (richtig) oder rot (falsch). */
-  mark?: 'correct' | 'wrong';
+  /**
+   * Nach dem Prüfen: selbst gesetzte Note grün (richtig) oder rot (falsch).
+   * «usual» (bernsteinfarben): so stünde es üblicherweise, das Gesetzte ist
+   * aber auch richtig (Vorzeichen in einer anderen Oktave).
+   */
+  mark?: 'correct' | 'wrong' | 'usual';
   /**
    * Dasselbe je Notenkopf eines Akkords, in der Reihenfolge von `keys` —
    * für frei gesetzte Akkorde, bei denen einzelne Töne falsch sein können.
@@ -92,7 +96,14 @@ export interface ScoreSpec {
    * würde es sonst riesig). Umgesetzt in Score.tsx; `scale` gilt nur bis zur
    * ersten Messung.
    */
-  fit?: { maxScale: number };
+  fit?: {
+    maxScale: number;
+    /**
+     * Kleiner nicht, auch wenn dann gescrollt werden muss — für Systeme, in
+     * die gesetzt wird: zu klein trifft man keine Linie mehr.
+     */
+    minScale?: number;
+  };
   /**
    * Platz über der obersten und unter der untersten Notenlinie, in
    * Zeicheneinheiten (Linienabstand 10). Ohne Angabe so viel, wie VexFlow
@@ -241,6 +252,11 @@ export interface PitchSlotSolution {
   accept: string[];
   /** Mehrere Töne gleichzeitig (Akkord) statt eines einzelnen. */
   chord?: boolean;
+  /**
+   * Darf leer bleiben: die wiederholte Oktave am Ende einer Tonleiter
+   * (Entscheid 2026-11-24). Gesetzt muss der Ton trotzdem stimmen.
+   */
+  optional?: boolean;
 }
 
 /** Freitexttabelle — wird nicht automatisch bewertet. */
@@ -287,6 +303,12 @@ export interface SingTask extends TaskBase {
    * braucht (`judgeSequence`).
    */
   tempo?: number;
+  /**
+   * Der letzte Ton der Folge ist frei: die wiederholte Oktave am Ende einer
+   * Tonleiter. Ton für Ton endet die Aufgabe dann schon mit dem vorletzten;
+   * im Tempo darf der letzte Schlag stumm bleiben.
+   */
+  optionalLast?: boolean;
   /**
    * «Ohne Fehlerurteil»: falsche Töne beenden die Aufgabe nicht, gesungen
    * wird bis zum richtigen (sing/judge.ts).
@@ -336,6 +358,8 @@ export interface KeyboardTask extends TaskBase {
    * Oktave, ohne ihn. Den Grundton (`keyboard.marked`) tippt man nicht an.
    */
   scale?: boolean;
+  /** Tasten aus `accept`, die fehlen dürfen: die Oktave des Grundtons. */
+  optional?: number[];
   /**
    * Nur weisse Tasten lassen sich wählen — für Aufgaben ohne Vorzeichen
    * (Grobbestimmung). Eine schwarze Taste hat dort keine Grösse: c–dis ist

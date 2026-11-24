@@ -293,3 +293,19 @@ describe('im Tempo', () => {
     expect(judgeTimed(goal, [null, 66, 69]).correct).toBe(false);
   });
 });
+
+describe('freie Oktave am Ende einer Tonleiter', () => {
+  const scale = { reference: 60, targets: [60, 62, 64, 65, 67, 69, 71, 72], tolerance: 50, optionalLast: true };
+
+  it('ist Ton für Ton mit dem siebten Ton fertig', () => {
+    const verdict = judgeSequence(scale, [60, 62, 64, 65, 67, 69, 71]);
+    expect(verdict).toMatchObject({ done: true, correct: true, reached: 7 });
+    expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69]).done).toBe(false);
+  });
+
+  it('lässt im Tempo den letzten Schlag stumm, aber nicht falsch', () => {
+    expect(judgeTimed(scale, [60, 62, 64, 65, 67, 69, 71, null]).correct).toBe(true);
+    expect(judgeTimed(scale, [60, 62, 64, 65, 67, 69, 71, 73]).correct).toBe(false);
+    expect(judgeTimed(scale, [60, 62, 64, 65, 67, 69, null, 72]).correct).toBe(false);
+  });
+});

@@ -19,6 +19,7 @@ import {
   type ScaleDirection,
   type ScaleType,
 } from '../music/scales';
+import { staffSpace } from '../music/staff-space';
 import { midi, type Pitch } from '../music/theory';
 import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
 import {
@@ -31,7 +32,7 @@ import {
   withTempo,
 } from './dreiklaenge-shared';
 import type { Rng } from './rng';
-import { CLEF_OPTIONS, insist, pitchKey, taskId } from './shared';
+import { CLEF_OPTIONS, candidatePitches, insist, pitchKey, taskId } from './shared';
 import {
   multi,
   range,
@@ -120,6 +121,15 @@ function placedScale(choice: ScaleChoice, clef: 'treble' | 'bass'): Pitch[] {
   return pitches;
 }
 
+/**
+ * Wie weit Tonleitern in diesem Schlüssel reichen: placeTonic legt den
+ * Grundton um c¹ bzw. G, die Oktave darüber dazu — mit Vorzeichen.
+ */
+const SCALE_SPACE = {
+  treble: staffSpace('treble', candidatePitches({ low: 54, high: 79 }, [-1, 0, 1])),
+  bass: staffSpace('bass', candidatePitches({ low: 37, high: 58 }, [-1, 0, 1])),
+};
+
 const MAX_ACCIDENTALS_FILTER: FilterSpec = {
   kind: 'range',
   key: 'maxAccidentals',
@@ -155,7 +165,8 @@ export const tonleiternNotieren: Generator<WritingFilters> = {
   skill: 'notieren',
   version: 1,
   title: 'Tonleitern notieren',
-  instruction: 'Notiere die Tonleiter, mit den Vorzeichen vor den Noten. Der Grundton steht schon da.',
+  instruction:
+    'Notiere die Tonleiter, mit den Vorzeichen vor den Noten. Der Grundton steht schon da; ihn am Ende zu wiederholen, ist freigestellt.',
   hint: 'Wähle ♭, ♮ oder ♯ für den nächsten Ton und ziehe ihn an seinen Platz — gesetzt wird beim Loslassen, neu ziehen ersetzt ihn.',
 
   filters: [
@@ -180,20 +191,37 @@ export const tonleiternNotieren: Generator<WritingFilters> = {
     const notes: NoteSpec[] = pitches.map((pitch, index) =>
       index === 0
         ? { keys: [pitchKey(pitch)], duration: 'w' }
-        : { duration: 'w', placeholder: true, annotation: String(index + 1) },
+        : { duration: 'w', placeholder: true },
     );
     const task: NotationTask = {
       id: taskId('tln', rng),
       kind: 'notation',
       mode: 'pitch',
       prompt: scalePrompt(choice),
-      points: 7,
+      // Ein Punkt je verlangtem Ton; die freie Oktave zählt erst, wenn sie dasteht.
+      points: 6,
       // Breit genug für acht Ganze mit Vorzeichen; auf dem Telefon wird das
-      // Bild dafür kleiner als beim Intervall.
-      score: { clef, width: 340, scale: 2, endBar: true, measures: [{ notes }] },
+      // Bild dafür kleiner als beim Intervall, quer passt es sich der Höhe an.
+      // Die Nummern der Plätze stehen als Knöpfe darunter (NotationInput).
+      score: {
+        clef,
+        width: 340,
+        scale: 2,
+        fit: { maxScale: 2, minScale: 1 },
+        // Platz über und unter dem System nur so weit, wie die Leitern reichen,
+        // für alle Aufgaben in diesem Schlüssel gleich: quer zählt jede Zeile.
+        space: SCALE_SPACE[clef],
+        endBar: true,
+        measures: [{ notes }],
+      },
       solution: {
         type: 'pitch',
-        slots: pitches.slice(1).map((pitch, index) => ({ slot: index + 1, accept: [pitchKey(pitch)] })),
+        // Die Oktave am Ende darf fehlen (Entscheid 2026-11-24).
+        slots: pitches.slice(1).map((pitch, index) => ({
+          slot: index + 1,
+          accept: [pitchKey(pitch)],
+          ...(index === 6 ? { optional: true } : {}),
+        })),
       },
     };
     return { task };
@@ -224,7 +252,7 @@ export const tonleiternKlaviatur: Generator<KeyboardFilters> = {
   skill: 'klaviatur',
   version: 1,
   title: 'Tonleitern auf Klaviatur markieren',
-  instruction: 'Markiere die Töne der Tonleiter vom blauen Grundton bis zu seiner Oktave.',
+  instruction: 'Markiere die Töne der Tonleiter ab dem blauen Grundton; seine Oktave darfst du dazunehmen.',
   hint: 'Antippen nimmt eine Taste dazu, noch einmal antippen nimmt sie wieder weg.',
 
   filters: [SCALE_FILTER, MAX_ACCIDENTALS_FILTER, DIRECTION_FILTER],
@@ -258,6 +286,8 @@ export const tonleiternKlaviatur: Generator<KeyboardFilters> = {
       prompt: scalePrompt(choice),
       keyboard: { ...INTERVAL_KEYBOARD, marked: [keys[0]] },
       accept: keys.slice(1).sort((a, b) => a - b),
+      // Die Oktave des Grundtons darf fehlen (Entscheid 2026-11-24).
+      optional: [keys[7]],
       scale: true,
       sound: true,
       describe: { by: 'scale' },
@@ -294,7 +324,8 @@ export const tonleiternSingen: Generator<SingingFilters> = {
   skill: 'singen',
   version: 1,
   title: 'Tonleitern singen',
-  instruction: 'Du hörst den Grundton. Singe die Tonleiter Ton für Ton; den Grundton darfst du mitsingen.',
+  instruction:
+    'Du hörst den Grundton. Singe die Tonleiter Ton für Ton; den Grundton darfst du mitsingen. Nach dem siebten Ton ist sie fertig, die Oktave ist freigestellt.',
   hint: SING_HINT,
 
   filters: [SCALE_FILTER, MAX_ACCIDENTALS_FILTER, DIRECTION_FILTER, ...SING_FILTERS],
@@ -327,6 +358,8 @@ export const tonleiternSingen: Generator<SingingFilters> = {
         tempo: metronomeOf(values),
       }),
       melodic: true,
+      // Die Oktave am Ende ist frei (Entscheid 2026-11-24).
+      optionalLast: true,
     };
     return { task, ...(task.tempo ? { instruction: withTempo(task, this.instruction) } : {}) };
   },
