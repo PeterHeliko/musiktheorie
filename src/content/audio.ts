@@ -11,13 +11,11 @@
  */
 
 import {
-  buildTriad,
   parseIntervalLabel,
   parsePitch,
   transposeByInterval,
   type Inversion,
   type Pitch,
-  type TriadQuality,
 } from '../music/theory';
 
 export type ScaleType = 'dur' | 'moll-natuerlich' | 'moll-harmonisch' | 'moll-melodisch';
@@ -47,17 +45,12 @@ export type AudioItem =
       melodic?: boolean;
     }
   /**
-   * `inversion` verlegt den Basston: Sextakkord = Terz unten,
-   * Quartsextakkord = Quinte unten. `broken: false` lässt das Arpeggio weg.
+   * Ein Akkord, Ton für Ton von unten nach oben («c4», «e4», «g4») — so
+   * lassen sich auch ein abgesetzter Basston und sus4 beschreiben. Erst
+   * gebrochen von unten nach oben, dann zusammen; `broken: false` lässt das
+   * Arpeggio weg.
    */
-  | {
-      id: string;
-      kind: 'chord';
-      root: string;
-      quality: TriadQuality;
-      inversion?: Inversion;
-      broken?: boolean;
-    }
+  | { id: string; kind: 'voicing'; notes: string[]; broken?: boolean }
   | { id: string; kind: 'scale'; tonic: string; scale: ScaleType; direction?: 'up' | 'down' }
   /** Melodie; die Töne übergibt der Aufrufer, weil sie vom Generator stammen. */
   | { id: string; kind: 'melody'; tempo: number; countIn?: boolean };
@@ -123,8 +116,8 @@ export function expandAudioItem(item: AudioItem, melody?: AudioEvent[]): AudioEv
       ];
     }
 
-    case 'chord': {
-      const notes = invertTriad(buildTriad(parsePitch(item.root), item.quality), item.inversion);
+    case 'voicing': {
+      const notes = item.notes.map(parsePitch);
       const together: AudioEvent = { pitches: notes, quarters: 3 };
       if (item.broken === false) return [together];
       return [...notes.map((pitch) => ({ pitches: [pitch], quarters: 0.5 })), rest(0.5), together];

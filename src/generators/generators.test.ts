@@ -266,96 +266,6 @@ describe('Filter', () => {
     expect([...seen].sort()).toEqual(['dur', 'moll-harmonisch']);
   });
 
-  it('beschränkt die Dreiklangsgeschlechter beim Hören', () => {
-    const seen = answersFor(generate('dreiklaenge-hoeren', { qualities: ['vermindert'] }), 'a');
-    expect([...seen]).toEqual(['vermindert']);
-  });
-
-  it('spielt Umkehrungen nur, wenn sie erlaubt sind', () => {
-    const questions = generate('dreiklaenge-hoeren', {
-      inversions: ['grundstellung', 'sextakkord'],
-    });
-    const seen = new Set(
-      questions.map((q) => (q.audio?.kind === 'chord' ? q.audio.inversion : undefined)),
-    );
-    expect([...seen].sort()).toEqual(['grundstellung', 'sextakkord']);
-  });
-
-  it('fragt die Umkehrung auch dann, wenn übermässige Dreiklänge dabei sind', () => {
-    // Der Filter bleibt offen: bei Dur, moll und vermindert ist die Umkehrung
-    // hörbar. Nur die einzelne Aufgabe entscheidet später, ob sie zählt.
-    const questions = generate('dreiklaenge-hoeren', {
-      qualities: ['dur', 'uebermaessig'],
-      inversions: ['grundstellung', 'sextakkord', 'quartsextakkord'],
-      askInversion: true,
-    });
-    for (const question of questions) {
-      expect((question.task as SelectTask).fields.map((f) => f.id)).toEqual(['a', 'inv']);
-    }
-  });
-
-  it('erlässt die Umkehrung, wer «übermässig» antwortet', () => {
-    const [question] = generate(
-      'dreiklaenge-hoeren',
-      { qualities: ['dur', 'uebermaessig'], inversions: ['grundstellung', 'sextakkord'], askInversion: true },
-      1,
-    );
-    const waiver = question.waiver!;
-    expect(waiver.field).toBe('a');
-    expect(waiver.values).toEqual(['uebermaessig']);
-    expect(waiver.waives).toEqual(['inv']);
-
-    // Die Sperre hängt an der GEGEBENEN Antwort. Sie an der richtigen
-    // aufzuhängen würde verraten, wonach gefragt wird.
-    const task = question.task as SelectTask;
-    const quality = task.fields.find((f) => f.id === 'a')!.correct;
-    expect(waiver.values.includes(quality)).toBe(quality === 'uebermaessig');
-  });
-
-  it('wertet ohne Umkehrung als vollständig richtig, wenn sie erlassen ist', () => {
-    // Die Bewertung sieht die Aufgabe ohne das erlassene Feld — so wie es die
-    // Oberfläche macht, wenn «übermässig» gewählt wurde.
-    const questions = generate(
-      'dreiklaenge-hoeren',
-      { qualities: ['uebermaessig'], inversions: ['grundstellung', 'sextakkord'], askInversion: true },
-      5,
-    );
-    for (const question of questions) {
-      const task = question.task as SelectTask;
-      const withoutInversion: SelectTask = {
-        ...task,
-        fields: task.fields.filter((field) => field.id !== 'inv'),
-      };
-      const result = scoreTask(withoutInversion, { a: 'uebermaessig' });
-      expect(result.earned).toBeCloseTo(result.possible, 6);
-      expect(result.details.map((d) => d.id)).not.toContain(`${task.id}_inv`);
-    }
-  });
-
-  it('sperrt die Umkehrungsfrage nur, wenn NUR übermässige erlaubt sind', () => {
-    const filter = generatorById('dreiklaenge-hoeren')!.filters.find(
-      (entry) => entry.key === 'askInversion',
-    )!;
-    expect(filter.disabledBy).toBeTypeOf('function');
-    expect(filter.disabledBy!({ qualities: ['dur', 'moll'] })).toBeNull();
-    expect(filter.disabledBy!({ qualities: ['vermindert'] })).toBeNull();
-    expect(filter.disabledBy!({ qualities: ['dur', 'uebermaessig'] })).toBeNull();
-    expect(filter.disabledBy!({ qualities: ['uebermaessig'] })).toMatch(/übermässig/);
-  });
-
-  it('spielt übermässige Dreiklänge weiterhin in allen Umkehrungen', () => {
-    // Erlassen ist nur die FRAGE. Als Klangbild bleibt die Umkehrung erlaubt —
-    // sie verändert die Lage, und das Geschlecht ist hörbar.
-    const questions = generate('dreiklaenge-hoeren', {
-      qualities: ['uebermaessig'],
-      inversions: ['grundstellung', 'sextakkord', 'quartsextakkord'],
-    });
-    const seen = new Set(
-      questions.map((q) => (q.audio?.kind === 'chord' ? q.audio.inversion : undefined)),
-    );
-    expect([...seen].sort()).toEqual(['grundstellung', 'quartsextakkord', 'sextakkord']);
-  });
-
   it('beschränkt die notierten Intervalle', () => {
     const wanted = ['k6', 'g7'];
     const seen = answersFor(generate('intervalle-bestimmen', { intervals: wanted }), 'a');
@@ -508,31 +418,6 @@ describe('Filter', () => {
       expect(solution.type).toBe('keysig');
       if (solution.type === 'keysig') expect(Math.abs(solution.accidentals)).toBeLessThanOrEqual(2);
     }
-  });
-
-  it('stellt nur die gefragten Felder der Dreiklangsbestimmung', () => {
-    const questions = generate('dreiklaenge-bestimmen', { ask: ['inv'] });
-    for (const question of questions) {
-      const fields = (question.task as SelectTask).fields;
-      expect(fields.map((f) => f.id)).toEqual(['inv']);
-    }
-  });
-
-  it('zeigt im Klaviersystem alle erlaubten Umkehrungen und Lagen', () => {
-    const questions = generate('dreiklaenge-bestimmen', {
-      ask: ['inv', 'pos'],
-      system: 'grand',
-    });
-    expect([...answersFor(questions, 'inv')].sort()).toEqual([
-      'grundstellung',
-      'quartsextakkord',
-      'sextakkord',
-    ]);
-    expect([...answersFor(questions, 'pos')].sort()).toEqual([
-      'oktavlage',
-      'quintlage',
-      'terzlage',
-    ]);
   });
 
   it('beschränkt die Stufenaufgabe auf die angekreuzten Stufen', () => {
@@ -928,6 +813,210 @@ describe('Töne', () => {
       const task = question.task as NotationTask;
       expect(task.noAccidentals).toBe(true);
       expect(WHITE_NAMES).toContain(task.prompt);
+    }
+  });
+});
+
+describe('Dreiklänge', () => {
+  /** Halbtöne über dem Grundton, von Hand: mittlerer und oberer Ton. */
+  const SEMITONES: Record<string, [number, number]> = {
+    dur: [4, 7],
+    moll: [3, 7],
+    vermindert: [3, 6],
+    uebermaessig: [4, 8],
+    sus4: [5, 7],
+  };
+
+  const field = (question: Question, id = 'a') => (question.task as SelectTask).fields.find((f) => f.id === id)!;
+  const scoreKeys = (question: Question) => {
+    const measure = (question.task as SelectTask).score!.measures[0];
+    return [...(measure.bass?.[0]?.keys ?? []), ...(measure.notes[0].keys ?? [])].map(parsePitch);
+  };
+
+  /**
+   * Grundton, tiefstes und höchstes Akkordglied, von Hand: der Grundton ist
+   * der Ton, über dem die beiden anderen eine Terz und eine Quinte weiter
+   * stehen (diatonisch gezählt). 0 = Grundton, 2 = Terz, 4 = Quinte.
+   */
+  function members(pitches: ReturnType<typeof parsePitch>[]) {
+    const steps = 'cdefgab';
+    const degree = (p: ReturnType<typeof parsePitch>) => steps.indexOf(p.step);
+    const sorted = [...pitches].sort((a, b) => midi(a) - midi(b));
+    const root = sorted.find((candidate) =>
+      sorted.every((p) => [0, 2, 4].includes((degree(p) - degree(candidate) + 7) % 7)),
+    )!;
+    const member = (p: ReturnType<typeof parsePitch>) => (degree(p) - degree(root) + 7) % 7;
+    return { root, bass: member(sorted[0]), top: member(sorted[sorted.length - 1]) };
+  }
+  const INVERSION_OF: Record<number, string> = { 0: 'grundstellung', 2: 'sextakkord', 4: 'quartsextakkord' };
+  const POSITION_OF: Record<number, string> = { 0: 'oktavlage', 2: 'terzlage', 4: 'quintlage' };
+
+  it('steht nach den Intervallen und vor den Tonarten, in zwei Gruppen', () => {
+    const ids = topicsWithGenerators().map((topic) => topic.id);
+    expect(ids.indexOf('dreiklaenge')).toBe(ids.indexOf('intervalle') + 1);
+    expect(ids.indexOf('tonleitern')).toBe(ids.indexOf('dreiklaenge') + 1);
+    expect(TOPIC_GROUPS.dreiklaenge!.map((group) => group.title)).toEqual(['Grundstellung', 'Umkehrungen & Lagen']);
+  });
+
+  it('führt «Stufen bestimmen» unter den Tonarten', () => {
+    expect(generatorById('stufen-bestimmen')!.topic).toBe('tonleitern');
+  });
+
+  it('zeigt in Grundstellung drei Töne eng über dem Grundton, im gefragten Geschlecht', () => {
+    const questions = generate('dreiklaenge-bestimmen', { sus4: true });
+    for (const question of questions) {
+      const [root, middle, top] = scoreKeys(question);
+      expect([midi(middle) - midi(root), midi(top) - midi(root)]).toEqual(SEMITONES[field(question).correct]);
+    }
+    expect(answersFor(questions, 'a')).toEqual(new Set(['dur', 'moll', 'vermindert', 'uebermaessig', 'sus4']));
+  });
+
+  it('fragt nur die angekreuzten Geschlechter, sus4 nur zugeschaltet', () => {
+    expect(answersFor(generate('dreiklaenge-bestimmen', { qualities: ['moll', 'vermindert'] }), 'a')).toEqual(
+      new Set(['moll', 'vermindert']),
+    );
+    for (const question of generate('dreiklaenge-bestimmen', { qualities: ['dur'] }, 20)) {
+      expect(offered(question, 'a')).toEqual(['dur']);
+    }
+    for (const id of ['dreiklaenge-bestimmen', 'dreiklaenge-klaviatur-benennen', 'dreiklaenge-hoeren']) {
+      expect(answersFor(generate(id, {}), 'a').has('sus4'), id).toBe(false);
+      expect(offered(generate(id, { sus4: true }, 1)[0], 'a'), id).toContain('sus4');
+    }
+  });
+
+  it('kommt ohne Doppelvorzeichen aus und hält «ohne Vorzeichen» beim Grundton', () => {
+    for (const question of generate('dreiklaenge-bestimmen', { sus4: true })) {
+      expect(scoreKeys(question).every((p) => Math.abs(p.alter) <= 1)).toBe(true);
+    }
+    for (const question of generate('dreiklaenge-bestimmen', { accidentals: 'stammton', sus4: true })) {
+      expect(scoreKeys(question)[0].alter).toBe(0);
+    }
+  });
+
+  it('bleibt im gewählten Schlüssel im System', () => {
+    for (const question of generate('dreiklaenge-bestimmen', { clefs: ['bass'] })) {
+      expect((question.task as SelectTask).score!.clef).toBe('bass');
+      expect(scoreKeys(question).every((p) => midi(p) >= 43 && midi(p) <= 62)).toBe(true);
+    }
+  });
+
+  it('markiert auf der Klaviatur drei Tasten im gefragten Geschlecht, Grundton unten', () => {
+    for (const question of generate('dreiklaenge-klaviatur-benennen', { sus4: true })) {
+      const keys = (question.task as SelectTask).keyboard!.marked!;
+      expect(keys).toHaveLength(3);
+      expect([keys[1] - keys[0], keys[2] - keys[0]]).toEqual(SEMITONES[field(question).correct]);
+      expect(keys.every((key) => key >= 48 && key <= 71)).toBe(true);
+    }
+    for (const question of generate('dreiklaenge-klaviatur-benennen', { accidentals: 'stammton' })) {
+      expect(isWhiteKey((question.task as SelectTask).keyboard!.marked![0])).toBe(true);
+    }
+  });
+
+  it('spielt beim Hören den Dreiklang im gefragten Geschlecht', () => {
+    for (const question of generate('dreiklaenge-hoeren', { sus4: true })) {
+      expect(question.audio?.kind).toBe('voicing');
+      const notes = question.audio?.kind === 'voicing' ? question.audio.notes.map(parsePitch) : [];
+      expect([midi(notes[1]) - midi(notes[0]), midi(notes[2]) - midi(notes[0])]).toEqual(
+        SEMITONES[field(question).correct],
+      );
+    }
+    const together = generate('dreiklaenge-hoeren', { playback: 'zusammen' }, 5);
+    expect(together.every((question) => question.audio?.kind === 'voicing' && question.audio.broken === false)).toBe(
+      true,
+    );
+  });
+
+  it('fragt bei Umkehrungen & Lagen genau das Eingestellte', () => {
+    for (const id of ['umkehrungen-benennen', 'umkehrungen-klaviatur-benennen', 'umkehrungen-hoeren']) {
+      for (const ask of [['inv'], ['pos'], ['inv', 'pos']]) {
+        for (const question of generate(id, { ask }, 10)) {
+          expect((question.task as SelectTask).fields.map((f) => f.id), `${id} ${ask}`).toEqual(ask);
+        }
+      }
+    }
+  });
+
+  it('zeigt ohne Basston drei Töne eng: die Lage folgt aus der Umkehrung', () => {
+    const coupled: Record<string, string> = {
+      grundstellung: 'quintlage',
+      sextakkord: 'oktavlage',
+      quartsextakkord: 'terzlage',
+    };
+    const questions = generate('umkehrungen-benennen', { ask: ['inv', 'pos'], qualities: ['dur', 'moll', 'vermindert', 'uebermaessig'] });
+    for (const question of questions) {
+      const pitches = scoreKeys(question);
+      expect(pitches).toHaveLength(3);
+      expect(midi(pitches[2]) - midi(pitches[0])).toBeLessThan(12);
+      const { bass, top } = members(pitches);
+      expect(field(question, 'inv').correct).toBe(INVERSION_OF[bass]);
+      expect(field(question, 'pos').correct).toBe(POSITION_OF[top]);
+      expect(coupled[field(question, 'inv').correct]).toBe(field(question, 'pos').correct);
+    }
+    expect(answersFor(questions, 'inv')).toEqual(new Set(['grundstellung', 'sextakkord', 'quartsextakkord']));
+  });
+
+  it('setzt mit Basston ein zweites System, und Umkehrung und Lage sind frei', () => {
+    const questions = generate('umkehrungen-benennen', { ask: ['inv', 'pos'], withBass: true });
+    const pairs = new Set<string>();
+    for (const question of questions) {
+      const score = (question.task as SelectTask).score!;
+      expect(score.clef).toBe('grand');
+      expect(score.measures[0].bass?.[0].keys).toHaveLength(1);
+      const pitches = scoreKeys(question);
+      expect(pitches).toHaveLength(4);
+      const { bass, top } = members(pitches);
+      expect(field(question, 'inv').correct).toBe(INVERSION_OF[bass]);
+      expect(field(question, 'pos').correct).toBe(POSITION_OF[top]);
+      pairs.add(`${field(question, 'inv').correct} ${field(question, 'pos').correct}`);
+    }
+    expect(pairs.size).toBe(9);
+  });
+
+  it('hält die eingestellten Umkehrungen und Lagen ein', () => {
+    expect(answersFor(generate('umkehrungen-benennen', { inversions: ['sextakkord'] }), 'inv')).toEqual(
+      new Set(['sextakkord']),
+    );
+    expect(
+      answersFor(generate('umkehrungen-hoeren', { ask: ['pos'], positions: ['terzlage', 'oktavlage'] }), 'pos'),
+    ).toEqual(new Set(['terzlage', 'oktavlage']));
+    // Ohne Basston gibt es zu den eingestellten Umkehrungen nur ihre Lagen.
+    const question = generate('umkehrungen-benennen', { ask: ['inv', 'pos'], inversions: ['grundstellung', 'sextakkord'] }, 1)[0];
+    expect(offered(question, 'pos')).toEqual(['oktavlage', 'quintlage']);
+  });
+
+  it('sperrt die Lagen, wo sie aus der Umkehrung folgen', () => {
+    const filter = generatorById('umkehrungen-benennen')!.filters.find((entry) => entry.key === 'positions')!;
+    expect(filter.disabledBy!({ ask: ['inv'] })).toMatch(/Lage gefragt/);
+    expect(filter.disabledBy!({ ask: ['pos'] })).toBeNull();
+    expect(filter.disabledBy!({ ask: ['inv', 'pos'], withBass: false })).toMatch(/folgt/);
+    expect(filter.disabledBy!({ ask: ['inv', 'pos'], withBass: true })).toBeNull();
+  });
+
+  it('lässt beim Hören und auf der Klaviatur den übermässigen weg', () => {
+    for (const id of ['umkehrungen-klaviatur-benennen', 'umkehrungen-hoeren']) {
+      const qualities = generatorById(id)!.filters.find((entry) => entry.key === 'qualities')!;
+      expect(qualities.kind === 'multi' && qualities.options.map((o) => o.value), id).not.toContain('uebermaessig');
+      // Auch ein alter Stand mit «übermässig» bringt keinen.
+      for (const question of generate(id, { qualities: ['uebermaessig', 'dur'], withBass: true }, 50)) {
+        const keys =
+          question.task.kind === 'select' && question.task.keyboard
+            ? question.task.keyboard.marked!
+            : question.audio?.kind === 'voicing'
+              ? question.audio.notes.map((key) => midi(parsePitch(key)))
+              : [];
+        const classes = new Set(keys.map((key) => key % 12));
+        const augmented = [...classes].some((pc) => classes.has((pc + 4) % 12) && classes.has((pc + 8) % 12));
+        expect(augmented, id).toBe(false);
+      }
+    }
+  });
+
+  it('legt mit Basston auf der Klaviatur vier Tasten, den Basston abgesetzt', () => {
+    for (const question of generate('umkehrungen-klaviatur-benennen', { withBass: true, ask: ['inv', 'pos'] })) {
+      const keys = (question.task as SelectTask).keyboard!.marked!;
+      expect(keys).toHaveLength(4);
+      expect(keys[1] - keys[0]).toBeGreaterThanOrEqual(3);
+      expect(keys.every((key) => key >= 48 && key <= 71)).toBe(true);
     }
   });
 });
@@ -1432,35 +1521,6 @@ describe('Antwortoptionen', () => {
     for (const question of generate('tonleitern-hoeren', { scaleTypes: ['dur', 'moll-harmonisch'] }, 20)) {
       expect(offered(question, 'a')).toEqual(['dur', 'moll-harmonisch']);
     }
-  });
-
-  it('bieten beim Dreiklanghören nur die eingestellten Geschlechter und Umkehrungen an', () => {
-    const questions = generate(
-      'dreiklaenge-hoeren',
-      { qualities: ['dur', 'moll'], inversions: ['grundstellung', 'sextakkord'], askInversion: true },
-      20,
-    );
-    for (const question of questions) {
-      expect(offered(question, 'a')).toEqual(['dur', 'moll']);
-      expect(offered(question, 'inv')).toEqual(['grundstellung', 'sextakkord']);
-    }
-  });
-
-  it('bieten beim Dreiklangbestimmen nur Eingestelltes an', () => {
-    const questions = generate(
-      'dreiklaenge-bestimmen',
-      { qualities: ['moll'], inversions: ['sextakkord'], positions: ['terzlage', 'quintlage'], accidentals: 'stammton' },
-      20,
-    );
-    for (const question of questions) {
-      expect(offered(question, 'quality')).toEqual(['moll']);
-      expect(offered(question, 'inv')).toEqual(['sextakkord']);
-      expect(offered(question, 'pos')).toEqual(['terzlage', 'quintlage']);
-      expect(offered(question, 'root')).toEqual(['C', 'D', 'E', 'F', 'G', 'A', 'H']);
-    }
-    // Mit Vorzeichen: alle Grundtöne.
-    const withAccidentals = generate('dreiklaenge-bestimmen', { accidentals: 'einfach' }, 1)[0];
-    expect(offered(withAccidentals, 'root').length).toBeGreaterThan(7);
   });
 
   it('bieten beim Tonartenzuordnen nur Tonarten innerhalb der Vorzeichengrenze an', () => {

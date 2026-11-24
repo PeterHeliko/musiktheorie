@@ -63,8 +63,10 @@ export const PARAM_NAMES: Record<string, string> = {
   timeSignature: 'taktart',
   tolerance: 'genauigkeit',
   tonic: 'grundton',
+  sus4: 'sus4',
   untilRight: 'ohne-fehlerurteil',
   width: 'lage',
+  withBass: 'mit-bass',
   wording: 'bezeichnung',
 };
 

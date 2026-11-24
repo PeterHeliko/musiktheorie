@@ -167,6 +167,12 @@ export const OPTION_SETS: Record<string, SelectOption[]> = {
     opt(q, TRIAD_LABELS[q]),
   ),
 
+  /** Die vier Geschlechter und sus4 (Quarte statt Terz) — für die Grundstellung. */
+  chordQuality: [
+    ...(Object.keys(TRIAD_LABELS) as (keyof typeof TRIAD_LABELS)[]).map((q) => opt(q, TRIAD_LABELS[q])),
+    opt('sus4', 'sus4'),
+  ],
+
   inversion: (Object.keys(INVERSION_LABELS) as (keyof typeof INVERSION_LABELS)[]).map((i) =>
     opt(i, INVERSION_LABELS[i]),
   ),

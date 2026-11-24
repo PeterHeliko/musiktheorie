@@ -129,8 +129,8 @@ export const TOPICS = [
   { id: 'toene', title: 'Töne' },
   { id: 'rhythmus', title: 'Rhythmus' },
   { id: 'intervalle', title: 'Intervalle' },
-  { id: 'tonleitern', title: 'Tonleitern und Tonarten' },
   { id: 'dreiklaenge', title: 'Dreiklänge' },
+  { id: 'tonleitern', title: 'Tonleitern und Tonarten' },
   { id: 'melodie', title: 'Melodie' },
 ] as const;
 
@@ -145,6 +145,10 @@ export const TOPIC_GROUPS: Partial<Record<TopicId, { id: string; title: string }
   intervalle: [
     { id: 'grob', title: 'Grobbestimmung' },
     { id: 'fein', title: 'Feinbestimmung' },
+  ],
+  dreiklaenge: [
+    { id: 'grundstellung', title: 'Grundstellung' },
+    { id: 'umkehrungen', title: 'Umkehrungen & Lagen' },
   ],
 };
 
@@ -169,11 +173,12 @@ export function topicTitle(id: TopicId): string {
  * welche hat. Grob- und Feinbestimmung tragen dieselben Übungstitel
  * («Intervalle notieren»); ein geteilter Link soll trotzdem sagen, welche es
  * ist. Die Kopfzeile der Übung und die Liste zeigen den kurzen Titel — dort
- * steht die Gruppe schon daneben (Entscheid 2026-11-23).
+ * steht die Gruppe schon daneben (Entscheid 2026-11-23). Steht die Gruppe
+ * schon im Titel («Umkehrungen & Lagen notieren»), bleibt er, wie er ist.
  */
 export function fullTitle(generator: { topic: TopicId; group?: string; title: string }): string {
   const group = TOPIC_GROUPS[generator.topic]?.find((entry) => entry.id === generator.group);
-  return group ? `${generator.title} (${group.title})` : generator.title;
+  return group && !generator.title.includes(group.title) ? `${generator.title} (${group.title})` : generator.title;
 }
 
 export interface Generator<F extends FilterValues = FilterValues> {

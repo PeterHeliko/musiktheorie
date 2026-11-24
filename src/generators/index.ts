@@ -15,10 +15,11 @@
 
 import { expandAudioItem, tempoFor, type AudioEvent } from '../content/audio';
 import { gehoerDiktat, toAudioEvents } from './gehoer-diktat';
-import { gehoerDreiklaenge } from './gehoer-dreiklaenge';
 import { gehoerIntervalle } from './gehoer-intervalle';
 import { gehoerTonleitern } from './gehoer-tonleitern';
-import { dreiklaengeBestimmen, dreiklaengeStufen } from './dreiklaenge';
+import { dreiklaengeBenennen, dreiklaengeHoeren, dreiklaengeKlaviaturBenennen } from './dreiklaenge-grundstellung';
+import { umkehrungenBenennen, umkehrungenHoeren, umkehrungenKlaviaturBenennen } from './dreiklaenge-umkehrungen';
+import { dreiklaengeStufen } from './stufen';
 import { intervalleBestimmen, intervalleNotieren } from './intervalle';
 import { intervalleGrobBestimmen, intervalleGrobNotieren } from './intervalle-grob';
 import {
@@ -55,13 +56,17 @@ export const GENERATORS: Generator<FilterValues>[] = [
   intervalleKlaviaturSpielen,
   gehoerIntervalle,
   intervalleSingen,
+  dreiklaengeBenennen,
+  dreiklaengeKlaviaturBenennen,
+  dreiklaengeHoeren,
+  umkehrungenBenennen,
+  umkehrungenKlaviaturBenennen,
+  umkehrungenHoeren,
   tonartenZuordnen,
   tonartenVorzeichen,
   tonartenHalbtonschritte,
-  gehoerTonleitern,
-  dreiklaengeBestimmen,
   dreiklaengeStufen,
-  gehoerDreiklaenge,
+  gehoerTonleitern,
   gehoerDiktat,
 ];
 

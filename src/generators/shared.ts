@@ -443,23 +443,6 @@ export function keyMatching(
   };
 }
 
-/** Dreiklang mit den gefragten Bestimmungsfeldern. */
-export function triadNaming(
-  id: string,
-  score: ScoreSpec,
-  fields: SelectField[],
-): SelectTask {
-  return {
-    id,
-    kind: 'select',
-    // Auswahlfelder rechts neben das Notenbild statt darunter: spart Höhe.
-    layout: 'side',
-    fieldColumns: fields.length > 2 ? 2 : 1,
-    score,
-    fields,
-  };
-}
-
 /** Textfrage, beantwortet über Grundton und Geschlecht getrennt. */
 export function degreeTask(id: string, prompt: string, root: string, gender: string): SelectTask {
   return {

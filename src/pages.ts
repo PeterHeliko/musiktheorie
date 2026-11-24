@@ -89,8 +89,8 @@ export function metaFor(route: Route): PageMeta {
         path,
         title: 'Übungen',
         description:
-          'Alle Übungen nach Thema — Töne, Rhythmus, Intervalle, Tonleitern und Tonarten, ' +
-          'Dreiklänge, Melodie. Jede Aufgabe wird neu gewürfelt.',
+          'Alle Übungen nach Thema — Töne, Rhythmus, Intervalle, Dreiklänge, ' +
+          'Tonleitern und Tonarten, Melodie. Jede Aufgabe wird neu gewürfelt.',
       };
     case 'thema': {
       const topic = TOPICS.find((entry) => entry.id === route.topic)!;

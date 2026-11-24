@@ -47,19 +47,23 @@ const MODES = {
   'intervalle-klaviatur-spielen': 'Intervalle auf Klaviatur spielen (Feinbestimmung)',
   'intervalle-hoeren': 'Intervalle hörend erkennen (Feinbestimmung)',
   'intervalle-singen': 'Intervalle singen (Feinbestimmung)',
+  'dreiklaenge-bestimmen': 'Dreiklänge in Noten benennen (Grundstellung)',
+  'dreiklaenge-klaviatur-benennen': 'Dreiklänge auf Klaviatur benennen (Grundstellung)',
+  'dreiklaenge-hoeren': 'Dreiklänge hörend erkennen (Grundstellung)',
+  'umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen',
+  'umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen',
+  'umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
-  'tonleitern-hoeren': 'Tonleitern hörend erkennen',
-  'dreiklaenge-bestimmen': 'Dreiklänge bestimmen',
   'stufen-bestimmen': 'Stufen bestimmen',
-  'dreiklaenge-hoeren': 'Dreiklänge hörend erkennen',
+  'tonleitern-hoeren': 'Tonleitern hörend erkennen',
   melodiediktat: 'Rhythmus- und Melodiediktat',
 };
 const MODE_IDS = Object.keys(MODES);
 
 /** Themen mit Übungen — muss zu src/generators/types.ts (TOPICS) passen. */
-const TOPICS = ['toene', 'rhythmus', 'intervalle', 'tonleitern', 'dreiklaenge', 'melodie'];
+const TOPICS = ['toene', 'rhythmus', 'intervalle', 'dreiklaenge', 'tonleitern', 'melodie'];
 
 let failures = 0;
 
@@ -188,7 +192,7 @@ async function main() {
       const html = await response.text();
       const ok =
         response.status === 200 &&
-        html.includes(`<title>${title}</title>`) &&
+        html.includes(`<title>${title.replaceAll('&', '&amp;')}</title>`) &&
         html.includes('property="og:title"') &&
         html.includes('name="description"');
       if (ok) filesOk++;
@@ -318,7 +322,7 @@ async function main() {
     console.log('\nÜbung auf dem Telefon');
     const phone = await browser.newContext({ ...devices['iPhone 13'] });
     const phonePage = await phone.newPage();
-    for (const mode of ['intervalle-hoeren', 'dreiklaenge-bestimmen', 'melodiediktat', 'intervalle-singen']) {
+    for (const mode of ['intervalle-hoeren', 'umkehrungen-benennen', 'melodiediktat', 'intervalle-singen']) {
       await phonePage.goto(exercise(mode), { waitUntil: 'networkidle' });
       await phonePage.waitForSelector('.question');
       const viewport = phonePage.viewportSize();
@@ -396,16 +400,21 @@ async function main() {
 
     // --------------------------------------------- Mehrere Felder brauchen Prüfen
     console.log('\nMehrfeldaufgabe wartet auf «Prüfen»');
-    await page.goto(exercise('dreiklaenge-bestimmen'), { waitUntil: 'networkidle' });
-    await page.waitForSelector('.question select');
+    await page.goto(exercise('umkehrungen-benennen', '?gefragt=umkehrung,lage&mit-bass=ja'), {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('.question .choice');
     check(await page.locator('button:has-text("Prüfen")').isDisabled(), 'Prüfen ist erst nach einer Eingabe möglich');
-    for (const select of await page.locator('.question select').all()) await select.selectOption({ index: 1 });
+    for (const group of await page.locator('.question fieldset').all()) await group.locator('.choice').first().click();
     check(!(await page.locator('button:has-text("Prüfen")').isDisabled()), 'Prüfen wird nach der Eingabe möglich');
     await page.locator('button:has-text("Prüfen")').click();
     await page.waitForSelector('.verdict');
+    // Beide Knopfreihen zeigen die Lösung selbst: je eine gewählte Antwort grün
+    // oder rot, keine Liste in Worten darunter.
     check(
-      (await page.locator('.question .feedback-list li').count()) >= 2,
-      'die Einzelheiten stehen unter der Aufgabe, das Urteil in der Leiste',
+      (await page.locator('.question .choice.is-selected.is-right, .question .choice.is-selected.is-wrong').count()) ===
+        2 && (await page.locator('.question .feedback-list').count()) === 0,
+      'jede Knopfreihe zeigt ihr Urteil, das Gesamturteil steht in der Leiste',
     );
     await page.screenshot({ path: join(SHOTS, 'rueckmeldung-mehrteilig.png'), fullPage: true });
 

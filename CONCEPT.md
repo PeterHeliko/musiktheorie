@@ -206,6 +206,56 @@ submits it. Marks are fills: given keys blue, the tapped key light blue.
 
 *Später:* über die Oktave hinaus, Komplementärintervalle.
 
+### Dreiklänge
+
+Before Tonleitern & Tonarten: a triad needs only intervals, not keys. Two groups, shown in
+this order on the topic page.
+
+**Grundstellung:** three tones close above the root, on one staff or on the keyboard.
+Qualities Dur, moll, vermindert, übermässig; sus4 can be switched on. Naming asks only the
+quality, one tap answers.
+
+| Übung                               | Fertigkeit |     |
+| ----------------------------------- | ---------- | --- |
+| Dreiklänge in Noten benennen        | Erkennen   | ✓   |
+| Dreiklänge notieren                 | Notieren   |     |
+| Dreiklänge auf Klaviatur benennen   | Klaviatur  | ✓   |
+| Dreiklänge auf Klaviatur spielen    | Klaviatur  |     |
+| Dreiklänge hörend erkennen          | Hören      | ✓   |
+| Dreiklänge singen                   | Singen     | ★   |
+
+**Umkehrungen & Lagen:** the settings ask the Umkehrung (lowest tone: Grundstellung,
+Sextakkord, Quartsextakkord), the Lage (highest tone: Oktavlage, Terzlage, Quintlage), or
+both.
+
+| Übung                                         | Fertigkeit |     |
+| --------------------------------------------- | ---------- | --- |
+| Umkehrungen & Lagen in Noten benennen         | Erkennen   | ✓   |
+| Umkehrungen & Lagen notieren                  | Notieren   |     |
+| Umkehrungen & Lagen auf Klaviatur benennen    | Klaviatur  | ✓   |
+| Umkehrungen & Lagen auf Klaviatur spielen     | Klaviatur  |     |
+| Umkehrungen & Lagen hörend erkennen           | Hören      | ✓   |
+| Umkehrungen & Lagen singen                    | Singen     | ★   |
+
+Rules (decided 2026-11-24):
+
+- **One staff = three tones close.** The Lage then follows from the Umkehrung
+  (Grundstellung = Quintlage, Sextakkord = Oktavlage, Quartsextakkord = Terzlage). A setting
+  adds a separate bass tone: a second staff in bass clef, a fourth key, a bass voice. Only
+  then do Umkehrung and Lage vary independently.
+- **Writing and playing are free.** Any spacing, doublings allowed, on one staff or across
+  both. Right means: the lowest tone is the asked chord member (Umkehrung), the highest is the
+  asked one (Lage), all three tones are there, and no other. In notation the spelling counts
+  (fis, not ges); on the keyboard only the key.
+- **Singing:** the chord's lowest tone sounds; sing all three tones from the bottom up, each
+  held as in Intervalle singen, any octave, order counts.
+- **Übermässig** is left out where only sound or keys count (hearing and keyboard naming of
+  Umkehrungen & Lagen): its inversions sound and lie alike.
+- No double accidentals anywhere; roots that would need one are skipped.
+
+*Später:* Septakkorde (Dominantseptakkord first), Akkordsymbole, Hauptfunktionen T S D,
+Kadenzen hören.
+
 ### Tonleitern & Tonarten
 
 | Übung                                 | Fertigkeit |     |
@@ -213,27 +263,16 @@ submits it. Marks are fills: given keys blue, the tapped key light blue.
 | Vorzeichen setzen                     | Notieren   | ✓   |
 | Tonart den Vorzeichen zuordnen        | Erkennen   | ✓   |
 | Halbtonschritte markieren             | Erkennen   | ✓   |
+| Stufen bestimmen                      | Erkennen   | ✓   |
 | Tonleiter notieren                    | Notieren   |     |
 | Tonleiter auf der Klaviatur           | Klaviatur  |     |
 | Tonleitern hören (Dur, Moll ×3)       | Hören      | ✓   |
 | Tonleitern singen (Dur, Moll)         | Singen     | ★   |
 | Paralleltonart, Quintenzirkel         | Erkennen   |     |
 
+Stufen bestimmen moved here from Dreiklänge (2026-11-24): Stufen need the keys.
+
 *Später:* Pentatonik, Blues, Kirchentonarten.
-
-### Dreiklänge
-
-| Übung                                                   | Fertigkeit |     |
-| ------------------------------------------------------- | ---------- | --- |
-| Dreiklänge bestimmen (Geschlecht, Umkehrung, Lage)      | Erkennen   | ✓   |
-| Dreiklang notieren                                      | Notieren   |     |
-| Dreiklang auf der Klaviatur                             | Klaviatur  |     |
-| Dreiklänge hören                                        | Hören      | ✓   |
-| Dreiklänge singen (Töne nacheinander)                   | Singen     | ★   |
-| Stufen bestimmen                                        | Erkennen   | ✓   |
-
-*Später:* Septakkorde (Dominantseptakkord first), Akkordsymbole, Hauptfunktionen T S D,
-Kadenzen hören.
 
 ### Melodie
 
