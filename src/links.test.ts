@@ -73,7 +73,7 @@ describe('Parameternamen', () => {
     }
   });
 
-  it('kollidiert nicht mit «runde», «aufgabe» und «v»', () => {
+  it('kollidiert nicht mit «runde», «aufgabe», «v», «kurs» und «schritt»', () => {
     for (const generator of GENERATORS) {
       for (const filter of generator.filters) {
         expect(RESERVED_PARAMS as readonly string[]).not.toContain(paramName(filter.key));

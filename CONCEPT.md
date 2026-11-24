@@ -26,6 +26,7 @@ shareable link for every exercise.
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
 | Sound after checking  | Intervals and chords where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. A correct written or played answer sounds as the learner wrote or played it, in their octave and spacing. (2026-11-24) |
 | No repeats            | Never the same question twice in a row, in any exercise; re-drawn via the seed, so task and round links stay reproducible (2026-11-24) |
+| Kurse                 | **Anyone can put exercises together into a Kurs and share it as a link** (§7). Same settings, fresh tasks (no fixed tasks for now). Built via ⚙ «Zum Kurs hinzufügen»; a step is done when its round is finished. Title only, at most 30 characters. Start page: topics, then «Kurse», then «Werkzeuge». (2026-11-24) |
 | Feedback              | **Show, don't say.** The task shows the solution itself: outlined answer button, outlined key, green note in the staff (beside a wrong one). The bottom bar then says only «✓ Richtig» / «✗ Falsch». Words only where the task can't show it yet; screen readers always get words. |
 
 ---
@@ -350,6 +351,7 @@ quizzes need licensed recordings and images, and they aren't music theory.
 /ueben/                           alias of the start page (was its duplicate until 2026-11-24)
 /ueben/intervalle/                one topic: its exercises, full titles only
 /ueben/intervalle-singen/         one exercise; filters and task in the query string (§7)
+/kurs/?titel=…&1=…&2=…            a Kurs someone put together; the whole Kurs is in the link (§7)
 /wissen/intervalle/               short explanation with playable examples + «Jetzt üben»
 /werkzeuge/klavier/  /metronom/  /quintenzirkel/  /tonhoehe/   (live pitch display)
 /lexikon/                         Fachbegriffe A–Z
@@ -488,6 +490,41 @@ Rules:
   the link elsewhere.
 - **Test.** For every generator, settings → URL → settings round-trips, and a task link
   reproduces the identical task.
+
+### Kurse (decided 2026-11-24)
+
+A Kurs is a list of exercises with fixed settings, put together by anyone and shared as a link.
+It is a playlist, not an assignment: results stay on the learner's device and never go back to
+whoever made it.
+
+```
+/kurs/?titel=Terzen+und+Sexten
+      &1=intervalle-bestimmen~intervalle:k3,g3,k6,g6~runde:10
+      &2=intervalle-notieren~intervalle:k3,g3~schluessel:bass~runde:10
+```
+
+- **The link is the Kurs.** Each step is an exercise id plus its link parameters (§7, `~`
+  between them, `:` instead of `=`), always with a round size. There is no central copy: a
+  shared Kurs can't be changed afterwards, only shared again as a new link.
+- **Same settings, fresh tasks.** No seeds for now, so generator versions never break a Kurs.
+  An exercise that no longer exists is left out, with a notice.
+- **Title only**, plain text, at most 30 characters; at most 30 steps.
+- **Link preview** can't show the title: `/kurs/` is one static file and chats don't run
+  JavaScript. Sharing from a phone sends the title as text along with the link.
+- **One list per device.** Opening a Kurs link adds it to «Kurse» on the start page, or opens
+  the entry that already has exactly this content. Every Kurs in the list can be edited, also
+  one received from someone else: that changes only the own copy. A newer link from someone is
+  a separate entry.
+- **Building:** ⚙ → «Zum Kurs hinzufügen» in any exercise takes the exercise with the settings
+  shown, into an existing Kurs or a new one. On the Kurs page: rename, reorder, round size,
+  remove steps, remove the Kurs from the device.
+- **In a step:** the exercise runs as a round with the Kurs settings. ✕ leads back to the
+  Kurs; ⚙ shows no filters, only Teilen, the Stimmlage and «Frei üben» (the same exercise
+  outside the Kurs). A finished round checks the step off and offers the next one.
+- **Steps are told apart** by a second line listing the settings that differ from the
+  defaults, taken from the filter labels.
+- **Later:** the Lernpfad is built-in Kurse in the same format, at `/lernen/<id>/` with their
+  own pages and previews.
 
 ### Progress
 

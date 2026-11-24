@@ -93,8 +93,11 @@ const VALUE_FROM_NAME: Record<string, string> = Object.fromEntries(
   Object.entries(VALUE_NAMES).map(([value, name]) => [name, value]),
 );
 
-/** Parameter, die keinem Filter gehören. */
-export const RESERVED_PARAMS = ['runde', 'aufgabe', 'v'] as const;
+/**
+ * Parameter, die keinem Filter gehören. «kurs» und «schritt» hängen an der
+ * Übung eines Kursschritts (`courses.ts`).
+ */
+export const RESERVED_PARAMS = ['runde', 'aufgabe', 'v', 'kurs', 'schritt'] as const;
 
 /** Rundengrössen, die ein Link verlangen darf. Die Oberfläche bietet 10/20/30. */
 const MIN_ROUND = 1;
@@ -228,7 +231,7 @@ function encodeValue(value: string): string {
     .replace(/%2F/gi, '/');
 }
 
-function sameValue(a: FilterValues[string], b: FilterValues[string]): boolean {
+export function sameValue(a: FilterValues[string], b: FilterValues[string]): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     return a.length === b.length && a.every((item) => b.includes(item));
   }
