@@ -8,7 +8,8 @@
  */
 
 import { OPTION_SETS } from '../content/options';
-import type { NoteSpec, NotationTask } from '../content/schema';
+import type { KeyboardTask, NoteSpec, NotationTask } from '../content/schema';
+import { INTERVAL_KEYBOARD } from '../music/piano';
 import {
   MAJOR_MINOR,
   checkScale,
@@ -175,6 +176,73 @@ export const tonleiternNotieren: Generator<WritingFilters> = {
         type: 'pitch',
         slots: pitches.slice(1).map((pitch, index) => ({ slot: index + 1, accept: [pitchKey(pitch)] })),
       },
+    };
+    return { task };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Tonleitern auf der Klaviatur markieren
+// ---------------------------------------------------------------------------
+
+interface KeyboardFilters extends FilterValues {
+  scales: string[];
+  maxAccidentals: number;
+  directions: string[];
+}
+
+/**
+ * Der Grundton ist blau markiert, die übrigen Töne bis zur Oktave werden
+ * angetippt (Entscheid 2026-11-24): jedes Antippen nimmt eine Taste dazu
+ * oder weg und lässt sie klingen. Richtig ist genau diese Menge — die
+ * Reihenfolge des Antippens zählt nicht. Aufwärts liegt der Grundton in der
+ * unteren Oktave, abwärts in der oberen; so hat die Leiter auf den zwei
+ * Oktaven immer Platz.
+ */
+export const tonleiternKlaviatur: Generator<KeyboardFilters> = {
+  id: 'tonleitern-klaviatur',
+  topic: 'tonleitern',
+  skill: 'klaviatur',
+  version: 1,
+  title: 'Tonleitern auf Klaviatur markieren',
+  instruction: 'Markiere die Töne der Tonleiter vom blauen Grundton bis zu seiner Oktave.',
+  hint: 'Antippen nimmt eine Taste dazu, noch einmal antippen nimmt sie wieder weg.',
+
+  filters: [SCALE_FILTER, MAX_ACCIDENTALS_FILTER, DIRECTION_FILTER],
+
+  defaults: {
+    scales: DEFAULT_SCALES,
+    maxAccidentals: 4,
+    directions: ['up'],
+  },
+
+  generate(values, rng: Rng): Question {
+    const choice = pickScale(values, rng);
+    // Der tiefe Grundton klingend in der unteren Oktave (ces³ klingt als h,
+    // his³ als c¹ — die werden verschoben); abwärts beginnt die Leiter auf
+    // seiner Oktave.
+    const below = { ...choice.tonic, octave: 3 };
+    const shift = midi(below) < INTERVAL_KEYBOARD.low ? 1 : midi(below) > INTERVAL_KEYBOARD.low + 11 ? -1 : 0;
+    const tonic = { ...below, octave: 3 + shift };
+    const pitches = scalePitches(tonic, choice.type, choice.direction);
+    const problem = checkScale(pitches, choice.type, choice.direction);
+    insist(problem === null, `${scalePrompt(choice)}: ${problem}`);
+
+    const keys = pitches.map(midi);
+    insist(
+      keys.every((key) => key >= INTERVAL_KEYBOARD.low && key <= INTERVAL_KEYBOARD.high),
+      `${scalePrompt(choice)} passt nicht auf die Klaviatur`,
+    );
+    const task: KeyboardTask = {
+      id: taskId('tlk', rng),
+      kind: 'keyboard',
+      prompt: scalePrompt(choice),
+      keyboard: { ...INTERVAL_KEYBOARD, marked: [keys[0]] },
+      accept: keys.slice(1).sort((a, b) => a - b),
+      scale: true,
+      sound: true,
+      describe: { by: 'scale' },
+      points: 2,
     };
     return { task };
   },

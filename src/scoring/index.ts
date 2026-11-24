@@ -510,6 +510,12 @@ export function keyInterval(
   return `${text} ${key > from ? 'aufwärts' : 'abwärts'}`;
 }
 
+/** Dieselben Tasten, gleich in welcher Reihenfolge angetippt. */
+function sameKeys(a: readonly number[], b: readonly number[]): boolean {
+  const sorted = (keys: readonly number[]) => [...new Set(keys)].sort((x, y) => x - y).join(' ');
+  return a.length === b.length && sorted(a) === sorted(b);
+}
+
 function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): Detail[] {
   const keys = answer?.keys ?? [];
   if (task.chord) {
@@ -522,6 +528,21 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
         possible: task.points,
         studentResponse: describeKeys(keys),
         correctResponse: describeChordRule(task.chord),
+        correct,
+        interactionType: 'performance',
+      },
+    ];
+  }
+  if (task.scale) {
+    const correct = sameKeys(keys, task.accept);
+    return [
+      {
+        id: `${task.id}_tonleiter`,
+        label: task.prompt ?? 'Tonleiter',
+        earned: correct ? task.points : 0,
+        possible: task.points,
+        studentResponse: describeKeys(keys),
+        correctResponse: describeKeys(task.accept),
         correct,
         interactionType: 'performance',
       },
@@ -543,7 +564,9 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
       },
     ];
   }
-  if (task.describe.by === 'chord') throw new Error(`${task.id}: Akkordbeschreibung ohne Akkord`);
+  if (task.describe.by === 'chord' || task.describe.by === 'scale') {
+    throw new Error(`${task.id}: Beschreibung «${task.describe.by}» ohne Akkord bzw. Tonleiter`);
+  }
   const { from, by } = task.describe;
   // Sind beide Richtungen richtig, nennt die Lösung nur das Intervall.
   const both = task.accept.some((key) => key > from) && task.accept.some((key) => key < from);

@@ -79,7 +79,7 @@ function correctAnswerFor(task: Task): unknown {
     // Erst den Ausgangston nachsingen (erlaubt), dann genau den Zielton.
     return { notes: [midi(parsePitch(task.reference)), midi(parsePitch(task.target))] };
   }
-  if (task.kind === 'keyboard') return { keys: task.chord ? task.accept : [task.accept[0]] };
+  if (task.kind === 'keyboard') return { keys: task.chord || task.scale ? task.accept : [task.accept[0]] };
   if (task.kind !== 'notation') return {};
 
   const fields = Object.fromEntries((task.fields ?? []).map((f) => [f.id, f.correct]));

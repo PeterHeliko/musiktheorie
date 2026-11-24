@@ -16,6 +16,10 @@
  * tiefste bzw. höchste das falsche Akkordglied ist. War der Akkord falsch,
  * steht die richtige Lage, die dem Gespielten am nächsten liegt, grün
  * umrandet da.
+ *
+ * Eine Tonleiter (`task.scale`) geht gleich: antippen nimmt dazu oder weg, der
+ * blaue Grundton lässt sich nicht antippen. Nach dem Prüfen ist jede getippte
+ * Taste grün oder rot, jede fehlende grün umrandet.
  */
 
 import { useEffect } from 'preact/hooks';
@@ -57,7 +61,12 @@ export function KeyboardTaskView({
   }, [task]);
 
   const states: Record<number, KeyState> = {};
-  if (revealed && task.chord) {
+  if (revealed && task.scale) {
+    // Eine Tonleiter: jede getippte Taste grün oder rot, jede fehlende grün
+    // umrandet.
+    for (const key of task.accept) states[key] = 'solution';
+    for (const key of chosen) states[key] = task.accept.includes(key) ? 'right' : 'wrong';
+  } else if (revealed && task.chord) {
     // Ein Akkord: jede gespielte Taste grün oder rot; war er falsch, steht
     // eine richtige Lage grün umrandet da — die, die dem Gespielten am
     // nächsten liegt.
@@ -74,7 +83,7 @@ export function KeyboardTaskView({
 
   const press = (key: number) => {
     if (readOnly) return;
-    if (task.chord) {
+    if (task.chord || task.scale) {
       // Antippen nimmt die Taste dazu oder wieder weg. Nur was dazukommt,
       // klingt.
       const removing = chosen.includes(key);
@@ -97,15 +106,25 @@ export function KeyboardTaskView({
         high={task.keyboard.high}
         marked={task.keyboard.marked}
         states={states}
-        pressable={task.whiteOnly ? isWhiteKey : undefined}
+        pressable={pressableFor(task)}
         onPress={press}
-        multiple={Boolean(task.chord)}
+        multiple={Boolean(task.chord || task.scale)}
         disabled={readOnly}
         fit
         label={task.prompt ? `Klaviatur: ${task.prompt}` : 'Klaviatur'}
       />
     </div>
   );
+}
+
+/**
+ * Welche Tasten sich antippen lassen: in der Grobbestimmung nur weisse, bei
+ * der Tonleiter alle ausser dem vorgegebenen Grundton.
+ */
+function pressableFor(task: KeyboardTask): ((key: number) => boolean) | undefined {
+  if (task.whiteOnly) return isWhiteKey;
+  if (task.scale) return (key) => !(task.keyboard.marked ?? []).includes(key);
+  return undefined;
 }
 
 /**

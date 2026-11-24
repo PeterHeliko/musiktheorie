@@ -76,6 +76,7 @@ const MODES = {
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
   'stufen-bestimmen': 'Stufen bestimmen',
   'tonleitern-notieren': 'Tonleitern notieren',
+  'tonleitern-klaviatur': 'Tonleitern auf Klaviatur markieren',
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
   melodiediktat: 'Rhythmus- und Melodiediktat',
 };

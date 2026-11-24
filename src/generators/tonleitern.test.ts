@@ -279,3 +279,29 @@ describe('Tonleitern notieren', () => {
     }
   });
 });
+
+describe('Tonleitern auf Klaviatur markieren', () => {
+  it('markiert den Grundton und verlangt genau die übrigen Tasten bis zur Oktave', () => {
+    const questions = generate(
+      'tonleitern-klaviatur',
+      { scales: SCALE_TYPES, maxAccidentals: 7, directions: ['up', 'down'] },
+      120,
+    );
+    for (const question of questions) {
+      const task = question.task as import('../content/schema').KeyboardTask;
+      expect(task.scale).toBe(true);
+      const [tonic] = task.keyboard.marked!;
+      expect(task.accept).toHaveLength(7);
+      expect(task.accept).not.toContain(tonic);
+      const all = [tonic, ...task.accept];
+      expect(all.every((key) => key >= task.keyboard.low && key <= task.keyboard.high)).toBe(true);
+      // Aufwärts liegt alles darüber, abwärts darunter; die Oktave gehört dazu.
+      const up = task.prompt!.endsWith('aufwärts');
+      expect(task.accept.every((key) => (up ? key > tonic : key < tonic))).toBe(true);
+      expect(task.accept).toContain(up ? tonic + 12 : tonic - 12);
+      expect(scoreTask(task, { keys: [...task.accept].reverse() }).earned).toBe(task.points);
+      expect(scoreTask(task, { keys: task.accept.slice(1) }).earned).toBe(0);
+      expect(scoreTask(task, { keys: [...task.accept, tonic + (up ? 13 : -13)] }).earned).toBe(0);
+    }
+  });
+});

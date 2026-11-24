@@ -318,6 +318,12 @@ export interface KeyboardTask extends TaskBase {
   /** Ein Akkord statt einer Taste. */
   chord?: ChordRule;
   /**
+   * Eine Tonleiter markieren: jedes Antippen nimmt eine Taste dazu oder weg,
+   * richtig ist genau `accept` — die Töne ab dem vorgegebenen Grundton bis zur
+   * Oktave, ohne ihn. Den Grundton (`keyboard.marked`) tippt man nicht an.
+   */
+  scale?: boolean;
+  /**
    * Nur weisse Tasten lassen sich wählen — für Aufgaben ohne Vorzeichen
    * (Grobbestimmung). Eine schwarze Taste hat dort keine Grösse: c–dis ist
    * eine Sekunde, c–es eine Terz.
@@ -331,7 +337,7 @@ export interface KeyboardTask extends TaskBase {
    * in weissen Tasten («Terz aufwärts», Grobbestimmung) — oder mit ihrem
    * Tonnamen («fis/ges»).
    */
-  describe: { from: number; by: 'semitones' | 'steps' } | { by: 'name' } | { by: 'chord' };
+  describe: { from: number; by: 'semitones' | 'steps' } | { by: 'name' } | { by: 'chord' } | { by: 'scale' };
   points: number;
 }
 

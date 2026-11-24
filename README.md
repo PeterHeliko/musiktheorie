@@ -261,6 +261,10 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   werden gesetzt, jeder an seinem Platz — Vorzeichen vor den Noten, ohne Tonartvorzeichen.
   Jeder Ton zählt einzeln. Nach dem Prüfen sind die eigenen Töne grün oder rot, und war nicht
   alles richtig, steht die ganze Leiter grün in einem zweiten System darunter, Ton unter Ton.
+- **Tonleitern auf Klaviatur markieren** (`KeyboardTask.scale`): der Grundton ist blau, die
+  übrigen Töne bis zur Oktave werden angetippt (dazu oder weg, sie klingen); den Grundton
+  tippt man nicht an. Richtig ist genau diese Menge, die Reihenfolge zählt nicht. Nach dem
+  Prüfen ist jede getippte Taste grün oder rot, jede fehlende grün umrandet.
 - **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den
   Tönen (eine Spalte je Stammton, ♯ oben, ♭ unten), auf den Knöpfen nur der Grundton — Dur
   gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein.
