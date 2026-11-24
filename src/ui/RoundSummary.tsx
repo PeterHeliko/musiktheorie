@@ -40,7 +40,7 @@ export function RoundSummary({
 
   return (
     <div class="round-summary">
-      <h2>Runde beendet</h2>
+      <h2>Übung beendet</h2>
       <p class="round-score">
         <strong>
           {correct} von {entries.length}
@@ -89,7 +89,7 @@ export function RoundSummary({
             </button>
           )}
           <button type="button" onClick={onRepeat}>
-            Neue Runde
+            Wiederholen
           </button>
           {inCourse.nextHref && (
             <button type="button" class="link-button" onClick={onBack}>
@@ -109,7 +109,7 @@ export function RoundSummary({
             </button>
           )}
           <button type="button" class={wrong.length > 0 ? '' : 'primary'} onClick={onRepeat}>
-            Neue Runde
+            Wiederholen
           </button>
           <button type="button" class="link-button" onClick={onBack}>
             Übung wechseln

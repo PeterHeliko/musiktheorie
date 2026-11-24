@@ -968,6 +968,15 @@
 
 /* ------------------------------------------------------------------ Kurse */
 
+/* Startseite: die Kurse in einem eigenen Kasten unter den Übungen. */
+.course-box {
+  margin-top: 16px;
+}
+
+.course-box h2 {
+  margin: 0 0 12px;
+}
+
 /* Startseite: noch kein Kurs — ein Satz mit dem ⚙ der Übungsansicht. */
 .course-hint {
   margin: 0;

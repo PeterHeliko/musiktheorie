@@ -88,7 +88,7 @@ Kurs — es gibt keine zentrale Fassung:
   Rundengrösse. Damit gelten die Regeln oben auch hier.
 - Einstellungen, keine Aufgaben: wer den Kurs öffnet, bekommt neue Aufgaben derselben Art.
   Titel höchstens 30 Zeichen, höchstens 30 Schritte.
-- **Zusammenstellen:** ⚙ → «Zum Kurs hinzufügen» in einer Übung, mit den Einstellungen im
+- **Zusammenstellen:** ⚙ → «Zu Kurs hinzufügen» in einer Übung, mit den Einstellungen im
   Blatt. Bearbeiten auf der Kursseite: Titel, Reihenfolge, Rundengrösse, Schritte entfernen.
 - **Auf dem Gerät:** wer einen Kurslink öffnet, hat den Kurs danach unter «Kurse» auf der
   Startseite (`StoredCourse` in `src/settings.ts`), mit erledigten Schritten. Ein Schritt ist
@@ -130,8 +130,11 @@ Link / Speicher / Filterformular
 
 ### Aufbau der Oberfläche
 
-- **Auswahl:** Startseite = Themen, dann «Kurse» und «Werkzeuge»; ein Thema = seine Übungen
-  (`/ueben/intervalle/`). `/ueben/` ist nur noch ein anderer Name für die Startseite.
+- **Auswahl:** Startseite = oben Themen und Werkzeuge, darunter ein eigener Kasten «Kurse»;
+  ein Thema = seine Übungen (`/ueben/intervalle/`). `/ueben/` ist nur noch ein anderer Name
+  für die Startseite.
+- **Wortwahl:** die Oberfläche sagt nie «Runde». Eine feste Zahl Aufgaben ist eine «Übung»
+  («Übung à 10», «Übung beendet»), «Neue Runde» heisst «Wiederholen». Im Link bleibt `runde=`.
   Listen nennen nur Titel, davor ein Zeichen für die Fertigkeit (Notenlinien, Klaviatur, Ohr,
   Mikrofon; `SkillIcon` in `src/ui/icons.tsx`). Was eine Übung verlangt, steht in der Übung.
 - **Übung:** bildschirmfüllend, ohne Kopfzeile der Website. Leiste oben (✕ zurück zum

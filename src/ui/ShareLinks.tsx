@@ -18,12 +18,14 @@ export function ShareLinks({
   exerciseHref,
   taskHref,
   taskLabel,
+  taskHint,
 }: {
   title: string;
   exerciseHref: string;
   /** null, wenn sich die laufende Aufgabe nicht als Link fassen lässt. */
   taskHref: string | null;
   taskLabel: string;
+  taskHint: string;
 }) {
   return (
     <div class="share-links">
@@ -36,7 +38,7 @@ export function ShareLinks({
       {taskHref !== null && (
         <ShareRow
           label={taskLabel}
-          hint="genau so, wie sie gerade dasteht"
+          hint={taskHint}
           title={title}
           url={absoluteUrl(taskHref)}
         />
@@ -90,7 +92,7 @@ export function ShareRow({
     <div class="share-row">
       <div class="share-row-head">
         <span>
-          <strong>{label}</strong> <span class="share-hint">— {hint}</span>
+          <strong>{label}:</strong> <span class="share-hint">{hint}</span>
         </span>
         <button type="button" class="share-copy" onClick={share}>
           {state === 'copied' ? 'Kopiert ✓' : canShare ? 'Teilen …' : 'Link kopieren'}
@@ -105,7 +107,7 @@ export function ShareRow({
         onFocus={(event) => (event.currentTarget as HTMLInputElement).select()}
       />
       {state === 'failed' && (
-        <p class="share-hint">Kopieren ging nicht — markiere den Link und kopiere ihn von Hand.</p>
+        <p class="share-hint">Kopieren ging nicht. Markiere den Link und kopiere ihn von Hand.</p>
       )}
     </div>
   );

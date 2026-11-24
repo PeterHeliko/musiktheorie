@@ -245,7 +245,7 @@ async function main() {
     const topicLinks = page.locator('.nav-list').first().locator('a');
     check((await topicLinks.count()) === TOPICS.length, `${TOPICS.length} Themen auf der Startseite`);
     check(
-      (await page.locator('.list-page').innerText()).includes('Tonhöhe anzeigen'),
+      (await page.locator('.list-page').first().innerText()).includes('Tonhöhe anzeigen'),
       'darunter das Werkzeug «Tonhöhe anzeigen»',
     );
     check(!loaded.some((url) => url.includes('ExercisePage')), 'die Startseite lädt den Notensatz nicht');
@@ -1374,7 +1374,7 @@ async function main() {
     console.log('\nRunde');
     await page.goto(exercise('stufen-bestimmen'), { waitUntil: 'networkidle' });
     await openSettings();
-    await page.locator('.sheet .filter-chip', { hasText: 'Runde à 10' }).click();
+    await page.locator('.sheet .filter-chip', { hasText: 'Übung à 10' }).click();
     await closeSettings();
     check((await page.locator('.session-progress').innerText()) === '1/10', 'oben steht «1/10»');
     let roundInUrl = true;
@@ -1410,17 +1410,17 @@ async function main() {
     await page.goto(BASE, { waitUntil: 'networkidle' });
     check((await page.locator('.course-hint').count()) === 1, 'ohne Kurs steht unter «Kurse» der Hinweis auf ⚙');
 
-    // Zusammenstellen: ⚙ → «Zum Kurs hinzufügen», mit den Einstellungen im Blatt.
+    // Zusammenstellen: ⚙ → «Zu Kurs hinzufügen», mit den Einstellungen im Blatt.
     await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
     await openSettings();
-    await page.locator('.sheet button:has-text("Zum Kurs hinzufügen")').click();
+    await page.locator('.sheet button:has-text("Zu Kurs hinzufügen")').click();
     await page.fill('#course-new-title', 'Probekurs');
     await page.locator('.sheet button:has-text("Anlegen")').click();
     check(
       (await page.locator('.course-added').innerText()).includes('«Probekurs»'),
       'eine Übung kommt in einen neuen Kurs',
     );
-    await page.locator('.sheet button:has-text("Zum Kurs hinzufügen")').click();
+    await page.locator('.sheet button:has-text("Zu Kurs hinzufügen")').click();
     check(
       await page.locator('.course-choices button', { hasText: 'Probekurs' }).isDisabled(),
       'dieselbe Übung mit denselben Einstellungen ist «schon drin»',
@@ -1473,7 +1473,7 @@ async function main() {
     await page.waitForSelector('.course-steps');
     check((await page.locator('.course-steps .course-done').count()) === 1, 'eine fertige Runde hakt ihren Schritt ab');
     await page.goto(BASE, { waitUntil: 'networkidle' });
-    const courseRows = await page.locator('.list-page section').nth(1).locator('a').allInnerTexts();
+    const courseRows = await page.locator('.course-box a').allInnerTexts();
     check(
       courseRows.some((row) => row.includes('Zwei Schritte') && row.includes('1/2')) &&
         courseRows.some((row) => row.includes('Probekurs')),

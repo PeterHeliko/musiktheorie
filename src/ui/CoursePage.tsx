@@ -209,7 +209,7 @@ function CourseEditor({
                 ↓
               </button>
               <select
-                aria-label="Aufgaben in der Runde"
+                aria-label="Aufgaben in der Übung"
                 value={String(step.round)}
                 onChange={(event) =>
                   withSteps(
@@ -309,7 +309,7 @@ function NoCourse({ search }: { search: string }) {
       <p class="subtitle">
         {missing > 0
           ? 'Die Übungen dieses Kurses gibt es nicht mehr.'
-          : 'In diesem Link steht kein Kurs — vielleicht fehlt ein Stück.'}
+          : 'In diesem Link steht kein Kurs. Vielleicht fehlt ein Stück.'}
       </p>
     </div>
   );

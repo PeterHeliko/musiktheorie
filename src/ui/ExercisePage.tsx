@@ -410,7 +410,7 @@ export function ExercisePage({
         instruction={instruction}
         hint={hint}
         canCheck={current.touched}
-        nextLabel={inRound && round.length >= roundTarget ? 'Runde auswerten' : 'Weiter'}
+        nextLabel={inRound && round.length >= roundTarget ? 'Übung auswerten' : 'Weiter'}
         onAnswered={() => setCurrent((state) => ({ ...state, touched: true }))}
         onCheck={check}
         onNext={next}

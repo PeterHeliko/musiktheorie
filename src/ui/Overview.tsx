@@ -18,36 +18,38 @@ import { listCourses } from '../settings';
 import { GearIcon, SkillIcon } from './icons';
 
 /**
- * Startseite: die Themen, die Kurse dieses Geräts und die Werkzeuge
- * (Entscheid 2026-11-24). Die Themen brauchen keinen Zwischentitel — der Name
- * der Website sagt, was sie sind.
+ * Startseite, zwei Kästen (Entscheid 2026-11-24): oben die Übungen — Themen
+ * und Werkzeuge —, darunter die Kurse dieses Geräts. Die Themen brauchen
+ * keinen Zwischentitel: der Name der Website sagt, was sie sind.
  */
 export function StartPage() {
   return (
-    <div class="list-page">
-      <h1>{SITE_NAME}</h1>
-      <section>
-        <ul class="nav-list">
-          {topicsWithGenerators().map((topic) => (
-            <li key={topic.id}>
-              <a href={hrefFor({ page: 'thema', topic: topic.id })}>{topic.title}</a>
+    <>
+      <div class="list-page">
+        <h1>{SITE_NAME}</h1>
+        <section>
+          <ul class="nav-list">
+            {topicsWithGenerators().map((topic) => (
+              <li key={topic.id}>
+                <a href={hrefFor({ page: 'thema', topic: topic.id })}>{topic.title}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section>
+          <h2 class="nav-heading">Werkzeuge</h2>
+          <ul class="nav-list">
+            <li>
+              <a href={hrefFor({ page: 'tonhoehe' })}>Tonhöhe anzeigen</a>
             </li>
-          ))}
-        </ul>
-      </section>
-      <section>
-        <h2 class="nav-heading">Kurse</h2>
+          </ul>
+        </section>
+      </div>
+      <section class="list-page course-box">
+        <h2>Kurse</h2>
         <CourseList />
       </section>
-      <section>
-        <h2 class="nav-heading">Werkzeuge</h2>
-        <ul class="nav-list">
-          <li>
-            <a href={hrefFor({ page: 'tonhoehe' })}>Tonhöhe anzeigen</a>
-          </li>
-        </ul>
-      </section>
-    </div>
+    </>
   );
 }
 

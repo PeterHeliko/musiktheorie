@@ -1,5 +1,5 @@
 /**
- * «Zum Kurs hinzufügen» im Einstellungsblatt (Entscheid 2026-11-24): die
+ * «Zu Kurs hinzufügen» im Einstellungsblatt (Entscheid 2026-11-24): die
  * Übung mit den Einstellungen, die gerade im Blatt stehen, kommt in einen
  * Kurs dieses Geräts — einen vorhandenen oder einen neuen.
  *
@@ -24,7 +24,6 @@ import { createCourse, listCourses, removeCourse, updateCourse, type StoredCours
 interface Added {
   id: string;
   title: string;
-  count: number;
   /** Inhalt vor dem Hinzufügen — null, wenn der Kurs neu ist. */
   previous: string | null;
 }
@@ -40,7 +39,7 @@ export function AddToCourse({ step }: { step: CourseStep }) {
   const addTo = (stored: StoredCourse, course: Course) => {
     const next: Course = { ...course, steps: [...course.steps, step] };
     updateCourse(stored.id, encodeCourse(next));
-    setAdded({ id: stored.id, title: courseTitle(course), count: next.steps.length, previous: stored.link });
+    setAdded({ id: stored.id, title: courseTitle(course), previous: stored.link });
     setOpen(false);
   };
 
@@ -48,7 +47,7 @@ export function AddToCourse({ step }: { step: CourseStep }) {
     const clean = cleanTitle(title);
     if (!clean) return;
     const stored = createCourse(encodeCourse({ title: clean, steps: [step] }));
-    setAdded({ id: stored.id, title: clean, count: 1, previous: null });
+    setAdded({ id: stored.id, title: clean, previous: null });
     setTitle('');
     setOpen(false);
   };
@@ -65,9 +64,7 @@ export function AddToCourse({ step }: { step: CourseStep }) {
       <h3>Kurs</h3>
       {added && (
         <div class="notice notice-good course-added" role="status">
-          <p>
-            Zu «{added.title}» hinzugefügt — {added.count} {added.count === 1 ? 'Übung' : 'Übungen'}.
-          </p>
+          <p>Mit aktuellen Einstellungen zu «{added.title}» hinzugefügt.</p>
           <button type="button" class="link-button" onClick={undo}>
             Rückgängig
           </button>
@@ -83,7 +80,7 @@ export function AddToCourse({ step }: { step: CourseStep }) {
             setAdded(null);
           }}
         >
-          Zum Kurs hinzufügen
+          Zu Kurs hinzufügen
         </button>
       ) : (
         <div class="course-chooser">

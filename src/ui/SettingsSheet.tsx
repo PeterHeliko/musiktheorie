@@ -2,7 +2,7 @@
  * Einstellungen einer Übung — hinter dem ⚙ in der Übungsansicht.
  *
  * Hier steht alles, was nicht die Aufgabe selbst ist: Übungsform, Filter,
- * Zurücksetzen, Zum Kurs hinzufügen, Teilen. So bleibt die Übung selbst frei
+ * Zurücksetzen, Zu Kurs hinzufügen, Teilen. So bleibt die Übung selbst frei
  * davon.
  *
  * Änderungen gelten beim Schliessen, nicht bei jedem Antippen: wer drei Filter
@@ -141,7 +141,7 @@ export function SettingsSheet({
                           class={`filter-chip ${active ? 'is-selected' : ''}`}
                           onClick={() => setDraftSession({ mode: 'runde', size })}
                         >
-                          Runde à {size}
+                          Übung à {size}
                         </button>
                       );
                     })}
@@ -200,7 +200,9 @@ export function SettingsSheet({
               title={fullTitle(generator)}
               exerciseHref={exerciseHref}
               taskHref={changed ? null : taskHref}
-              taskLabel={session.mode === 'runde' ? 'Diese Runde' : 'Diese Aufgabe'}
+              // «Diese Übung» ist schon der erste Link; eine feste Folge sind «diese Aufgaben».
+              taskLabel={session.mode === 'runde' ? 'Diese Aufgaben' : 'Diese Aufgabe'}
+              taskHint={session.mode === 'runde' ? 'genau so, wie sie gerade dastehen' : 'genau so, wie sie gerade dasteht'}
             />
           </section>
         </div>

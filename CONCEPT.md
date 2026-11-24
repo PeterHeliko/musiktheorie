@@ -26,7 +26,8 @@ shareable link for every exercise.
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
 | Sound after checking  | Intervals and chords where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. A correct written or played answer sounds as the learner wrote or played it, in their octave and spacing. (2026-11-24) |
 | No repeats            | Never the same question twice in a row, in any exercise; re-drawn via the seed, so task and round links stay reproducible (2026-11-24) |
-| Kurse                 | **Anyone can put exercises together into a Kurs and share it as a link** (§7). Same settings, fresh tasks (no fixed tasks for now). Built via ⚙ «Zum Kurs hinzufügen»; a step is done when its round is finished. Title only, at most 30 characters. Start page: topics, then «Kurse», then «Werkzeuge». (2026-11-24) |
+| Kurse                 | **Anyone can put exercises together into a Kurs and share it as a link** (§7). Same settings, fresh tasks (no fixed tasks for now). Built via ⚙ «Zu Kurs hinzufügen»; a step is done when its round is finished. Title only, at most 30 characters. Start page: topics and «Werkzeuge» in one box, «Kurse» in a second box below. (2026-11-24) |
+| Wording: no «Runde»   | The interface never says «Runde». A fixed number of tasks is an «Übung» («Übung à 10», «Übung beendet», «Übung auswerten»); «Neue Runde» is «Wiederholen»; sharing it is «Diese Aufgaben». The link parameter stays `runde=` (public interface). (2026-11-24) |
 | Feedback              | **Show, don't say.** The task shows the solution itself: outlined answer button, outlined key, green note in the staff (beside a wrong one). The bottom bar then says only «✓ Richtig» / «✗ Falsch». Words only where the task can't show it yet; screen readers always get words. |
 
 ---
@@ -542,7 +543,7 @@ whoever made it.
   the entry that already has exactly this content. Every Kurs in the list can be edited, also
   one received from someone else: that changes only the own copy. A newer link from someone is
   a separate entry.
-- **Building:** ⚙ → «Zum Kurs hinzufügen» in any exercise takes the exercise with the settings
+- **Building:** ⚙ → «Zu Kurs hinzufügen» in any exercise takes the exercise with the settings
   shown, into an existing Kurs or a new one. On the Kurs page: rename, reorder, round size,
   remove steps, remove the Kurs from the device.
 - **In a step:** the exercise runs as a round with the Kurs settings. ✕ leads back to the
