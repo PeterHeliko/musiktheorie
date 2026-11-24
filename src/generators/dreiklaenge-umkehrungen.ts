@@ -24,16 +24,21 @@ import {
   CLEF_FILTER,
   GRAND_BASS_WINDOW,
   ROOT_FILTER,
+  SING_DEFAULTS,
+  SING_FILTERS,
+  SING_HINT,
   STAFF_WINDOWS,
   UMKEHRUNG_DEFAULTS,
   bassMember,
   buildChord,
   chordName,
+  chordSingTask,
   chordSpace,
   grandSpace,
   inversionPositionFields,
   inversionPositionText,
   pickInversionAndPosition,
+  placeInVoice,
   qualityFilter,
   readKeys,
   rootClasses,
@@ -49,7 +54,9 @@ import {
 import { OPTION_SETS } from '../content/options';
 import type { Rng } from './rng';
 import { insist, noteName, pitchKey, taskId, type Window } from './shared';
-import { multi, single, toggle, type FilterValues, type Generator, type Question } from './types';
+import { multi, single, toggle, type FilterValues, type Generator, type Personal, type Question } from './types';
+import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
+import { invertTriad } from '../content/audio';
 import type { TriadQuality } from '../music/theory';
 
 const LIMITED_PLAYS = 3;
@@ -566,3 +573,75 @@ export const umkehrungenHoeren: Generator<HearingFilters> = {
 };
 
 
+
+// ---------------------------------------------------------------------------
+// Singen
+// ---------------------------------------------------------------------------
+
+function singInstruction(ask: string[]): string {
+  const what =
+    ask.includes('inv') && ask.includes('pos')
+      ? 'in der verlangten Umkehrung und Lage'
+      : ask.includes('inv')
+        ? 'in der verlangten Umkehrung'
+        : 'in der verlangten Lage';
+  return `Du hörst den tiefsten Ton. Singe die drei Töne des Dreiklangs ${what} von unten nach oben, mit dem tiefsten.`;
+}
+
+interface SingingFilters extends FilterValues {
+  ask: string[];
+  inversions: string[];
+  positions: string[];
+  qualities: string[];
+  accidentals: string;
+  clefs: string[];
+  tolerance: string;
+  untilRight: boolean;
+}
+
+export const umkehrungenSingen: Generator<SingingFilters> = {
+  id: 'umkehrungen-singen',
+  topic: 'dreiklaenge',
+  group: 'umkehrungen',
+  skill: 'singen',
+  version: 1,
+  title: 'Umkehrungen & Lagen singen',
+  instruction: singInstruction(['inv']),
+  hint: `${HINT} ${SING_HINT}`,
+
+  // Drei Töne nacheinander: kein Basston, die Lage folgt aus der Umkehrung.
+  filters: [...umkehrungFilters(), qualityFilter(), ROOT_FILTER, ...SING_FILTERS],
+
+  defaults: {
+    ...UMKEHRUNG_DEFAULTS,
+    qualities: ['dur', 'moll'],
+    accidentals: 'einfach',
+    ...SING_DEFAULTS,
+  },
+
+  generate(values, rng: Rng, personal?: Personal): Question {
+    const choice = { ...umkehrungChoice(values, this.defaults), withBass: false };
+    const qualities = multi(values, 'qualities', this.defaults.qualities) as TriadQuality[];
+    const policy = rootPolicy(values);
+    const clefs = multi(values, 'clefs', this.defaults.clefs);
+    const tolerance = Number(single(values, 'tolerance', '50'));
+    const untilRight = toggle(values, 'untilRight', false);
+    const range = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
+
+    const { inversion, position } = pickInversionAndPosition(rng, choice);
+    const quality = rng.pick(qualities);
+    const rootClass = rng.pick(rootClasses(policy, quality));
+    const chord = buildChord({ ...rootClass, octave: 4 }, quality);
+    const stack = placeInVoice(rng, invertTriad(chord, inversion), range);
+    checkVoicing(stack, chord[0], quality, inversion, position);
+    const clef = rng.pick(clefs) as 'treble' | 'bass';
+
+    const task = chordSingTask(taskId('usi', rng), umkehrungPrompt(chord[0], quality, choice, inversion, position), stack, {
+      clef,
+      range,
+      tolerance,
+      untilRight,
+    });
+    return { task, instruction: singInstruction(choice.ask) };
+  },
+};

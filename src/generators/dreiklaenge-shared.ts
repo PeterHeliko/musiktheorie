@@ -19,7 +19,7 @@
  */
 
 import { OPTION_SETS } from '../content/options';
-import type { ScoreSpec, SelectField, SelectOption } from '../content/schema';
+import type { ScoreSpec, SelectField, SelectOption, SingTask } from '../content/schema';
 import { invertTriad } from '../content/audio';
 import { staffSpace } from '../music/staff-space';
 import {
@@ -39,7 +39,8 @@ import {
   type TriadQuality,
 } from '../music/theory';
 import type { Rng } from './rng';
-import { CLEF_OPTIONS, candidatePitches, insist, optionsFrom, type Window } from './shared';
+import { TOLERANCE_OPTIONS } from './intervalle-singen';
+import { CLEF_OPTIONS, candidatePitches, insist, optionsFrom, pitchKey, type Window } from './shared';
 import { multi, single, toggle, type FilterSpec, type FilterValues } from './types';
 
 // ---------------------------------------------------------------------------
@@ -435,8 +436,11 @@ export const ASK_OPTIONS: SelectOption[] = [
   { value: 'pos', label: 'Lage' },
 ];
 
-/** Gefragt ist, Umkehrungen, Lagen — in dieser Reihenfolge, dazu der Basston-Schalter. */
-export function umkehrungFilters(bass: { label: string; hint: string }): FilterSpec[] {
+/**
+ * Gefragt ist, Umkehrungen, Lagen — in dieser Reihenfolge, dazu der
+ * Basston-Schalter. Ohne `bass` (Singen: drei Töne) gibt es keinen.
+ */
+export function umkehrungFilters(bass?: { label: string; hint: string }): FilterSpec[] {
   return [
     { kind: 'multi', key: 'ask', label: 'Gefragt ist', options: ASK_OPTIONS },
     {
@@ -461,7 +465,7 @@ export function umkehrungFilters(bass: { label: string; hint: string }): FilterS
         return null;
       },
     },
-    { kind: 'toggle', key: 'withBass', label: bass.label, hint: bass.hint },
+    ...(bass ? [{ kind: 'toggle' as const, key: 'withBass', label: bass.label, hint: bass.hint }] : []),
   ];
 }
 
@@ -471,3 +475,74 @@ export const UMKEHRUNG_DEFAULTS = {
   positions: [...POSITIONS],
   withBass: false,
 };
+
+// ---------------------------------------------------------------------------
+// Singen
+// ---------------------------------------------------------------------------
+
+/**
+ * Dreiklänge singen (Entscheid 2026-11-24): der tiefste Ton erklingt und
+ * steht im System, gesungen werden alle drei Töne von unten nach oben —
+ * jeder in beliebiger Oktave, die Reihenfolge zählt (`judgeSequence`).
+ */
+export const SING_FILTERS: FilterSpec[] = [
+  CLEF_FILTER,
+  {
+    kind: 'single',
+    key: 'tolerance',
+    label: 'Genauigkeit',
+    options: TOLERANCE_OPTIONS,
+    hint: 'So weit darf jeder gesungene Ton danebenliegen.',
+  },
+  { kind: 'toggle', key: 'untilRight', label: 'Ohne Fehlerurteil' },
+];
+
+export const SING_DEFAULTS = { clefs: ['treble'], tolerance: '50', untilRight: false };
+
+export const SING_HINT =
+  'Halte jeden Ton kurz; die Oktave ist egal. Die Linie zeigt, was du singst. Die Stimmlage stellst du unter ⚙ ein.';
+
+/**
+ * Der Akkord in der Stimmlage: Grundton und Geschlecht sind gewürfelt, bevor
+ * die Stimmlage zählt — derselbe Aufgabenlink fragt bei allen denselben
+ * Akkord, nur in der eigenen Lage.
+ */
+export function placeInVoice(rng: Rng, stack: readonly Pitch[], range: Window): Pitch[] {
+  // Ein Sextakkord umfasst neun Halbtöne; nicht jeder passt ganz in eine
+  // Stimmlage von gut anderthalb Oktaven. Dann darf er so wenig wie nötig
+  // darüber hinausragen — gesungen zählt die Oktave ohnehin nicht.
+  for (let stretch = 0; stretch <= 6; stretch++) {
+    const placements = octavePlacements(stack, { low: range.low - stretch, high: range.high + stretch });
+    if (placements.length > 0) return rng.pick(placements);
+  }
+  throw new Error(`${stack.map(pitchKey).join(' ')} passt nicht in ${range.low}–${range.high}`);
+}
+
+/** Die Singaufgabe: der tiefste Ton im System, alle drei als Folge. */
+export function chordSingTask(
+  id: string,
+  prompt: string,
+  stack: Pitch[],
+  { clef, range, tolerance, untilRight }: {
+    clef: 'treble' | 'bass';
+    range: Window;
+    tolerance: number;
+    untilRight: boolean;
+  },
+): SingTask {
+  // Platz über und unter dem System: so viel, wie der äusserste mögliche
+  // Anfangston der Stimmlage braucht — fest je Einstellung.
+  const space = staffSpace(clef, candidatePitches(range, [-1, 0, 1]));
+  return {
+    id,
+    kind: 'sing',
+    prompt,
+    score: { clef, width: 110, scale: 1.6, space, measures: [{ notes: [{ keys: [pitchKey(stack[0])], duration: 'w' }] }] },
+    reference: pitchKey(stack[0]),
+    target: pitchKey(stack[stack.length - 1]),
+    sequence: stack.map(pitchKey),
+    tolerance,
+    ...(untilRight ? { untilRight: true } : {}),
+    points: 2,
+  };
+}

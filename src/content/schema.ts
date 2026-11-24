@@ -260,8 +260,17 @@ export interface SingTask extends TaskBase {
   score: ScoreSpec;
   /** Ausgangston, wie er erklingt und dasteht («e4»). */
   reference: string;
-  /** Gesuchter Ton in der notierten Lage. Gesungen zählt er in jeder Oktave. */
+  /**
+   * Gesuchter Ton in der notierten Lage. Gesungen zählt er in jeder Oktave.
+   * Bei `sequence` der letzte Ton der Folge.
+   */
   target: string;
+  /**
+   * Mehrere Töne nacheinander statt eines (Dreiklänge singen): in der
+   * verlangten Reihenfolge, der erste ist der Ausgangston. Bewertet nach
+   * `judgeSequence` (sing/judge.ts).
+   */
+  sequence?: string[];
   /** So weit darf der gesungene Ton danebenliegen (Cent). */
   tolerance: number;
   /**

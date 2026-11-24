@@ -52,11 +52,13 @@ const MODES = {
   'dreiklaenge-klaviatur-benennen': 'Dreiklänge auf Klaviatur benennen (Grundstellung)',
   'dreiklaenge-klaviatur-spielen': 'Dreiklänge auf Klaviatur spielen (Grundstellung)',
   'dreiklaenge-hoeren': 'Dreiklänge hörend erkennen (Grundstellung)',
+  'dreiklaenge-singen': 'Dreiklänge singen (Grundstellung)',
   'umkehrungen-benennen': 'Umkehrungen & Lagen in Noten benennen',
   'umkehrungen-notieren': 'Umkehrungen & Lagen notieren',
   'umkehrungen-klaviatur-benennen': 'Umkehrungen & Lagen auf Klaviatur benennen',
   'umkehrungen-klaviatur-spielen': 'Umkehrungen & Lagen auf Klaviatur spielen',
   'umkehrungen-hoeren': 'Umkehrungen & Lagen hörend erkennen',
+  'umkehrungen-singen': 'Umkehrungen & Lagen singen',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
   'halbtonschritte-markieren': 'Halbtonschritte markieren',
@@ -1398,6 +1400,46 @@ async function main() {
       (await singPage.locator('.sing-mic').count()) === 0,
       'die nächste Aufgabe braucht keinen Mikrofonknopf mehr',
     );
+
+    // Dreiklänge singen, mit demselben g. Feste Aufgaben (Stimmlage «mittel»):
+    //  - G-Dur, g h d: das g ist der erste Ton, dann wartet die Übung auf h;
+    //  - E-Dur, e gis h: das g als erster Ton ist falsch.
+    console.log('\nDreiklänge singen mit künstlichem Mikrofon');
+    await singPage.goto(`${BASE}ueben/dreiklaenge-singen/?geschlechter=dur&vorzeichen=stammton&aufgabe=8&v=1`, {
+      waitUntil: 'networkidle',
+    });
+    check((await singPage.locator('.sing-task .task-prompt').innerText()) === 'G-Dur', 'nennt den Dreiklang');
+    // Neu geladen ist das Mikrofon zu.
+    await singPage.locator('.sing-mic button').click();
+    await singPage.waitForSelector('.sing-curve canvas');
+    let counted = '';
+    try {
+      await singPage.waitForFunction(
+        () => document.querySelector('.sing-status')?.textContent?.includes('1 von 3'),
+        null,
+        { timeout: 12_000 },
+      );
+      counted = '1 von 3';
+    } catch {
+      counted = await singPage.locator('.sing-status').innerText();
+    }
+    check(counted === '1 von 3', `das g zählt als erster Ton, die Übung zählt mit («${counted}»)`);
+    await singPage.waitForTimeout(1500);
+    check((await singPage.locator('.verdict').count()) === 0, 'das g noch einmal ist kein Fehler: sie wartet auf den nächsten Ton');
+    await singPage.screenshot({ path: join(SHOTS, 'dreiklaenge-singen-zaehlt.png') });
+
+    await singPage.goto(`${BASE}ueben/dreiklaenge-singen/?geschlechter=dur&vorzeichen=stammton&aufgabe=2&v=1`, {
+      waitUntil: 'networkidle',
+    });
+    await singPage.locator('.sing-mic button').click();
+    await singPage.waitForSelector('.verdict', { timeout: 12_000 });
+    const chordStaff = await staffColours();
+    check(
+      (await singPage.locator('.verdict-text').innerText()) === 'Falsch' &&
+        chordStaff.join(' ') === 'black red green green',
+      `E-Dur mit g begonnen: Falsch; im System e, das g rot, gis und h grün (${chordStaff.join(', ')})`,
+    );
+    await singPage.screenshot({ path: join(SHOTS, 'dreiklaenge-singen-falsch.png') });
 
     // «Ohne Fehlerurteil»: das falsche g beendet die Aufgabe nicht.
     await singPage.goto(

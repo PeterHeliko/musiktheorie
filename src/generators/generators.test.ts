@@ -70,6 +70,10 @@ function correctAnswerFor(task: Task): unknown {
   if (task.kind === 'select') {
     return Object.fromEntries(task.fields.map((field) => [field.id, field.correct]));
   }
+  if (task.kind === 'sing' && task.sequence) {
+    // Alle Töne der Folge, in der Reihenfolge.
+    return { notes: task.sequence.map((key) => midi(parsePitch(key))) };
+  }
   if (task.kind === 'sing') {
     // Erst den Ausgangston nachsingen (erlaubt), dann genau den Zielton.
     return { notes: [midi(parsePitch(task.reference)), midi(parsePitch(task.target))] };
@@ -1105,6 +1109,47 @@ describe('Dreiklänge', () => {
     for (const question of generate('umkehrungen-notieren', { clefs: ['bass'] }, 20)) {
       expect((question.task as NotationTask).score.clef).toBe('bass');
     }
+  });
+
+  it('lässt beim Singen in Grundstellung die drei Töne von unten nach oben singen, in der Stimmlage', () => {
+    const generator = generatorById('dreiklaenge-singen')!;
+    for (const voice of Object.keys(VOICE_RANGES) as Voice[]) {
+      const range = VOICE_RANGES[voice];
+      for (let i = 0; i < 100; i++) {
+        const task = generator.generate({ ...generator.defaults, sus4: true }, makeRng(i), { voice }).task as SingTask;
+        const tones = task.sequence!.map((key) => midi(parsePitch(key)));
+        expect(task.reference).toBe(task.sequence![0]);
+        // Höchstens einen Halbton über die Stimmlage hinaus (placeInVoice).
+        expect(tones.every((tone) => tone >= range.low - 1 && tone <= range.high + 1), `${voice} ${task.sequence}`).toBe(true);
+        expect(Object.values(SEMITONES)).toContainEqual([tones[1] - tones[0], tones[2] - tones[0]]);
+        // Derselbe Startwert fragt in jeder Stimmlage denselben Akkord.
+        const elsewhere = generator.generate({ ...generator.defaults, sus4: true }, makeRng(i), { voice: 'tief' });
+        expect(elsewhere.task.prompt).toBe(task.prompt);
+      }
+    }
+  });
+
+  it('lässt beim Singen von Umkehrungen mit dem verlangten Ton beginnen', () => {
+    const MEMBER: Record<string, number> = { Grundstellung: 0, Sextakkord: 2, Quartsextakkord: 4 };
+    for (const question of generate('umkehrungen-singen', { qualities: ['dur', 'moll', 'vermindert', 'uebermaessig'] })) {
+      const task = question.task as SingTask;
+      const pitches = task.sequence!.map(parsePitch);
+      const tones = pitches.map(midi);
+      expect(tones[0] < tones[1] && tones[1] < tones[2] && tones[2] - tones[0] < 12, task.prompt).toBe(true);
+      const inversion = task.prompt!.split(', ')[1];
+      expect(members(pitches).bass, task.prompt).toBe(MEMBER[inversion]);
+    }
+    const filters = generatorById('umkehrungen-singen')!.filters.map((filter) => filter.key);
+    expect(filters).not.toContain('withBass');
+  });
+
+  it('wertet beim Singen die ganze Folge, nicht nur einen Ton', () => {
+    const task = generate('dreiklaenge-singen', {}, 1)[0].task as SingTask;
+    const tones = task.sequence!.map((key) => midi(parsePitch(key)));
+    expect(scoreTask(task, { notes: tones }).earned).toBe(task.points);
+    expect(scoreTask(task, { notes: tones.slice(0, 2) }).earned).toBe(0);
+    expect(scoreTask(task, { notes: [tones[0], tones[2], tones[1]] }).earned).toBe(0);
+    expect(scoreTask(task, { notes: tones.map((tone) => tone - 12) }).earned).toBe(task.points);
   });
 
   it('legt mit Basston auf der Klaviatur vier Tasten, den Basston abgesetzt', () => {

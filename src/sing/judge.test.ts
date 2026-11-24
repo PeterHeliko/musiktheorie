@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { HOLD_MS, HoldDetector, type HeldNote } from './hold';
-import { judgeSung, rolesOf, type SingGoal } from './judge';
+import { judgeSequence, judgeSung, rolesOf, type SingGoal } from './judge';
 
 /** Messung alle 1000/60 ms, wie beim Bildaufbau. */
 const FRAME = 1000 / 60;
@@ -178,5 +178,48 @@ describe('judgeSung', () => {
     it('wertet einen anderen Ton als falsch', () => {
       expect(judgeSung(octave, [60, 71]).correct).toBe(false);
     });
+  });
+});
+
+describe('judgeSequence', () => {
+  // D-Dur in Grundstellung: d¹ erklingt, gesungen wird d fis a.
+  const goal = { reference: 62, targets: [62, 66, 69], tolerance: 50 };
+
+  it('wertet die drei Töne in der Reihenfolge, jeden in jeder Oktave', () => {
+    expect(judgeSequence(goal, [62, 66, 69]).correct).toBe(true);
+    expect(judgeSequence(goal, [50, 54.2, 57]).correct).toBe(true);
+    expect(judgeSequence(goal, [62, 54, 81]).correct).toBe(true);
+  });
+
+  it('ist erst nach dem dritten Ton entschieden', () => {
+    const partial = judgeSequence(goal, [62, 66]);
+    expect(partial.done).toBe(false);
+    expect(partial.right).toHaveLength(2);
+  });
+
+  it('nimmt den vorgespielten Ton dazwischen nicht übel', () => {
+    const verdict = judgeSequence(goal, [62, 62, 66, 50, 69]);
+    expect(verdict.correct).toBe(true);
+    expect(verdict.roles).toEqual(['right', 'repeat', 'right', 'repeat', 'right']);
+  });
+
+  it('endet beim ersten falschen Ton — auch wenn die Reihenfolge nicht stimmt', () => {
+    const swapped = judgeSequence(goal, [62, 69, 66]);
+    expect(swapped.done).toBe(true);
+    expect(swapped.correct).toBe(false);
+    expect(swapped.wrong).toMatchObject({ index: 1, expected: 1 });
+    expect(swapped.roles).toEqual(['right', 'wrong', 'after']);
+    expect(judgeSequence(goal, [66]).wrong).toMatchObject({ index: 0, expected: 0 });
+  });
+
+  it('wertet einen zu ungenauen Ton als falsch', () => {
+    expect(judgeSequence(goal, [62, 66.7]).correct).toBe(false);
+  });
+
+  it('singt mit «Ohne Fehlerurteil» weiter, bis die Folge stimmt', () => {
+    const verdict = judgeSequence(goal, [62, 67, 66, 70, 69], { untilRight: true });
+    expect(verdict.correct).toBe(true);
+    expect(verdict.roles).toEqual(['right', 'wrong', 'right', 'wrong', 'right']);
+    expect(judgeSequence(goal, [62, 67], { untilRight: true }).done).toBe(false);
   });
 });

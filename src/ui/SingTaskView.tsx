@@ -16,6 +16,12 @@
  *     ein falscher Ton wird dort nur rot, und es geht weiter, bis der richtige
  *     kommt.
  *
+ * Eine Tonfolge (`task.sequence`, Dreiklänge singen): gesungen wird Ton für
+ * Ton in der verlangten Reihenfolge, der erste ist der vorgespielte. Jeder
+ * richtige Ton wird in der Kurve grün, die Zeile darunter zählt mit; der
+ * erste falsche beendet die Aufgabe (mit «Ohne Fehlerurteil» nicht). Die
+ * Regeln stehen in `judgeSequence`.
+ *
  * Das Mikrofon bleibt über die Aufgaben hinweg offen; geschlossen wird es
  * beim Verlassen der Übung (ExercisePage).
  */
@@ -30,7 +36,16 @@ import { midi, parsePitch, toGermanPitch, type Pitch } from '../music/theory';
 import type { SingAnswer } from '../scoring';
 import { drawCurve, type CurveLine, type CurvePoint } from '../sing/curve';
 import { HoldDetector } from '../sing/hold';
-import { judgeNote, judgeSung, rolesOf, type SingGoal, type SungVerdict } from '../sing/judge';
+import {
+  judgeNote,
+  judgeSequence,
+  judgeSung,
+  rolesOf,
+  type SequenceGoal,
+  type SequenceVerdict,
+  type SingGoal,
+  type SungVerdict,
+} from '../sing/judge';
 import { NoiseGate, rms } from '../sing/level';
 import {
   ANALYSIS_WINDOW,
@@ -68,6 +83,13 @@ export function SingTaskView({ task }: { task: SingTask }) {
     () => ({ reference: midi(reference), target: midi(target), tolerance: task.tolerance }),
     [task],
   );
+  const sequence = useMemo(() => task.sequence?.map(parsePitch) ?? null, [task]);
+  const sequenceGoal = useMemo<SequenceGoal | null>(
+    () =>
+      sequence && { reference: midi(reference), targets: sequence.map(midi), tolerance: task.tolerance },
+    [task],
+  );
+  const [reached, setReached] = useState(0);
   const events = useMemo<AudioEvent[]>(() => [{ pitches: [reference], quarters: REFERENCE_QUARTERS }], [task]);
 
   const [mic, setMic] = useState<MicState>(() => (openedMicrophone() ? 'on' : 'off'));
@@ -150,13 +172,52 @@ export function SingTaskView({ task }: { task: SingTask }) {
     if (mic !== 'on') return;
     const microphone = openedMicrophone();
     if (!microphone) return;
+    const untilRight = task.untilRight === true;
+    const referenceLine: CurveLine = {
+      midi: goal.reference,
+      kind: 'reference',
+      label: (at) => nameInOctave(reference, at),
+    };
+    const targetLine = (pitch: Pitch): CurveLine => ({
+      midi: midi(pitch),
+      kind: 'target',
+      band: task.tolerance,
+      label: (at) => nameInOctave(pitch, at),
+    });
+    const targets = sequence ? sequence.slice(1) : [target];
+    const allLines = [referenceLine, ...targets.map(targetLine)];
+    // Gewöhnlich erscheinen die Zieltöne erst mit dem Urteil — sonst stünde
+    // die Antwort schon da. «Ohne Fehlerurteil» zeigt sie gleich, und das
+    // Bild beginnt so, dass alle zu sehen sind.
+    const centreOf = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
     return listen(microphone, {
       canvas,
       phase: phaseRef,
-      goal,
-      referencePitch: reference,
-      targetPitch: target,
-      untilRight: task.untilRight === true,
+      startLines: untilRight ? allLines : [referenceLine],
+      endLines: allLines,
+      centre: untilRight ? centreOf(allLines.map((line) => line.midi)) : goal.reference,
+      judge: sequenceGoal
+        ? (held) => {
+            const verdict = judgeSequence(sequenceGoal, held, { untilRight });
+            const role = verdict.roles[verdict.roles.length - 1];
+            setReached(verdict.right.length);
+            if (role === 'repeat' || role === 'after') return { kind: 'reference' };
+            const mark = role === 'right' ? 'right' : 'wrong';
+            if (!verdict.done) return { kind: 'progress', mark };
+            const counted = held.filter((_, index) => verdict.roles[index] === 'right' || verdict.roles[index] === 'wrong');
+            return { kind: 'done', mark, centre: centreOf(counted) };
+          }
+        : (held) => {
+            const roles = rolesOf(goal, held);
+            if (roles[roles.length - 1] === 'reference') return { kind: 'reference' };
+            const note = held[held.length - 1];
+            const verdict = judgeNote(goal, note);
+            const mark = verdict.correct ? 'right' : 'wrong';
+            if (untilRight && !verdict.correct) return { kind: 'progress', mark };
+            // Zielton und gesungener Ton gemeinsam ins Bild, in der gesungenen Oktave.
+            const shownTarget = goal.target + 12 * Math.round((note - goal.target) / 12);
+            return { kind: 'done', mark, centre: (note + shownTarget) / 2 };
+          },
       onReference: () => setHeardReference(true),
       onAnswer: (notes) => {
         setPhase('done');
@@ -170,6 +231,10 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const sung = answer<SingAnswer>(task.id)?.notes;
   const score = useMemo(() => {
     if (!sung) return task.score;
+    if (sequence && sequenceGoal) {
+      const verdict = judgeSequence(sequenceGoal, sung, { untilRight: task.untilRight });
+      return verdict.done ? sequenceScore(task, sequence, verdict) : task.score;
+    }
     const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
     return verdict.note === null ? task.score : verdictScore(task, target, verdict);
   }, [task, sung]);
@@ -177,11 +242,15 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const status =
     phase === 'playing'
       ? 'Hör zu …'
-      : phase === 'listening'
-        ? heardReference
-          ? 'Ausgangston erkannt.'
-          : 'Jetzt singen.'
-        : '';
+      : phase !== 'listening'
+        ? ''
+        : sequence
+          ? reached === 0
+            ? 'Jetzt singen, zuerst den vorgespielten Ton.'
+            : `${reached} von ${sequence.length} Tönen gesungen.`
+          : heardReference
+            ? 'Ausgangston erkannt.'
+            : 'Jetzt singen.';
 
   return (
     <div class="sing-task">
@@ -279,9 +348,60 @@ function verdictScore(task: SingTask, target: Pitch, verdict: SungVerdict): Scor
   };
 }
 
+/**
+ * Das System nach dem Urteil über eine Tonfolge: der vorgespielte Ton, dann
+ * jeder Ton der Folge — richtig gesungen grün, der falsche rot und dahinter
+ * der verlangte grün, nicht mehr erreichte grün als Lösung. Ein falscher Ton
+ * steht wie beim Intervall in der Oktave, die dem verlangten am nächsten
+ * liegt.
+ */
+function sequenceScore(task: SingTask, sequence: Pitch[], verdict: SequenceVerdict): ScoreSpec {
+  const notes: NoteSpec[] = [];
+  const shown: Pitch[] = [...sequence];
+  const wrongNote = (expected: Pitch, note: number): NoteSpec => {
+    const heard = pitchFromMidi(Math.round(note));
+    const sung = verdict.wrong!.verdict.rightNote
+      ? expected
+      : { ...heard, octave: heard.octave + Math.round((midi(expected) - midi(heard)) / 12) };
+    shown.push(sung);
+    return { keys: [pitchKey(sung)], duration: 'w', mark: 'wrong' };
+  };
+  sequence.forEach((expected, step) => {
+    const isWrong = verdict.wrong?.expected === step;
+    if (step === 0) {
+      // Der vorgespielte Ton steht schon da; richtig nachgesungen wird er grün.
+      notes.push({ keys: [task.reference], duration: 'w', ...(verdict.right.length > 0 ? { mark: 'correct' } : {}) });
+      if (isWrong) notes.push(wrongNote(expected, verdict.wrong!.note));
+      return;
+    }
+    if (isWrong) notes.push(wrongNote(expected, verdict.wrong!.note));
+    notes.push({ keys: [pitchKey(expected)], duration: 'w', mark: 'correct' });
+  });
+
+  const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+  const needed = staffSpace(clef, shown);
+  const before = task.score.space ?? needed;
+  return {
+    ...task.score,
+    width: (task.score.width ?? 110) + NOTE_ROOM * (notes.length - 1),
+    space: { above: Math.max(before.above, needed.above), below: Math.max(before.below, needed.below) },
+    measures: [{ notes }],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Messschleife
 // ---------------------------------------------------------------------------
+
+/**
+ * Was ein gehaltener Ton bedeutet: ein nachgesungener Ausgangston, ein
+ * Schritt (richtig oder ein verfehlter Versuch), oder die Entscheidung — dann
+ * bleibt die Kurve stehen, mit `centre` in der Mitte.
+ */
+type HeldOutcome =
+  | { kind: 'reference' }
+  | { kind: 'progress'; mark: 'right' | 'wrong' }
+  | { kind: 'done'; mark: 'right' | 'wrong'; centre: number };
 
 /** Dieser Ton in einer anderen Oktave, mit derselben Schreibweise: «eis1» → «eis». */
 function nameInOctave(pitch: Pitch, at: number): string {
@@ -299,20 +419,23 @@ function listen(
   {
     canvas,
     phase,
-    goal,
-    referencePitch,
-    targetPitch,
-    untilRight,
+    startLines,
+    endLines,
+    centre: startCentre,
+    judge,
     onReference,
     onAnswer,
   }: {
     canvas: { current: HTMLCanvasElement | null };
     phase: { current: Phase };
-    goal: SingGoal;
-    referencePitch: Pitch;
-    targetPitch: Pitch;
-    /** «Ohne Fehlerurteil»: Zielbereich von Anfang an, ein falscher Ton beendet nichts. */
-    untilRight: boolean;
+    /** Markierungen beim Zuhören … */
+    startLines: CurveLine[];
+    /** … und nach dem Urteil. */
+    endLines: CurveLine[];
+    /** Tonhöhe in der Mitte des Bilds zu Beginn. */
+    centre: number;
+    /** Ordnet den zuletzt gehaltenen Ton ein, mit allen bisherigen. */
+    judge: (held: number[]) => HeldOutcome;
     onReference: () => void;
     onAnswer: (notes: number[]) => void;
   },
@@ -325,22 +448,8 @@ function listen(
   const detector = new HoldDetector();
   const history: CurvePoint[] = [];
   const held: number[] = [];
-  const targetLine: CurveLine = {
-    midi: goal.target,
-    kind: 'target',
-    band: goal.tolerance,
-    label: (at) => nameInOctave(targetPitch, at),
-  };
-  const referenceLine: CurveLine = {
-    midi: goal.reference,
-    kind: 'reference',
-    label: (at) => nameInOctave(referencePitch, at),
-  };
-  // Gewöhnlich erscheint der Zielton erst mit dem Urteil — sonst stünde die
-  // Antwort schon da. «Ohne Fehlerurteil» zeigt ihn gleich, und das Bild
-  // beginnt so, dass Ausgangs- und Zielton zu sehen sind.
-  let lines: CurveLine[] = untilRight ? [referenceLine, targetLine] : [referenceLine];
-  let centre = untilRight ? (goal.reference + goal.target) / 2 : goal.reference;
+  let lines = startLines;
+  let centre = startCentre;
   let lastNow = performance.now();
   let handle = 0;
   let stopped = false;
@@ -378,32 +487,25 @@ function listen(
 
     if (note) {
       held.push(note.midi);
-      const roles = rolesOf(goal, held);
-      if (roles[roles.length - 1] === 'answer') {
-        const verdict = judgeNote(goal, note.midi);
+      const outcome = judge(held.slice());
+      if (outcome.kind === 'reference') {
+        onReference();
+      } else {
         for (const point of history) {
-          if (point.midi !== null && point.time >= note.start && point.time <= note.end) {
-            point.mark = verdict.correct ? 'right' : 'wrong';
-          }
+          if (point.midi !== null && point.time >= note.start && point.time <= note.end) point.mark = outcome.mark;
         }
-        if (untilRight && !verdict.correct) {
-          // Nur ein Versuch: weiter zuhören. Auch auf demselben Ton, damit
-          // sich ein knapp verfehlter nachstimmen lässt.
-          detector.again();
+        if (outcome.kind === 'done') {
+          lines = endLines;
+          centre = outcome.centre;
+          stopped = true;
           render();
-          handle = requestAnimationFrame(tick);
+          onAnswer(held.slice());
           return;
         }
-        lines = [referenceLine, targetLine];
-        // Zielton und gesungener Ton gemeinsam ins Bild, in der gesungenen Oktave.
-        const shownTarget = goal.target + 12 * Math.round((note.midi - goal.target) / 12);
-        centre = (note.midi + shownTarget) / 2;
-        stopped = true;
-        render();
-        onAnswer(held.slice());
-        return;
+        // Ein verfehlter Versuch: weiter zuhören, auch auf demselben Ton,
+        // damit sich ein knapp verfehlter nachstimmen lässt.
+        if (outcome.mark === 'wrong') detector.again();
       }
-      onReference();
     }
 
     render();

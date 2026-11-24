@@ -1,7 +1,8 @@
 /**
  * Gesungene Töne gegen die Aufgabe — ohne Browser, deshalb testbar.
  *
- * Gilt für «Intervalle singen» und folgt drei Entscheiden (2026-11-23):
+ * Gilt für «Intervalle singen» und folgt drei Entscheiden (2026-11-23).
+ * Tonfolgen (Dreiklänge singen) stehen weiter unten bei `judgeSequence`.
  *
  *  - Der erste gehaltene Ton entscheidet; es gibt kein «Prüfen». Mit der
  *    Einstellung «Ohne Fehlerurteil» (`untilRight`) entscheidet erst der
@@ -114,4 +115,81 @@ export function judgeSung(
     if (verdict.correct || !untilRight) return { index, note: notes[index], ...verdict };
   }
   return { index: -1, note: null, correct: false, rightNote: false, cents: null, octaveShift: 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Mehrere Töne nacheinander (Dreiklänge singen)
+// ---------------------------------------------------------------------------
+
+/**
+ * Eine Tonfolge singen, etwa die drei Töne eines Dreiklangs von unten nach
+ * oben (Entscheid 2026-11-24). Der vorgespielte Ton ist der erste der Folge.
+ */
+export interface SequenceGoal {
+  /** Der vorgespielte Ton, MIDI. */
+  reference: number;
+  /** Die Töne in der notierten Lage, MIDI, in der verlangten Reihenfolge; der erste ist `reference`. */
+  targets: number[];
+  /** So weit darf ein Ton danebenliegen (Cent). */
+  tolerance: number;
+}
+
+/** Wie ein gehaltener Ton in der Folge zählt. */
+export type SequenceRole = 'right' | 'wrong' | 'repeat' | 'after';
+
+export interface SequenceVerdict {
+  /** Entschieden: alle Töne richtig — oder, ohne «Ohne Fehlerurteil», ein falscher. */
+  done: boolean;
+  correct: boolean;
+  /** Je gehaltenem Ton, in der gesungenen Reihenfolge. */
+  roles: SequenceRole[];
+  /** Je richtig gesungenem Ton der Folge: welcher gehaltene Ton es war. */
+  right: { index: number; note: number; verdict: NoteVerdict }[];
+  /** Der entscheidende falsche Ton und welcher Ton der Folge verlangt war, oder null. */
+  wrong: { index: number; note: number; verdict: NoteVerdict; expected: number } | null;
+}
+
+/**
+ * Das Urteil über eine gesungene Tonfolge. Wie beim Intervall: die Oktave
+ * jedes Tons ist egal, die Reihenfolge zählt. Den vorgespielten Ton nach dem
+ * ersten noch einmal zu singen, ist kein Fehler — er wird übergangen, solange
+ * er nicht selbst noch verlangt ist.
+ */
+export function judgeSequence(
+  goal: SequenceGoal,
+  notes: readonly number[],
+  { untilRight = false }: { untilRight?: boolean } = {},
+): SequenceVerdict {
+  const roles: SequenceRole[] = [];
+  const right: SequenceVerdict['right'] = [];
+  let wrong: SequenceVerdict['wrong'] = null;
+  let at = 0;
+  let done = false;
+
+  notes.forEach((note, index) => {
+    if (done) {
+      roles.push('after');
+      return;
+    }
+    const remaining = goal.targets.slice(at);
+    if (at > 0 && pitchClass(note) === pitchClass(goal.reference) && !remaining.some((t) => pitchClass(t) === pitchClass(note))) {
+      roles.push('repeat');
+      return;
+    }
+    const verdict = judgeNote({ reference: goal.reference, target: goal.targets[at], tolerance: goal.tolerance }, note);
+    if (verdict.correct) {
+      roles.push('right');
+      right.push({ index, note, verdict });
+      at++;
+      done = at === goal.targets.length;
+      return;
+    }
+    roles.push('wrong');
+    if (!untilRight) {
+      wrong = { index, note, verdict, expected: at };
+      done = true;
+    }
+  });
+
+  return { done, correct: done && wrong === null, roles, right, wrong };
 }

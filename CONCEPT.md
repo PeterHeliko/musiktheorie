@@ -222,7 +222,7 @@ quality, one tap answers.
 | Dreiklänge auf Klaviatur benennen   | Klaviatur  | ✓   |
 | Dreiklänge auf Klaviatur spielen    | Klaviatur  | ✓   |
 | Dreiklänge hörend erkennen          | Hören      | ✓   |
-| Dreiklänge singen                   | Singen     | ★   |
+| Dreiklänge singen                   | Singen     | ✓ ★ |
 
 **Umkehrungen & Lagen:** the settings ask the Umkehrung (lowest tone: Grundstellung,
 Sextakkord, Quartsextakkord), the Lage (highest tone: Oktavlage, Terzlage, Quintlage), or
@@ -235,7 +235,7 @@ both.
 | Umkehrungen & Lagen auf Klaviatur benennen    | Klaviatur  | ✓   |
 | Umkehrungen & Lagen auf Klaviatur spielen     | Klaviatur  | ✓   |
 | Umkehrungen & Lagen hörend erkennen           | Hören      | ✓   |
-| Umkehrungen & Lagen singen                    | Singen     | ★   |
+| Umkehrungen & Lagen singen                    | Singen     | ✓ ★ |
 
 Rules (decided 2026-11-24):
 

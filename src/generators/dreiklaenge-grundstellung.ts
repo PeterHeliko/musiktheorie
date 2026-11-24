@@ -17,13 +17,18 @@ import {
   CHORD_SEMITONES,
   CLEF_FILTER,
   ROOT_FILTER,
+  SING_DEFAULTS,
+  SING_FILTERS,
+  SING_HINT,
   STAFF_WINDOWS,
   SUS4_FILTER,
   buildChord,
   chordName,
+  chordSingTask,
   chordSpace,
   chosenQualities,
   octavePlacements,
+  placeInVoice,
   qualityFilter,
   qualityOfStack,
   readKeys,
@@ -34,7 +39,8 @@ import {
 } from './dreiklaenge-shared';
 import type { Rng } from './rng';
 import { insist, optionsFrom, pitchKey, taskId, wholeNoteScore, type Window } from './shared';
-import { multi, single, toggle, type FilterValues, type Generator, type Question } from './types';
+import { multi, single, toggle, type FilterValues, type Generator, type Personal, type Question } from './types';
+import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
 
 const LIMITED_PLAYS = 3;
 
@@ -382,3 +388,54 @@ export const dreiklaengeHoeren: Generator<HearingFilters> = {
 };
 
 
+
+// ---------------------------------------------------------------------------
+// Singen
+// ---------------------------------------------------------------------------
+
+interface SingingFilters extends FilterValues {
+  qualities: string[];
+  sus4: boolean;
+  accidentals: string;
+  clefs: string[];
+  tolerance: string;
+  untilRight: boolean;
+}
+
+export const dreiklaengeSingen: Generator<SingingFilters> = {
+  id: 'dreiklaenge-singen',
+  topic: 'dreiklaenge',
+  group: 'grundstellung',
+  skill: 'singen',
+  version: 1,
+  title: 'Dreiklänge singen',
+  instruction: 'Du hörst den Grundton. Singe die drei Töne des Dreiklangs von unten nach oben, mit dem Grundton.',
+  hint: SING_HINT,
+
+  filters: [qualityFilter(), SUS4_FILTER, ROOT_FILTER, ...SING_FILTERS],
+
+  defaults: { qualities: ALL_TRIADS, sus4: false, accidentals: 'einfach', ...SING_DEFAULTS },
+
+  generate(values, rng: Rng, personal?: Personal): Question {
+    const qualities = chosenQualities(values, this.defaults.qualities);
+    const policy = rootPolicy(values);
+    const clefs = multi(values, 'clefs', this.defaults.clefs);
+    const tolerance = Number(single(values, 'tolerance', '50'));
+    const untilRight = toggle(values, 'untilRight', false);
+    const range = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
+
+    const quality = rng.pick(qualities);
+    const root = rng.pick(rootClasses(policy, quality));
+    const stack = placeInVoice(rng, buildChord({ ...root, octave: 4 }, quality), range);
+    checkChord(stack, quality);
+    const clef = rng.pick(clefs) as 'treble' | 'bass';
+
+    const task = chordSingTask(taskId('dsi', rng), chordName(stack[0], quality), stack, {
+      clef,
+      range,
+      tolerance,
+      untilRight,
+    });
+    return { task };
+  },
+};

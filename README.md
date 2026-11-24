@@ -183,6 +183,12 @@ singt.
   Ausgangston steht klingend da — tiefe Lage im Violinschlüssel also mit Hilfslinien.
 - Die Browserprüfung singt mit dem künstlichen «g» einmal richtig und einmal falsch.
 
+`/ueben/dreiklaenge-singen/` und `/ueben/umkehrungen-singen/`: der tiefste Ton des Akkords
+erklingt und steht im System; gesungen werden alle drei Töne von unten nach oben, jeder in
+beliebiger Oktave (`judgeSequence` in `src/sing/judge.ts`). Den vorgespielten Ton dazwischen
+noch einmal zu singen, zählt nicht. Die Zeile unter der Kurve zählt die richtigen Töne mit;
+der erste falsche beendet die Aufgabe, ausser mit «Ohne Fehlerurteil».
+
 ---
 
 ## Aufbau
