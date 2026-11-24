@@ -71,11 +71,26 @@ describe('Vorzeichen setzen', () => {
       correct: true,
       marks: [true],
       unusual: true,
+      wrongOrder: false,
     });
     expect(judgeKeySignature(1, { sign: 1, placed: [{ s: 'f', o: 5 }] }, 'treble').unusual).toBe(false);
     expect(judgeKeySignature(1, { sign: 1, placed: [{ s: 'f', o: 3 }] }, 'bass').unusual).toBe(false);
     // Falsch ist falsch, auch in einer anderen Oktave: kein Hinweis.
     expect(judgeKeySignature(2, { sign: 1, placed: [{ s: 'f', o: 4 }] }, 'treble').unusual).toBe(false);
+  });
+
+  it('erkennt die richtigen Vorzeichen in falscher Reihenfolge', () => {
+    // A-Dur: fis cis gis; gesetzt cis fis gis.
+    const swapped = judgeKeySignature(3, { sign: 1, placed: [{ s: 'c', o: 5 }, { s: 'f', o: 5 }, { s: 'g', o: 5 }] });
+    expect(swapped).toMatchObject({ correct: false, wrongOrder: true, marks: [false, false, true] });
+    // Eines fehlt oder ist ein anderes: keine Frage der Reihenfolge.
+    expect(judgeKeySignature(3, { sign: 1, placed: [{ s: 'c', o: 5 }, { s: 'f', o: 5 }] }).wrongOrder).toBe(false);
+    expect(
+      judgeKeySignature(3, { sign: 1, placed: [{ s: 'c', o: 5 }, { s: 'f', o: 5 }, { s: 'd', o: 5 }] }).wrongOrder,
+    ).toBe(false);
+    // Falsche Art: auch nicht.
+    expect(judgeKeySignature(-2, { sign: 1, placed: [{ s: 'e', o: 5 }, { s: 'b', o: 4 }] }).wrongOrder).toBe(false);
+    expect(judgeKeySignature(-2, { sign: -1, placed: [{ s: 'e', o: 5 }, { s: 'b', o: 4 }] }).wrongOrder).toBe(true);
   });
 
   it('bewertet mit derselben Regel', () => {

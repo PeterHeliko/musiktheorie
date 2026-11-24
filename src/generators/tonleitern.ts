@@ -301,6 +301,9 @@ export const tonleiternKlaviatur: Generator<KeyboardFilters> = {
 // Tonleitern singen
 // ---------------------------------------------------------------------------
 
+/** So lange muss ein Ton der Tonleiter gehalten sein, bis er zählt (ms). */
+const SCALE_HOLD_MS = 500;
+
 interface SingingFilters extends FilterValues {
   scales: string[];
   maxAccidentals: number;
@@ -325,7 +328,7 @@ export const tonleiternSingen: Generator<SingingFilters> = {
   version: 1,
   title: 'Tonleitern singen',
   instruction:
-    'Du hörst den Grundton. Singe die Tonleiter Ton für Ton; den Grundton darfst du mitsingen. Nach dem siebten Ton ist sie fertig, die Oktave ist freigestellt.',
+    'Du hörst den Grundton. Singe die Tonleiter Ton für Ton; den Grundton darfst du mitsingen. Die Oktave am Ende darfst du singen, musst aber nicht.',
   hint: SING_HINT,
 
   filters: [SCALE_FILTER, MAX_ACCIDENTALS_FILTER, DIRECTION_FILTER, ...SING_FILTERS],
@@ -358,8 +361,11 @@ export const tonleiternSingen: Generator<SingingFilters> = {
         tempo: metronomeOf(values),
       }),
       melodic: true,
-      // Die Oktave am Ende ist frei (Entscheid 2026-11-24).
+      // Die Oktave am Ende ist frei: nach dem siebten Ton wartet die Aufgabe
+      // kurz, ob sie noch kommt (Entscheid 2026-11-24).
       optionalLast: true,
+      // Tonleitern gehen zügiger als Akkorde: ein Ton zählt schon nach 0,5 s.
+      holdMs: SCALE_HOLD_MS,
     };
     return { task, ...(task.tempo ? { instruction: withTempo(task, this.instruction) } : {}) };
   },

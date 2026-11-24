@@ -296,11 +296,56 @@
   padding: 0;
 }
 
-/* Ein Eingabe-System mit `fit` (Tonleiter notieren), das schmaler als die
-   Spalte wird (quer): mittig wie die Aufgabe darüber. */
+/* Ein Eingabe-System mit `fit` (jede Noteneingabe, NotationInput.tsx), das
+   schmaler als die Spalte wird (quer): mittig wie die Aufgabe darüber. */
 .score-click-area .score-fit svg,
 .score-solution .score-fit svg {
   margin-inline: auto;
+}
+
+/*
+ * Quer auf dem Telefon (Entscheid 2026-11-24): die Aufgabe links in der Zeile
+ * der Werkzeugleiste, damit das System die Höhe bekommt. Gilt für die
+ * schlanken Eingaben (Noten schreiben, Intervalle, Akkorde, Vorzeichen,
+ * Tonleitern); das Diktat mit seiner vollen Leiste bleibt, wie es ist. Die
+ * Kinder der Noteneingabe werden dafür Rasterzellen (display: contents).
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  .question-notation:has(.toolbar-bare) {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 16px;
+    align-items: center;
+  }
+
+  .question-notation:has(.toolbar-bare) > * {
+    grid-column: 1 / -1;
+  }
+
+  .question-notation:has(.toolbar-bare) > .task-prompt {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+    font-size: 1.4rem;
+    text-align: left;
+  }
+
+  .question-notation:has(.toolbar-bare) .notation-input {
+    display: contents;
+  }
+
+  .question-notation:has(.toolbar-bare) .notation-input > * {
+    grid-column: 1 / -1;
+  }
+
+  .question-notation:has(.toolbar-bare) .notation-input > .toolbar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .question-notation:has(.toolbar-bare) .input-summary {
+    margin-top: 2px;
+  }
 }
 
 /* Tonleiter notieren: die Nummern der Plätze unter dem System, je unter
@@ -1593,6 +1638,12 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px 24px;
     align-items: start;
+  }
+
+  /* Ein <fieldset> wird sonst nicht schmaler als sein Inhalt (Safari). */
+  .field-row-notes > .field {
+    min-width: 0;
+    min-inline-size: 0;
   }
 
   .field-row-notes .note-grid {

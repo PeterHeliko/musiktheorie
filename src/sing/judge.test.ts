@@ -297,10 +297,13 @@ describe('im Tempo', () => {
 describe('freie Oktave am Ende einer Tonleiter', () => {
   const scale = { reference: 60, targets: [60, 62, 64, 65, 67, 69, 71, 72], tolerance: 50, optionalLast: true };
 
-  it('ist Ton für Ton mit dem siebten Ton fertig', () => {
+  it('ist Ton für Ton mit dem siebten Ton vollständig, die Oktave darf noch kommen', () => {
     const verdict = judgeSequence(scale, [60, 62, 64, 65, 67, 69, 71]);
-    expect(verdict).toMatchObject({ done: true, correct: true, reached: 7 });
-    expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69]).done).toBe(false);
+    expect(verdict).toMatchObject({ done: false, complete: true, correct: true, reached: 7 });
+    expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69]).complete).toBe(false);
+    expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69, 71, 72])).toMatchObject({ done: true, correct: true });
+    // Kommt sie falsch, ist es falsch.
+    expect(judgeSequence(scale, [60, 62, 64, 65, 67, 69, 71, 73])).toMatchObject({ done: false, correct: false });
   });
 
   it('lässt im Tempo den letzten Schlag stumm, aber nicht falsch', () => {

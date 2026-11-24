@@ -135,8 +135,9 @@ export interface SequenceGoal {
   tolerance: number;
   /**
    * Der letzte Ton ist frei (die Oktave am Ende einer Tonleiter): Ton für Ton
-   * ist die Folge mit dem vorletzten zu Ende, im Tempo darf der letzte Schlag
-   * stumm bleiben.
+   * ist die Folge mit dem vorletzten vollständig (`complete`) — kommt der
+   * letzte noch, muss er stimmen; im Tempo darf der letzte Schlag stumm
+   * bleiben.
    */
   optionalLast?: boolean;
 }
@@ -152,7 +153,12 @@ export type SequenceRole = 'right' | 'wrong' | 'repeat' | 'after' | 'missing';
 export interface SequenceVerdict {
   /** Alle Töne der Folge sind richtig gesungen — die Aufgabe ist zu Ende. */
   done: boolean;
-  /** Zu Ende, und kein falscher Ton dazwischen. */
+  /**
+   * Alle verlangten Töne sind gesungen; nur der freie letzte (`optionalLast`)
+   * fehlt vielleicht noch. Ohne freien letzten dasselbe wie `done`.
+   */
+  complete: boolean;
+  /** Die verlangten Töne gesungen, und kein falscher Ton dazwischen. */
   correct: boolean;
   /** Je gehaltenem Ton, in der gesungenen Reihenfolge. */
   roles: SequenceRole[];
@@ -216,14 +222,15 @@ export function judgeSequence(goal: SequenceGoal, notes: readonly number[]): Seq
       roles.push('right');
       right.push({ step: at, index, note, verdict });
       at++;
-      done = at >= requiredTones(goal);
+      done = at === goal.targets.length;
       return;
     }
     roles.push('wrong');
     wrong.push({ index, note, verdict, expected: at });
   });
 
-  return { done, correct: done && wrong.length === 0, roles, right, reached: at, wrong };
+  const complete = at >= requiredTones(goal);
+  return { done, complete, correct: complete && wrong.length === 0, roles, right, reached: at, wrong };
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +303,7 @@ export function judgeTimed(
   const done = roles.length === goal.targets.length;
   return {
     done,
+    complete: done,
     correct: done && wrong.length === 0 && missing.length === 0,
     roles,
     right,

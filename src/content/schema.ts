@@ -305,10 +305,13 @@ export interface SingTask extends TaskBase {
   tempo?: number;
   /**
    * Der letzte Ton der Folge ist frei: die wiederholte Oktave am Ende einer
-   * Tonleiter. Ton für Ton endet die Aufgabe dann schon mit dem vorletzten;
-   * im Tempo darf der letzte Schlag stumm bleiben.
+   * Tonleiter. Ton für Ton wartet die Aufgabe nach dem vorletzten kurz, ob
+   * er noch kommt (Entscheid 2026-11-24); im Tempo darf der letzte Schlag
+   * stumm bleiben. Gesungen muss er stimmen.
    */
   optionalLast?: boolean;
+  /** So lange muss ein Ton ruhig gehalten sein, bis er zählt (ms); ohne: HOLD_MS. */
+  holdMs?: number;
   /**
    * «Ohne Fehlerurteil»: falsche Töne beenden die Aufgabe nicht, gesungen
    * wird bis zum richtigen (sing/judge.ts).

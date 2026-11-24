@@ -195,8 +195,16 @@ Nach dem Prüfen ist jedes Zeichen grün oder rot — richtig ist es, wenn es an
 der Reihenfolge der richtige Stammton ist, die Oktave zählt nicht. War der Satz falsch, steht
 der richtige grün daneben (`keySignaturePitches`). Stimmt der Satz, steht aber nicht ganz an
 den üblichen Stellen (eine andere Oktave), bleibt es «Richtig»; die übliche Platzierung steht
-dann bernsteinfarben daneben, darunter «Andere Platzierung üblich». Ohne Vorzeichen (C-Dur,
-a-Moll) lässt sich das leere System gleich prüfen.
+dann bernsteinfarben daneben, darunter «Andere Platzierung üblich». Sind es die richtigen
+Vorzeichen, nur in anderer Reihenfolge, ist es «Falsch»; der richtige Satz steht dann
+bernsteinfarben daneben, darunter «Falsche Reihenfolge». Ohne Vorzeichen (C-Dur, a-Moll) lässt
+sich das leere System gleich prüfen.
+
+**Quer auf dem Telefon** (Entscheid 2026-11-24): jedes Eingabe-System passt sich dem Platz an
+(`fitted` in `NotationInput.tsx`: nie grösser als gezeichnet, aber nicht unter Massstab 1, im
+Klaviersystem 0,75) und steht mittig. Bei den schlanken Eingaben steht die Aufgabe links in der
+Zeile der Werkzeugleiste (CSS-Raster, `.question-notation:has(.toolbar-bare)`); das Diktat
+bleibt, wie es ist.
 
 ### Akkorde setzen
 
@@ -308,20 +316,22 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   Ein Platz ist aktiv (seine Nummer unter dem System blau): gezogen wird irgendwo im System,
   gesetzt in den aktiven Platz. So lässt sich neben der Note ziehen, und der Finger verdeckt sie
   nicht. Danach rückt er zum nächsten leeren; die Nummern wählen ihn von Hand, ♭ ♮ ♯ ändern den
-  Ton darin (Tastatur: ← → wechseln den Platz). Jeder Ton zählt einzeln. Nach dem Prüfen sind
+  Ton darin (Tastatur: ← → wechseln den Platz). Rückgängig setzt den aktiven Platz dorthin,
+  wo sich etwas geändert hat; wiederholt rückt er weiter wie beim Setzen. Jeder Ton zählt einzeln. Nach dem Prüfen sind
   die eigenen Töne grün oder rot, und war nicht alles richtig, steht die ganze Leiter grün in
   einem zweiten System darunter, Ton unter Ton. Quer passt sich das System der Höhe an
   (`fit` mit `minScale`: kleiner nicht, sonst trifft man keine Linie).
 - **Die Oktave am Ende ist freigestellt** (Entscheid 2026-11-24) beim Notieren (der letzte
   Platz darf leer bleiben, `PitchSlotSolution.optional`), auf der Klaviatur
-  (`KeyboardTask.optional`) und beim Singen (nach dem siebten Ton ist Schluss; im Tempo darf
-  der achte Schlag stumm bleiben, `SingTask.optionalLast`). Steht sie da, muss sie stimmen.
+  (`KeyboardTask.optional`) und beim Singen (nach dem siebten Ton wartet die Aufgabe kurz:
+  zwei Sekunden, und erst wenn nicht mehr gesungen wird; im Tempo darf der achte Schlag stumm
+  bleiben, `SingTask.optionalLast`). Steht sie da, muss sie stimmen.
 - **Tonleitern auf Klaviatur markieren** (`KeyboardTask.scale`): der Grundton ist blau, die
   übrigen Töne bis zur Oktave werden angetippt (dazu oder weg, sie klingen); den Grundton
   tippt man nicht an. Richtig ist genau diese Menge, die Reihenfolge zählt nicht. Nach dem
   Prüfen ist jede getippte Taste grün oder rot, jede fehlende grün umrandet.
 - **Tonleitern singen:** wie Dreiklänge singen, mit acht Tönen; abwärts ab dem oberen
-  Grundton. Nach dem Urteil stehen die eigenen Töne an ihren Plätzen (grün, oder der falsche
+  Grundton. Ein Ton zählt schon nach 0,5 s statt 0,8 s (`SingTask.holdMs`). Nach dem Urteil stehen die eigenen Töne an ihren Plätzen (grün, oder der falsche
   rot) und die ganze Leiter grün darunter; «Abspielen» spielt sie ohne Zusammenklang
   (`SingTask.melodic`).
 - **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den

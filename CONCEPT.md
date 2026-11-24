@@ -341,7 +341,12 @@ Rules (decided 2026-11-24):
   and the cursor moves on to the next empty slot. Each note scores on its own; after
   checking, the whole scale stands green in a second staff below.
 - **The repeated tonic at the end is optional** in Notieren, Klaviatur and Singen; if
-  written, played or sung, it must be right.
+  written, played or sung, it must be right. Singing waits about two seconds for it after
+  the seventh note. Scale notes count after 0.5 s held (chords: 0.8 s).
+- **Vorzeichen in the wrong order:** Falsch, with the correct set amber beside and
+  «Falsche Reihenfolge».
+- **Landscape phone, all slim note inputs:** prompt and toolbar share one row, the staff fits
+  the rest (not below scale 1) and is centred.
 - **Vorzeichen setzen, right but in another octave than usual:** still right; the usual
   placement stands amber beside it, with «Andere Platzierung üblich».
 - **Klaviatur markieren:** the tonic key is blue; tap the other tones up to the octave (down

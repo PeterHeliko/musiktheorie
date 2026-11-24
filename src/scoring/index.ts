@@ -72,13 +72,14 @@ export type MarkAnswer = number[];
  * es an seiner Stelle der richtige Stammton ist — so färbt die Ansicht nach
  * dem Prüfen jedes Zeichen grün oder rot. Ganz richtig ist der Satz, wenn
  * dazu keines fehlt und keines zu viel ist. `unusual`: richtig, aber nicht
- * alle in der üblichen Oktave (`keySignaturePitches`).
+ * alle in der üblichen Oktave (`keySignaturePitches`). `wrongOrder`: die
+ * richtigen Vorzeichen, nur in anderer Reihenfolge — falsch, mit Hinweis.
  */
 export function judgeKeySignature(
   accidentals: number,
   value: KeysigAnswer,
   clef: 'treble' | 'bass' = 'treble',
-): { correct: boolean; marks: boolean[]; unusual: boolean } {
+): { correct: boolean; marks: boolean[]; unusual: boolean; wrongOrder: boolean } {
   const { steps, sign } = keySignatureSteps(accidentals);
   const signRight = accidentals === 0 || value.sign === sign;
   const marks = value.placed.map((placed, index) => signRight && placed.s === steps[index]);
@@ -87,7 +88,15 @@ export function judgeKeySignature(
   // Hinweis (Entscheid 2026-11-24).
   const usual = keySignaturePitches(accidentals, clef);
   const unusual = correct && value.placed.some((placed, index) => placed.o !== usual[index].octave);
-  return { correct, marks, unusual };
+  // Die richtigen Vorzeichen, aber in falscher Reihenfolge: falsch, denn die
+  // Reihenfolge ist gefragt — die Ansicht sagt es aber dazu.
+  const sorted = (list: readonly string[]) => [...list].sort().join(' ');
+  const wrongOrder =
+    !correct &&
+    signRight &&
+    steps.length > 1 &&
+    sorted(value.placed.map((placed) => placed.s)) === sorted(steps);
+  return { correct, marks, unusual, wrongOrder };
 }
 /** Ein frei gesetzter Akkord: Töne im oberen (bzw. einzigen) und im unteren System. */
 export interface ChordAnswer {

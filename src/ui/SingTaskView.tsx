@@ -83,6 +83,14 @@ const REFERENCE_RELEASE = 0.25;
 /** So viele Schläge zählt das Metronom ein, bevor der erste Ton dran ist. */
 const COUNT_IN = 4;
 
+/**
+ * Nach dem letzten verlangten Ton einer Tonleiter wartet die Aufgabe so lange
+ * auf die freie Oktave (ms) — und endet erst, wenn danach eine Weile nichts
+ * gesungen wurde, damit sie keine angefangene abschneidet.
+ */
+const LINGER_MS = 2000;
+const QUIET_MS = 700;
+
 /** So viele Sekunden zeigt die Kurve. */
 const HISTORY_SECONDS = 6;
 
@@ -298,6 +306,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
     return listen(microphone, {
       canvas,
       phase: phaseRef,
+      holdMs: task.holdMs,
       startLines: untilRight ? allLines : [referenceLine],
       endLines: allLines,
       centre: untilRight ? centreOf(allLines.map((line) => line.midi)) : goal.reference,
@@ -308,7 +317,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
             setProgress(verdict);
             if (role === 'repeat' || role === 'after') return { kind: 'reference' };
             const mark = role === 'right' ? 'right' : 'wrong';
-            if (!verdict.done) return { kind: 'progress', mark };
+            // Vollständig, nur die freie Oktave fehlt: kurz warten, ob sie kommt.
+            if (!verdict.done) return { kind: 'progress', mark, endable: verdict.complete };
             const counted = held.filter((_, index) => verdict.roles[index] === 'right' || verdict.roles[index] === 'wrong');
             return { kind: 'done', mark, centre: centreOf(counted) };
           }
@@ -336,10 +346,11 @@ export function SingTaskView({ task }: { task: SingTask }) {
   const sung = answer<SingAnswer>(task.id)?.notes;
   const score = useMemo(() => {
     if (sequence && sequenceGoal) {
+      // Eine Antwort steht erst am Ende da: dann das Urteil, vorher der Stand.
       const beats = answer<SingAnswer>(task.id)?.beats;
       const verdict = beats ? judgeTimed(sequenceGoal, beats) : sung ? judgeSequence(sequenceGoal, sung) : null;
-      if (verdict?.done && task.melodic) return attemptScore(task, verdict);
-      return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, progress);
+      if (verdict && task.melodic) return attemptScore(task, verdict);
+      return verdict ? sequenceScore(task, sequence, verdict) : progressScore(task, progress);
     }
     if (!sung) return task.score;
     const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
@@ -355,7 +366,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
     if (!task.melodic || !sequence || !sequenceGoal) return null;
     const beats = answer<SingAnswer>(task.id)?.beats;
     const verdict = beats ? judgeTimed(sequenceGoal, beats) : sung ? judgeSequence(sequenceGoal, sung) : null;
-    if (!verdict?.done || verdict.correct) return null;
+    if (!verdict || verdict.correct) return null;
     const [measure] = task.score.measures;
     const notes = sequence.map((pitch): NoteSpec => ({ keys: [pitchKey(pitch)], duration: 'w', mark: 'correct' }));
     return { ...task.score, measures: [{ ...measure, notes }] };
@@ -625,7 +636,7 @@ function sequenceScore(task: SingTask, sequence: Pitch[], verdict: SequenceVerdi
  */
 type HeldOutcome =
   | { kind: 'reference' }
-  | { kind: 'progress'; mark: 'right' | 'wrong' }
+  | { kind: 'progress'; mark: 'right' | 'wrong'; endable?: boolean }
   | { kind: 'done'; mark: 'right' | 'wrong'; centre: number };
 
 /** Dieser Ton in einer anderen Oktave, mit derselben Schreibweise: «eis1» → «eis». */
@@ -644,6 +655,7 @@ function listen(
   {
     canvas,
     phase,
+    holdMs,
     startLines,
     endLines,
     centre: startCentre,
@@ -653,6 +665,8 @@ function listen(
   }: {
     canvas: { current: HTMLCanvasElement | null };
     phase: { current: Phase };
+    /** So lange muss ein Ton ruhig gehalten sein (ms); ohne: HOLD_MS. */
+    holdMs?: number;
     /** Markierungen beim Zuhören … */
     startLines: CurveLine[];
     /** … und nach dem Urteil. */
@@ -670,7 +684,11 @@ function listen(
   const smoother = new PitchSmoother();
   // Ob ein Ton da ist, entscheidet der Pegel im Verhältnis zum Raum (level.ts).
   const gate = new NoiseGate();
-  const detector = new HoldDetector();
+  const detector = new HoldDetector(holdMs);
+  // Vollständig, aber der freie letzte Ton fehlt: seit wann, und wann zuletzt
+  // gesungen wurde. Ist eine Weile Ruhe, endet die Aufgabe ohne ihn.
+  let endableSince: number | null = null;
+  let lastVoiced = 0;
   const history: CurvePoint[] = [];
   const held: number[] = [];
   let lines = startLines;
@@ -706,6 +724,7 @@ function listen(
     // Der Ausschnitt folgt der Stimme gemächlich, damit er nicht zittert —
     // auch in eine andere Oktave.
     if (value !== null) centre += (value - centre) * 0.05;
+    if (value !== null) lastVoiced = now;
 
     const note = listening ? detector.push(now, value) : null;
     if (!listening) detector.reset();
@@ -730,7 +749,16 @@ function listen(
         // Ein verfehlter Versuch: weiter zuhören, auch auf demselben Ton,
         // damit sich ein knapp verfehlter nachstimmen lässt.
         if (outcome.mark === 'wrong') detector.again();
+        endableSince = outcome.endable ? now : null;
       }
+    }
+
+    if (endableSince !== null && now - endableSince > LINGER_MS && now - lastVoiced > QUIET_MS) {
+      lines = endLines;
+      stopped = true;
+      render();
+      onAnswer(held.slice());
+      return;
     }
 
     render();

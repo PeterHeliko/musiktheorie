@@ -41,6 +41,14 @@
   box-sizing: border-box;
 }
 
+/* Safari auf dem iPhone vergrössert Schrift im Querformat von sich aus; dann
+   werden Knöpfe breiter, als das Raster vorsieht. Die Seite bestimmt ihre
+   Schriftgrössen selbst. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

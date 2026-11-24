@@ -1527,6 +1527,25 @@ async function main() {
     );
     await page.screenshot({ path: join(SHOTS, 'vorzeichen-andere-oktave.png') });
 
+    // Quer auf dem Telefon: Aufgabe und Werkzeugleiste in einer Zeile, das
+    // System ganz über der Leiste unten.
+    const phoneQuer = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+    for (const mode of ['noten-schreiben', 'intervalle-notieren', 'vorzeichen-setzen', 'tonleitern-notieren']) {
+      await phoneQuer.goto(exercise(mode), { waitUntil: 'networkidle' });
+      await phoneQuer.waitForSelector('.notation-input .score svg');
+      await phoneQuer.waitForTimeout(200);
+      const [staff, bar, prompt, toolbar] = await Promise.all(
+        ['.score-click-area svg', '.session-bar', '.question-notation .task-prompt', '.notation-input .toolbar'].map((selector) =>
+          phoneQuer.locator(selector).first().boundingBox(),
+        ),
+      );
+      check(
+        staff.y + staff.height <= bar.y + 1 && Math.abs(prompt.y + prompt.height / 2 - (toolbar.y + toolbar.height / 2)) < 20,
+        `quer: ${mode} passt über die Leiste, Aufgabe neben der Werkzeugleiste`,
+      );
+    }
+    await phoneQuer.close();
+
     // ------------------------------------------------------------------- Fehler
     console.log('\nSauberkeit');
     // Der Abbruch einer laufenden Wiedergabe meldet sich als AbortError; das

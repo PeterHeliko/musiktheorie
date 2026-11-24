@@ -421,7 +421,21 @@ function shiftPitch(note: InputNote, steps: number): InputNote {
 // Einstieg
 // ---------------------------------------------------------------------------
 
-export function NotationInput({ task }: { task: NotationTask }) {
+/**
+ * Jedes Eingabe-System passt sich in der Übung dem Platz an (ScoreSpec.fit):
+ * nie grösser als gezeichnet, quer auf dem Telefon kleiner — aber nicht so
+ * klein, dass man keine Linie mehr trifft (Entscheid 2026-11-24). Zwei Systeme
+ * dürfen etwas kleiner werden als eines.
+ */
+function fitted(task: NotationTask): NotationTask {
+  if (task.score.fit) return task;
+  const maxScale = task.score.scale ?? SCORE_SCALE;
+  const minScale = Math.min(maxScale, task.score.clef === 'grand' ? 0.75 : 1);
+  return { ...task, score: { ...task.score, fit: { maxScale, minScale } } };
+}
+
+export function NotationInput({ task: given }: { task: NotationTask }) {
+  const task = useMemo(() => fitted(given), [given]);
   const { current, update, history, readOnly } = useNotationAnswer(task);
   const props: ModeProps = { task, answer: current, update, history, readOnly };
 
@@ -541,6 +555,39 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   useEffect(() => {
     if (currentAlter !== undefined) setAlter(currentAlter);
   }, [currentAlter, current?.slot]);
+
+  /**
+   * Rückgängig und Wiederholen nehmen den aktiven Platz mit (Entscheid
+   * 2026-11-24): rückgängig steht er dort, wo sich etwas geändert hat — der
+   * zurückgenommene Ton wird gleich neu gesetzt —, wiederholt rückt er wie
+   * beim Setzen zum nächsten leeren. Alles löschen beginnt wieder vorn.
+   */
+  const lastStep = useRef<'undo' | 'redo' | null>(null);
+  const before = useRef<PitchAnswer>(placed);
+  const placedKey = JSON.stringify(placed);
+  useEffect(() => {
+    const previous = before.current;
+    before.current = placed;
+    const step = lastStep.current;
+    lastStep.current = null;
+    if (!sequential || !step || solution.type !== 'pitch') return;
+    const changed = solution.slots.filter(
+      (slot) => JSON.stringify(previous[String(slot.slot)] ?? []) !== JSON.stringify(placed[String(slot.slot)] ?? []),
+    );
+    if (changed.length === 0) return;
+    // Mehrere auf einmal (Löschen rückgängig): zum ersten leeren Platz.
+    if (changed.length > 1) return setActive(null);
+    const [slot] = changed;
+    setActive(step === 'undo' ? slot.slot : (nextEmpty(solution.slots, placed, slot.slot) ?? slot.slot));
+  }, [placedKey]);
+  const undo = () => {
+    lastStep.current = 'undo';
+    history.undo();
+  };
+  const redo = () => {
+    lastStep.current = 'redo';
+    history.redo();
+  };
 
   // Die Nummern unter dem System stehen unter ihren Plätzen: aus der
   // gezeichneten Lage gemessen, wie die Knöpfe beim Halbtonschritte-Markieren.
@@ -842,11 +889,14 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
           />
         )}
         <EditActions
-          onClear={() => update({})}
+          onClear={() => {
+            update({});
+            setActive(null);
+          }}
           canClear={summary.length > 0}
-          onUndo={history.undo}
+          onUndo={undo}
           canUndo={history.canUndo}
-          onRedo={history.redo}
+          onRedo={redo}
           canRedo={history.canRedo}
           disabled={readOnly}
         />
@@ -1455,6 +1505,8 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
  * der Satz falsch, steht der richtige grün daneben, an den üblichen Stellen.
  * Stimmt er, steht aber nicht ganz an den üblichen Stellen (eine andere
  * Oktave), steht der übliche bernsteinfarben daneben, mit einer Zeile darunter.
+ * Ebenso, wenn es die richtigen Vorzeichen sind, nur in falscher Reihenfolge —
+ * dann bleibt es aber falsch.
  */
 /** Zeichenbreite mit dem richtigen Satz daneben: zwei Takte à sieben Zeichen samt Schlüssel. */
 const KEYSIG_SOLUTION_WIDTH = 270;
@@ -1494,12 +1546,13 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
     if (judged && (!judged.correct || judged.unusual)) {
       // Der richtige Satz als zweiter Takt, damit der eigene bleibt, wo er
       // war: grün, wenn der eigene falsch war; bernsteinfarben, wenn er
-      // stimmt, aber anders üblich ist (Entscheid 2026-11-24).
+      // stimmt, aber anders üblich ist, oder nur die Reihenfolge nicht stimmt
+      // (Entscheid 2026-11-24).
       const right: NoteSpec[] = keySignaturePitches(solution.accidentals, clef).map((pitch) => ({
         keys: [`${pitch.step}${pitch.octave}`],
         duration: 'w',
         glyph: pitch.alter > 0 ? 'sharp' : 'flat',
-        mark: judged.correct ? 'usual' : 'correct',
+        mark: judged.correct || judged.wrongOrder ? 'usual' : 'correct',
       }));
       // Beide Takte sind gleich breit und brauchen Platz für sieben Zeichen;
       // breiter als nötig machte das ganze Bild nur kleiner.
@@ -1513,8 +1566,12 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
   }, [task.score, JSON.stringify(value), hover?.diatonic, readOnly]);
 
   if (solution.type !== 'keysig') return null;
-  const usualElsewhere =
-    readOnly && judgeKeySignature(solution.accidentals, value, task.score.clef === 'bass' ? 'bass' : 'treble').unusual;
+  const verdictNote = readOnly ? judgeKeySignature(solution.accidentals, value, task.score.clef === 'bass' ? 'bass' : 'treble') : null;
+  const usualNote = verdictNote?.unusual
+    ? 'Andere Platzierung üblich'
+    : verdictNote?.wrongOrder
+      ? 'Falsche Reihenfolge'
+      : null;
 
   function handleClick(event: PointerEvent) {
     // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
@@ -1557,8 +1614,8 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
-      {usualElsewhere ? (
-        <p class="input-summary is-usual">Andere Platzierung üblich</p>
+      {usualNote ? (
+        <p class="input-summary is-usual">{usualNote}</p>
       ) : (
         <p class="input-summary">
           {value.placed.length > 0
