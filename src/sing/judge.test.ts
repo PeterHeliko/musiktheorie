@@ -203,6 +203,21 @@ describe('judgeSequence', () => {
     expect(verdict.roles).toEqual(['right', 'repeat', 'right', 'repeat', 'right']);
   });
 
+  it('nimmt einen schon richtig gesungenen Ton noch einmal nicht übel', () => {
+    // fis über ein Atemholen hinweg noch einmal erkannt, dann a: richtig.
+    const verdict = judgeSequence(goal, [62, 66, 66.3, 69]);
+    expect(verdict.correct).toBe(true);
+    expect(verdict.roles).toEqual(['right', 'right', 'repeat', 'right']);
+    // Auch der erste Ton, in einer anderen Oktave.
+    expect(judgeSequence(goal, [62, 66, 50, 69]).correct).toBe(true);
+  });
+
+  it('wertet einen späteren Ton der Folge zu früh als falsch', () => {
+    const early = judgeSequence(goal, [62, 69]);
+    expect(early.correct).toBe(false);
+    expect(early.wrong).toMatchObject({ index: 1, expected: 1 });
+  });
+
   it('endet beim ersten falschen Ton — auch wenn die Reihenfolge nicht stimmt', () => {
     const swapped = judgeSequence(goal, [62, 69, 66]);
     expect(swapped.done).toBe(true);

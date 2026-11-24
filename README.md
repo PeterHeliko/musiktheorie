@@ -192,9 +192,11 @@ singt.
 
 `/ueben/dreiklaenge-singen/` und `/ueben/umkehrungen-singen/`: der tiefste Ton des Akkords
 erklingt und steht im System; gesungen werden alle drei Töne von unten nach oben, jeder in
-beliebiger Oktave (`judgeSequence` in `src/sing/judge.ts`). Den vorgespielten Ton dazwischen
-noch einmal zu singen, zählt nicht. Die Zeile unter der Kurve zählt die richtigen Töne mit;
-der erste falsche beendet die Aufgabe, ausser mit «Ohne Fehlerurteil».
+beliebiger Oktave (`judgeSequence` in `src/sing/judge.ts`). Einen schon richtig gesungenen Ton
+noch einmal zu singen, zählt nicht — auch nicht, wenn er über ein Atemholen hinweg zweimal als
+gehalten erkannt wird. Das System hat von Anfang an Platz für alle drei Töne; jeder richtig
+gesungene erscheint dort grün, und die Zeile unter der Kurve zählt mit. Der erste falsche Ton
+beendet die Aufgabe, ausser mit «Ohne Fehlerurteil».
 
 ---
 

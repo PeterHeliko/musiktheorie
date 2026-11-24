@@ -52,17 +52,21 @@ export function SkillIcon({ skill }: { skill: Skill }) {
     case 'notieren':
       return (
         <svg class="icon skill-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M2.5 4h19M2.5 8h19M2.5 12h19M2.5 16h19M2.5 20h19" stroke-width="1" />
+          {/* Strichstärken als style: die Regel .icon in styles.css ginge Attributen vor. */}
+          <path d="M2.5 4h19M2.5 8h19M2.5 12h19M2.5 16h19M2.5 20h19" style={{ strokeWidth: 1 }} />
           <ellipse cx="11" cy="14" rx="3.3" ry="2.4" transform="rotate(-20 11 14)" fill="currentColor" stroke="none" />
-          <path d="M14 13.1V2.5" stroke-width="1.6" />
+          {/* Der Hals schliesst rechts bündig mit dem Kopf ab: dessen rechtester
+              Punkt liegt bei (14.21, 13.49), der Hals ist 1.6 breit. */}
+          <path d="M13.41 13.49V2.5" style={{ strokeWidth: 1.6, strokeLinecap: 'butt' }} />
         </svg>
       );
     case 'klaviatur':
       return (
         <svg class="icon skill-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          {/* F G A H: drei schwarze Tasten nebeneinander. */}
           <rect x="3" y="4.5" width="18" height="15" rx="1.5" />
-          <path d="M16.5 4.5v15M7.5 12v7.5M12 12v7.5" />
-          <path d="M6.2 4.5h2.6V12H6.2zM10.7 4.5h2.6V12h-2.6z" fill="currentColor" stroke="none" />
+          <path d="M7.5 12v7.5M12 12v7.5M16.5 12v7.5" />
+          <path d="M6.2 4.5h2.6V12H6.2zM10.7 4.5h2.6V12h-2.6zM15.2 4.5h2.6V12h-2.6z" fill="currentColor" stroke="none" />
         </svg>
       );
     case 'hoeren':

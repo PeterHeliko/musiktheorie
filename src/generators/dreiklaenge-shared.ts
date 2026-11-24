@@ -565,6 +565,9 @@ export const SING_FILTERS: FilterSpec[] = [
 
 export const SING_DEFAULTS = { clefs: ['treble'], tolerance: '50', untilRight: false };
 
+/** Zeichenbreite je weiterer Ganze im System der Singübung, wie in SingTaskView. */
+export const SUNG_NOTE_ROOM = 50;
+
 export const SING_HINT =
   'Halte jeden Ton kurz; die Oktave ist egal. Die Linie zeigt, was du singst. Die Stimmlage stellst du unter ⚙ ein.';
 
@@ -597,13 +600,23 @@ export function chordSingTask(
   },
 ): SingTask {
   // Platz über und unter dem System: so viel, wie der äusserste mögliche
-  // Anfangston der Stimmlage braucht — fest je Einstellung.
-  const space = staffSpace(clef, candidatePitches(range, [-1, 0, 1]));
+  // Akkordton der Stimmlage braucht (placeInVoice darf sie um einen Halbton
+  // überschreiten) — fest je Einstellung.
+  const space = staffSpace(clef, candidatePitches({ low: range.low - 1, high: range.high + 1 }, [-1, 0, 1]));
+  // Von Anfang an Platz für alle Töne: der erste steht da, die übrigen sind
+  // Leerstellen, in die SingTaskView jeden richtig gesungenen Ton grün setzt.
+  const slots = stack.slice(1).map(() => ({ duration: 'w' as const, placeholder: true }));
   return {
     id,
     kind: 'sing',
     prompt,
-    score: { clef, width: 110, scale: 1.6, space, measures: [{ notes: [{ keys: [pitchKey(stack[0])], duration: 'w' }] }] },
+    score: {
+      clef,
+      width: 110 + SUNG_NOTE_ROOM * slots.length,
+      scale: 1.6,
+      space,
+      measures: [{ notes: [{ keys: [pitchKey(stack[0])], duration: 'w' }, ...slots] }],
+    },
     reference: pitchKey(stack[0]),
     target: pitchKey(stack[stack.length - 1]),
     sequence: stack.map(pitchKey),

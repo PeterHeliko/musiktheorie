@@ -151,9 +151,14 @@ export interface SequenceVerdict {
 
 /**
  * Das Urteil über eine gesungene Tonfolge. Wie beim Intervall: die Oktave
- * jedes Tons ist egal, die Reihenfolge zählt. Den vorgespielten Ton nach dem
- * ersten noch einmal zu singen, ist kein Fehler — er wird übergangen, solange
- * er nicht selbst noch verlangt ist.
+ * jedes Tons ist egal, die Reihenfolge zählt.
+ *
+ * Einen schon richtig gesungenen Ton noch einmal zu singen, ist kein Fehler —
+ * er wird übergangen, solange er nicht selbst noch verlangt ist. Das gilt
+ * auch für den vorgespielten Ton vor dem ersten. Ohne diese Regel zählte ein
+ * Ton, der über ein Atemholen hinweg oder nach kurzem Schwanken noch einmal
+ * als gehalten erkannt wird (hold.ts), gegen den nächsten — und stünde rot
+ * da, obwohl er richtig war.
  */
 export function judgeSequence(
   goal: SequenceGoal,
@@ -171,8 +176,10 @@ export function judgeSequence(
       roles.push('after');
       return;
     }
+    const sung = [goal.reference, ...goal.targets.slice(0, at)];
     const remaining = goal.targets.slice(at);
-    if (at > 0 && pitchClass(note) === pitchClass(goal.reference) && !remaining.some((t) => pitchClass(t) === pitchClass(note))) {
+    const again = sung.some((tone) => pitchClass(tone) === pitchClass(note));
+    if (again && !remaining.some((tone) => pitchClass(tone) === pitchClass(note))) {
       roles.push('repeat');
       return;
     }

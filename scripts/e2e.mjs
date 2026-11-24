@@ -1435,8 +1435,23 @@ async function main() {
       counted = await singPage.locator('.sing-status').innerText();
     }
     check(counted === '1 von 3', `das g zählt als erster Ton, die Übung zählt mit («${counted}»)`);
+    // VexFlow zeichnet nach dem Zählen neu — darauf warten.
+    await eventually(singPage, () => {
+      const notes = [...document.querySelectorAll('.sing-task .score svg .vf-stavenote')];
+      return notes.length === 1 && notes[0].outerHTML.includes('#00d903');
+    });
+    const progressStaff = await staffColours();
+    check(
+      progressStaff.join(' ') === 'green',
+      `der gesungene Ton wird im System grün, die Plätze der übrigen bleiben frei (${progressStaff.join(', ')})`,
+    );
+    const progressWidth = await singPage.locator('.sing-task .score svg').evaluate((svg) => svg.getAttribute('viewBox'));
     await singPage.waitForTimeout(1500);
     check((await singPage.locator('.verdict').count()) === 0, 'das g noch einmal ist kein Fehler: sie wartet auf den nächsten Ton');
+    check(
+      (await singPage.locator('.sing-task .score svg').evaluate((svg) => svg.getAttribute('viewBox'))) === progressWidth,
+      'das System bleibt gleich breit',
+    );
     await singPage.screenshot({ path: join(SHOTS, 'dreiklaenge-singen-zaehlt.png') });
 
     await singPage.goto(`${BASE}ueben/dreiklaenge-singen/?geschlechter=dur&vorzeichen=stammton&aufgabe=2&v=1`, {

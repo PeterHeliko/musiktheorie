@@ -230,14 +230,14 @@ export function SingTaskView({ task }: { task: SingTask }) {
   // Ton rot davor.
   const sung = answer<SingAnswer>(task.id)?.notes;
   const score = useMemo(() => {
-    if (!sung) return task.score;
     if (sequence && sequenceGoal) {
-      const verdict = judgeSequence(sequenceGoal, sung, { untilRight: task.untilRight });
-      return verdict.done ? sequenceScore(task, sequence, verdict) : task.score;
+      const verdict = sung ? judgeSequence(sequenceGoal, sung, { untilRight: task.untilRight }) : null;
+      return verdict?.done ? sequenceScore(task, sequence, verdict) : progressScore(task, reached);
     }
+    if (!sung) return task.score;
     const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
     return verdict.note === null ? task.score : verdictScore(task, target, verdict);
-  }, [task, sung]);
+  }, [task, sung, reached]);
 
   const status =
     phase === 'playing'
@@ -349,6 +349,22 @@ function verdictScore(task: SingTask, target: Pitch, verdict: SungVerdict): Scor
 }
 
 /**
+ * Das System während einer Tonfolge: jeder richtig gesungene Ton steht grün
+ * an seinem Platz, in der notierten Lage; die übrigen Plätze sind noch leer
+ * (chordSingTask hält sie von Anfang an frei).
+ */
+function progressScore(task: SingTask, reached: number): ScoreSpec {
+  if (reached === 0) return task.score;
+  const [measure] = task.score.measures;
+  const notes = measure.notes.map((note, step): NoteSpec => {
+    if (step >= reached) return note;
+    if (step === 0) return { ...note, mark: 'correct' };
+    return { keys: [task.sequence![step]], duration: 'w', mark: 'correct' };
+  });
+  return { ...task.score, measures: [{ ...measure, notes }] };
+}
+
+/**
  * Das System nach dem Urteil über eine Tonfolge: der vorgespielte Ton, dann
  * jeder Ton der Folge — richtig gesungen grün, der falsche rot und dahinter
  * der verlangte grün, nicht mehr erreichte grün als Lösung. Ein falscher Ton
@@ -381,9 +397,11 @@ function sequenceScore(task: SingTask, sequence: Pitch[], verdict: SequenceVerdi
   const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
   const needed = staffSpace(clef, shown);
   const before = task.score.space ?? needed;
+  // Platz für die Töne war von Anfang an da; nur ein falscher kommt dazu.
+  const reserved = task.score.measures[0].notes.length;
   return {
     ...task.score,
-    width: (task.score.width ?? 110) + NOTE_ROOM * (notes.length - 1),
+    width: (task.score.width ?? 110) + NOTE_ROOM * (notes.length - reserved),
     space: { above: Math.max(before.above, needed.above), below: Math.max(before.below, needed.below) },
     measures: [{ notes }],
   };
