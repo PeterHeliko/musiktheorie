@@ -31,6 +31,7 @@ import {
 } from '../render';
 import {
   diatonicIndex,
+  keySignaturePitches,
   midi,
   naturalAt,
   nearestWithStep,
@@ -51,7 +52,7 @@ import type {
   PitchAnswer,
   SlotAnswer,
 } from '../../scoring';
-import { judgeChordNotes, pitchSlotCorrect, toPitch } from '../../scoring';
+import { judgeChordNotes, judgeKeySignature, pitchSlotCorrect, toPitch } from '../../scoring';
 import { shortcutAllowed } from '../../ui/keyboard';
 import { AccidentalPalette, DurationPalette, EditActions, ToolbarActions, type DurationChoice } from './toolbar';
 
@@ -1296,106 +1297,119 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
 // Modus «keysig» — Vorzeichen setzen
 // ---------------------------------------------------------------------------
 
-function KeySignatureInput({ task, answer, update, readOnly }: ModeProps) {
+/**
+ * Wie die übrigen Eingaben (Entscheid 2026-11-24): ♭ und ♯ wählen die
+ * Vorzeichenart, daneben alles löschen, rückgängig, wiederholen. Gesetzt wird
+ * beim Loslassen, an die Stelle der blauen Vorschau; dieselbe Stelle noch
+ * einmal nimmt das Zeichen wieder weg. Die Art zu wechseln, ändert alle
+ * gesetzten Zeichen mit — ein gemischter Satz wäre ohnehin falsch, und die
+ * Stellen bleiben, wo sie sind.
+ *
+ * Nach dem Prüfen ist jedes Zeichen grün oder rot (`judgeKeySignature`); war
+ * der Satz falsch, steht der richtige grün daneben, an den üblichen Stellen.
+ */
+/** Zeichenbreite mit dem richtigen Satz daneben: zwei Takte à sieben Zeichen samt Schlüssel. */
+const KEYSIG_SOLUTION_WIDTH = 270;
+
+function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProps) {
   const solution = task.solution;
   const value = (answer.n as KeysigAnswer | undefined) ?? { sign: 1, placed: [] };
+  const { setAnswer } = useExam();
   const { onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
   const area = useRef<HTMLDivElement>(null);
   const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
 
-  if (solution.type !== 'keysig') return null;
+  // Eine Tonart ohne Vorzeichen verlangt ein leeres System. Damit «Prüfen»
+  // dafür nicht erst eine Eingabe braucht, steht die leere Antwort von Anfang
+  // an da — sie verrät nichts, die Aufgabe sagt es ohnehin dazu.
+  const empty = solution.type === 'keysig' && solution.accidentals === 0;
+  useEffect(() => {
+    if (empty && !readOnly && answer.n === undefined) setAnswer(task.id, { ...answer, n: { sign: 1, placed: [] } });
+  }, [task.id]);
 
   const spec = useMemo<ScoreSpec>(() => {
+    if (solution.type !== 'keysig') return task.score;
     const glyph = value.sign > 0 ? ('sharp' as const) : ('flat' as const);
-    const notes: NoteSpec[] = value.placed.map((entry) => ({
+    const judged = readOnly ? judgeKeySignature(solution.accidentals, value) : null;
+    const notes: NoteSpec[] = value.placed.map((entry, index) => ({
       keys: [`${entry.s}${entry.o}`],
       duration: 'w',
       glyph,
+      ...(judged ? { mark: judged.marks[index] ? ('correct' as const) : ('wrong' as const) } : {}),
     }));
-    if (hover) {
+    if (hover && !readOnly) {
       const { step, octave } = diatonicToStep(hover.diatonic);
       notes.push({ keys: [`${step}${octave}`], duration: 'w', glyph, preview: true });
     }
+    if (judged && !judged.correct) {
+      // Der richtige Satz als zweiter Takt, damit der eigene bleibt, wo er war.
+      const clef = task.score.clef === 'bass' ? 'bass' : 'treble';
+      const right: NoteSpec[] = keySignaturePitches(solution.accidentals, clef).map((pitch) => ({
+        keys: [`${pitch.step}${pitch.octave}`],
+        duration: 'w',
+        glyph: pitch.alter > 0 ? 'sharp' : 'flat',
+        mark: 'correct',
+      }));
+      // Beide Takte sind gleich breit und brauchen Platz für sieben Zeichen;
+      // breiter als nötig machte das ganze Bild nur kleiner.
+      return {
+        ...task.score,
+        width: Math.max(task.score.width ?? 600, KEYSIG_SOLUTION_WIDTH),
+        measures: [{ notes }, { notes: right.length > 0 ? right : [{ duration: 'w', placeholder: true }] }],
+      };
+    }
     return { ...task.score, measures: [{ notes }] };
-  }, [task.score, JSON.stringify(value), hover?.diatonic]);
+  }, [task.score, JSON.stringify(value), hover?.diatonic, readOnly]);
+
+  if (solution.type !== 'keysig') return null;
 
   function handleClick(event: PointerEvent) {
     // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
     // die Vorschau zuletzt stand.
-    if (event.button !== 0) return;
-    if (readOnly) return;
+    if (event.button !== 0 || readOnly) return;
     const hit = locate(live(), event);
     if (!hit) return;
     const { step, octave } = diatonicToStep(hit.diatonic);
-    update({ sign: value.sign, placed: [...value.placed, { s: step, o: octave }] });
-  }
-
-  function setSign(sign: 1 | -1) {
-    if (readOnly) return;
-    // Vorzeichenart wechseln heisst neu anfangen — ein gemischter Satz wäre falsch.
-    update({ sign, placed: [] });
+    const existing = value.placed.findIndex((entry) => entry.s === step && entry.o === octave);
+    const placed =
+      existing >= 0
+        ? value.placed.filter((_, index) => index !== existing)
+        : [...value.placed, { s: step, o: octave }];
+    update({ sign: value.sign, placed });
   }
 
   return (
     <>
-      <div class="toolbar">
-        <div class="palette">
-          <span class="palette-label">Vorzeichenart</span>
-          <div class="palette-buttons">
-            <button
-              type="button"
-              class={`tool ${value.sign === 1 ? 'is-active' : ''}`}
-              aria-pressed={value.sign === 1}
-              onClick={() => setSign(1)}
-              disabled={readOnly}
-              title="Kreuze"
-            >
-              <span class="tool-symbol" aria-hidden="true">♯</span>
-              <span class="tool-text">Kreuz</span>
-            </button>
-            <button
-              type="button"
-              class={`tool ${value.sign === -1 ? 'is-active' : ''}`}
-              aria-pressed={value.sign === -1}
-              onClick={() => setSign(-1)}
-              disabled={readOnly}
-              title="b"
-            >
-              <span class="tool-symbol" aria-hidden="true">♭</span>
-              <span class="tool-text">b</span>
-            </button>
-          </div>
-        </div>
-        <ToolbarActions>
-          <button
-            type="button"
-            class="tool tool-wide"
-            onClick={() => update({ sign: value.sign, placed: value.placed.slice(0, -1) })}
-            disabled={readOnly || value.placed.length === 0}
-          >
-            Letztes löschen
-          </button>
-          <button
-            type="button"
-            class="tool tool-wide"
-            onClick={() => update({ sign: value.sign, placed: [] })}
-            disabled={readOnly || value.placed.length === 0}
-          >
-            Alle löschen
-          </button>
-        </ToolbarActions>
+      <div class="toolbar toolbar-one-row toolbar-bare">
+        <AccidentalPalette
+          value={value.sign}
+          onChange={(sign) => update({ sign, placed: value.placed })}
+          disabled={readOnly}
+          label="Vorzeichenart"
+          bare
+          only={[-1, 1]}
+        />
+        <EditActions
+          onClear={() => update({ sign: value.sign, placed: [] })}
+          canClear={value.placed.length > 0}
+          onUndo={history.undo}
+          canUndo={history.canUndo}
+          onRedo={history.redo}
+          canRedo={history.canRedo}
+          disabled={readOnly}
+        />
       </div>
 
-      <div class="score-click-area" ref={area} {...pointer.handlers}>
+      <div class="score-click-area score-click-area-bare" ref={area} {...pointer.handlers}>
         <Score spec={spec} onRendered={onRendered} />
       </div>
 
-      {value.placed.length === 0 && (
-        <p class="input-summary">
-          Wähle ♯ oder ♭ und setze die Vorzeichen der Reihe nach auf die richtigen Linien.
-        </p>
-      )}
+      <p class="input-summary">
+        {value.placed.length > 0
+          ? `Gesetzt: ${value.placed.length} ${value.sign > 0 ? (value.placed.length === 1 ? 'Kreuz' : 'Kreuze') : 'b'}`
+          : 'Wähle ♭ oder ♯ und setze die Vorzeichen der Reihe nach. Noch einmal auf dieselbe Stelle tippen nimmt eines weg.'}
+      </p>
     </>
   );
 }

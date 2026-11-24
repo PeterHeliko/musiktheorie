@@ -157,7 +157,7 @@ function Field({
         {field.label && <legend>{field.label}</legend>}
         <div class="button-grid note-grid" role="radiogroup" aria-label={field.label ?? 'Antwort'}>
           {options.map((option) => {
-            const cell = NOTE_CELL[option.value];
+            const cell = noteCell(option.value);
             return (
               <button
                 key={option.value}
@@ -307,8 +307,16 @@ const NOTE_CELL: Record<string, { column: number; alter: number }> = Object.from
   ),
 );
 
+/**
+ * Platz eines Werts im Raster: ein Tonname («fis») oder eine Tonart («Fis-Dur»,
+ * «fis-Moll») — die steht dort, wo ihr Grundton steht.
+ */
+function noteCell(value: string): { column: number; alter: number } | undefined {
+  return NOTE_CELL[value.replace(/-(dur|moll)$/i, '').toLowerCase()];
+}
+
 /** Die Vorzeichen-Zeilen, die vorkommen, von oben nach unten. Leere fallen weg. */
 function noteRows(values: string[]): number[] {
-  const present = new Set(values.map((value) => NOTE_CELL[value]?.alter));
+  const present = new Set(values.map((value) => noteCell(value)?.alter));
   return [1, 0, -1].filter((alter) => present.has(alter));
 }

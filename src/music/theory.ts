@@ -707,6 +707,22 @@ export function keySignatureSteps(accidentals: number): { steps: Step[]; sign: 1
   return { steps: FLAT_ORDER.slice(0, -accidentals), sign: -1 };
 }
 
+/**
+ * Wo die Vorzeichen einer Tonart üblicherweise stehen, als Tonhöhen in der
+ * Reihenfolge des Notierens. Im Violinschlüssel die Kreuze von f² bis h¹, die
+ * Be von h¹ bis f¹; im Bassschlüssel dieselben Stellen zwei Oktaven tiefer.
+ */
+export function keySignaturePitches(accidentals: number, clef: 'treble' | 'bass'): Pitch[] {
+  const { steps, sign } = keySignatureSteps(accidentals);
+  // Oktave je Stammton im Violinschlüssel, wie VexFlow die Tonartvorzeichen setzt.
+  const treble: Record<Step, number> =
+    sign > 0
+      ? { f: 5, c: 5, g: 5, d: 5, a: 4, e: 5, b: 4 }
+      : { b: 4, e: 5, a: 4, d: 5, g: 4, c: 5, f: 4 };
+  const shift = clef === 'bass' ? -2 : 0;
+  return steps.map((step) => ({ step, alter: sign, octave: treble[step] + shift }));
+}
+
 /** VexFlow-Kürzel der Tonart, z.B. «Eb» für Es-Dur. Nur für die Anzeige. */
 export function vexKeySignature(accidentals: number): string {
   const sharps = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];

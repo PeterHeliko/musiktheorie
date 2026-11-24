@@ -423,7 +423,10 @@ export function keySignatureTask(
     mode: 'keysig',
     prompt: keyName,
     points: 2,
-    score: { clef, width: 320, tightSpacing: true, measures: [{ notes: [] }] },
+    // Gezeichnet und vergrössert wie beim Intervall notieren: jeder
+    // Linienabstand mehr Höhe macht das Setzen genauer. Sieben Zeichen haben
+    // hinter dem Schlüssel Platz.
+    score: { clef, width: 200, scale: 2, tightSpacing: true, measures: [{ notes: [] }] },
     solution: { type: 'keysig', accidentals },
   };
 }

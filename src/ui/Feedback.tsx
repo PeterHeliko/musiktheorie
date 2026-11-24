@@ -44,10 +44,12 @@ const WORD: Record<Grade, string> = {
  *  - Ein einzelner gesetzter Ton: falsch, steht der richtige grün daneben.
  *  - Ein frei gesetzter Akkord: jeder Ton grün oder rot, falsch steht eine
  *    richtige Lösung grün daneben.
+ *  - Vorzeichen: jedes gesetzte grün oder rot, falsch steht der richtige Satz
+ *    grün daneben.
  *  - Singen: Zielton grün im System, ein falscher Ton rot davor.
  *
- * Auswahllisten, Diktat, Vorzeichen, Pausen und Halbtonschritte zeigen sie
- * (noch) nicht — dort bleibt sie in Worten.
+ * Auswahllisten, Diktat, Pausen und Halbtonschritte zeigen sie (noch) nicht —
+ * dort bleibt sie in Worten.
  */
 export function showsSolution(task: Task): boolean {
   switch (task.kind) {
@@ -58,6 +60,7 @@ export function showsSolution(task: Task): boolean {
       return true;
     case 'notation':
       if (task.solution.type === 'chord') return !task.fields?.length;
+      if (task.solution.type === 'keysig') return true;
       return (
         task.solution.type === 'pitch' &&
         task.solution.slots.length === 1 &&

@@ -148,6 +148,7 @@ export function AccidentalPalette({
   disabled,
   label = 'Vorzeichen',
   bare = false,
+  only,
 }: {
   value: number;
   onChange: (alter: number) => void;
@@ -155,12 +156,15 @@ export function AccidentalPalette({
   label?: string;
   /** Nur die Zeichen ♭ ♮ ♯, ohne Überschrift und Wörter. */
   bare?: boolean;
+  /** Nur diese Versetzungen anbieten — ♯ und ♭ beim Vorzeichensetzen. */
+  only?: number[];
 }) {
+  const choices = only ? ACCIDENTALS.filter((accidental) => only.includes(accidental.alter)) : ACCIDENTALS;
   return (
     <div class="palette">
       {!bare && <span class="palette-label">{label}</span>}
       <div class="palette-buttons" role={bare ? 'group' : undefined} aria-label={bare ? label : undefined}>
-        {ACCIDENTALS.map((accidental) => {
+        {choices.map((accidental) => {
           const active = value === accidental.alter;
           return (
             <button

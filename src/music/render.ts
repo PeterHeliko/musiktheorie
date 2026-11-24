@@ -146,6 +146,10 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlter
     const line = (TOP_LINE_DIATONIC[clef] - diatonicIndex(pitch)) / 2;
     const glyphNote = new GlyphNote(ACCIDENTAL_GLYPHS[spec.glyph], { duration: spec.duration }, { line });
     if (spec.preview) glyphNote.setStyle(PREVIEW_STYLE);
+    if (spec.mark) {
+      const colour = spec.mark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR;
+      glyphNote.setStyle({ fillStyle: colour, strokeStyle: colour });
+    }
     return glyphNote;
   }
 

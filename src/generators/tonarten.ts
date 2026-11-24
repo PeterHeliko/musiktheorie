@@ -28,7 +28,6 @@ import {
   keyMatching,
   keySignatureTask,
   measure,
-  optionsFrom,
   pitchKey,
   taskId,
 } from './shared';
@@ -174,25 +173,24 @@ export const tonartenZuordnen: Generator<MatchFilters> = {
     const key = rng.pick(pool);
     const clef = rng.pick(clefs) as 'treble' | 'bass';
 
+    // Ein Tonnamen-Raster je gefragter Tonart (Entscheid 2026-11-24): Spalte
+    // = Stammton des Grundtons, ♯ oben, ♭ unten. Auf den Knöpfen steht nur
+    // der Grundton — Dur gross, Moll klein, wie im Tonartnamen; was gemeint
+    // ist, sagt die Überschrift. Nur Tonarten innerhalb der eingestellten
+    // Vorzeichen stehen zur Wahl, jede an ihrem festen Platz.
+    const raster = (id: string, label: string, correct: string, names: string[]): SelectField => ({
+      id,
+      label,
+      options: names.map((name) => ({ value: name, label: name.replace(/-(Dur|Moll)$/, '') })),
+      correct,
+      points: 1,
+      buttons: true,
+      buttonLayout: 'notes',
+    });
     const fields: SelectField[] = [];
-    if (ask.includes('dur')) {
-      fields.push({
-        id: 'dur',
-        label: 'Durtonart',
-        // Nur Tonarten innerhalb der eingestellten Vorzeichen stehen zur Wahl.
-        options: optionsFrom('majorKey', pool.map((entry) => entry.major)),
-        correct: key.major,
-        points: 1,
-      });
-    }
+    if (ask.includes('dur')) fields.push(raster('dur', 'Durtonart', key.major, pool.map((entry) => entry.major)));
     if (ask.includes('moll')) {
-      fields.push({
-        id: 'moll',
-        label: 'parallele Molltonart',
-        options: optionsFrom('minorKey', pool.map((entry) => entry.minor)),
-        correct: key.minor,
-        points: 1,
-      });
+      fields.push(raster('moll', 'parallele Molltonart', key.minor, pool.map((entry) => entry.minor)));
     }
 
     // Die Parallelen müssen dieselben Vorzeichen tragen — das ist die ganze

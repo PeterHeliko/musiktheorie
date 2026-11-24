@@ -112,8 +112,8 @@ Link / Speicher / Filterformular
 - **Rückmeldung:** zeigen statt sagen. Die Lösung steht in der Aufgabe selbst — grün
   umrandeter Knopf, grün umrandete Taste, grüne Note im System —, die Leiste unten sagt dann
   nur «✓ Richtig» oder «✗ Falsch» (`showsSolution` in `src/ui/Feedback.tsx`). In Worten
-  steht sie nur, wo die Aufgabe sie (noch) nicht zeigt: Auswahllisten, Diktat, Vorzeichen,
-  Pausen. Bildschirmleser bekommen sie immer in Worten.
+  steht sie nur, wo die Aufgabe sie (noch) nicht zeigt: Auswahllisten, Diktat, Pausen.
+  Bildschirmleser bekommen sie immer in Worten.
 - **Klang nach dem Prüfen:** Bei Intervallen und Akkorden in Noten, beim Notieren und auf der
   Klaviatur erklingt nach dem Prüfen einmal das Gefragte, alle Töne zusammen
   (`Question.afterSound`). Vorher bleibt es still: die Antwort soll gelesen oder abgezählt
@@ -156,6 +156,13 @@ der gesetzte, sobald neu gezogen wird; abgebrochen (Loslassen ausserhalb), steht
 Neben den Vorzeichen stehen drei Knöpfe mit Zeichen aus padago: alles löschen, rückgängig,
 wiederholen (`EditActions` in `toolbar.tsx`; auch Strg/⌘ + Z, mit Umschalt oder Strg + Y
 wiederholen). Rückgängig gilt für jede Änderung, auch fürs Löschen, und endet mit der Aufgabe.
+
+**Vorzeichen setzen** geht gleich: ♭ und ♯ wählen die Art (wechseln ändert alle gesetzten
+Zeichen mit), gesetzt wird beim Loslassen, dieselbe Stelle noch einmal nimmt ein Zeichen weg.
+Nach dem Prüfen ist jedes Zeichen grün oder rot — richtig ist es, wenn es an seiner Stelle in
+der Reihenfolge der richtige Stammton ist, die Oktave zählt nicht. War der Satz falsch, steht
+der richtige grün daneben (`keySignaturePitches`). Ohne Vorzeichen (C-Dur, a-Moll) lässt sich
+das leere System gleich prüfen.
 
 ### Akkorde setzen
 
@@ -234,6 +241,12 @@ Dreiklängen). Entscheide 2026-11-24:
 - **Vermindert** fehlt beim Hören und beim Benennen auf der Klaviatur von Umkehrungen: er teilt
   die Oktave in vier gleiche Teile, seine Umkehrungen klingen und liegen gleich.
 - Im Tab heissen die Umkehrungsübungen «… (Septakkorde)» bzw. «… (Dreiklänge)» (`fullTitle`).
+
+### Tonleitern und Tonarten
+
+- **Tonarten den Vorzeichen zuordnen:** je gefragte Tonart ein Tonnamen-Raster wie bei den
+  Tönen (eine Spalte je Stammton, ♯ oben, ♭ unten), auf den Knöpfen nur der Grundton — Dur
+  gross, Moll klein. «Gefragt ist» stellt Dur, Moll oder beide ein.
 
 ---
 

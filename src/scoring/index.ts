@@ -63,6 +63,21 @@ export interface KeysigAnswer {
   placed: { s: Step; o: number }[];
 }
 export type MarkAnswer = number[];
+
+/**
+ * Vorzeichen setzen: Reihenfolge UND Vorzeichenart müssen stimmen. Die
+ * Oktavlage zählt nicht, weil beide üblichen Notationshöhen zulässig sind.
+ * `marks` sagt für jedes gesetzte Zeichen, in der Reihenfolge des Setzens, ob
+ * es an seiner Stelle der richtige Stammton ist — so färbt die Ansicht nach
+ * dem Prüfen jedes Zeichen grün oder rot. Ganz richtig ist der Satz, wenn
+ * dazu keines fehlt und keines zu viel ist.
+ */
+export function judgeKeySignature(accidentals: number, value: KeysigAnswer): { correct: boolean; marks: boolean[] } {
+  const { steps, sign } = keySignatureSteps(accidentals);
+  const signRight = accidentals === 0 || value.sign === sign;
+  const marks = value.placed.map((placed, index) => signRight && placed.s === steps[index]);
+  return { correct: value.placed.length === steps.length && marks.every(Boolean), marks };
+}
 /** Ein frei gesetzter Akkord: Töne im oberen (bzw. einzigen) und im unteren System. */
 export interface ChordAnswer {
   u?: InputNote[];
@@ -234,13 +249,7 @@ function scoreNotation(task: NotationTask, answer: NotationAnswer | undefined): 
     case 'keysig': {
       const value = given as KeysigAnswer | undefined;
       const { steps, sign } = keySignatureSteps(solution.accidentals);
-      // Reihenfolge UND Vorzeichenart müssen stimmen; die Oktavlage prüfen wir
-      // nicht, weil beide üblichen Notationshöhen zulässig sind.
-      const correct =
-        !!value &&
-        (solution.accidentals === 0 || value.sign === sign) &&
-        value.placed.length === steps.length &&
-        value.placed.every((p, i) => p.s === steps[i]);
+      const correct = !!value && judgeKeySignature(solution.accidentals, value).correct;
 
       const describe = (list: { s: Step }[], s: 1 | -1) =>
         list.length === 0
