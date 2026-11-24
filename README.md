@@ -1,4 +1,4 @@
-# Musiktheorie üben
+# Übungen Musiktheorie
 
 Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Rhythmus und
 Gehörbildung.

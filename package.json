@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Musiktheorie üben — Übungsseite für GitHub Pages",
+  "description": "Übungen Musiktheorie — Übungsseite für GitHub Pages",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && vite-node scripts/write-pages.ts",

@@ -15,7 +15,7 @@
 import { GENERATORS, generatorById, topicsWithGenerators } from './generators/index';
 import { TOPICS, fullTitle, type TopicId } from './generators/types';
 
-export const SITE_NAME = 'Musiktheorie üben';
+export const SITE_NAME = 'Übungen Musiktheorie';
 
 export type Route =
   | { page: 'start' }

@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { generatorById } from '../generators/index';
 import type { FilterValues, Generator } from '../generators/types';
-import { documentTitle, metaFor } from '../pages';
+import { SITE_NAME, documentTitle, metaFor } from '../pages';
 import { hrefFor, useLocation } from '../router';
 import { TopicList, TopicPage } from './Overview';
 import { PitchTool } from './PitchTool';
@@ -56,7 +56,7 @@ export function App() {
   let page;
   switch (route.page) {
     case 'start':
-      page = <TopicList heading="Musiktheorie üben" />;
+      page = <TopicList heading={SITE_NAME} />;
       break;
     case 'ueben':
       page = <TopicList heading="Übungen" />;
@@ -97,7 +97,7 @@ function SiteHeader() {
     <header class="site-header">
       <nav class="site-nav" aria-label="Hauptnavigation">
         <a class="site-name" href={hrefFor({ page: 'start' })}>
-          Musiktheorie üben
+          {SITE_NAME}
         </a>
       </nav>
     </header>

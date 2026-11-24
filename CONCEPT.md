@@ -1,4 +1,4 @@
-# Concept — Musiktheorie üben (working title)
+# Concept — Übungen Musiktheorie
 
 Draft for discussion · revision 3 · 2026-11-23
 

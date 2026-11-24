@@ -184,12 +184,12 @@ async function main() {
     // ------------------------------------------------- eine Datei je Seite
     console.log('\nJede Seite hat ihre eigene HTML-Datei (wie auf GitHub Pages)');
     const pages = [
-      ['', 'Musiktheorie üben'],
-      ['ueben/', 'Übungen · Musiktheorie üben'],
-      ['ueben/intervalle/', 'Intervalle · Musiktheorie üben'],
-      ['ueben/tonleitern/', 'Tonleitern und Tonarten · Musiktheorie üben'],
-      ['werkzeuge/tonhoehe/', 'Tonhöhe anzeigen · Musiktheorie üben'],
-      ...MODE_IDS.map((id) => [`ueben/${id}/`, `${MODES[id]} · Musiktheorie üben`]),
+      ['', 'Übungen Musiktheorie'],
+      ['ueben/', 'Übungen · Übungen Musiktheorie'],
+      ['ueben/intervalle/', 'Intervalle · Übungen Musiktheorie'],
+      ['ueben/tonleitern/', 'Tonleitern und Tonarten · Übungen Musiktheorie'],
+      ['werkzeuge/tonhoehe/', 'Tonhöhe anzeigen · Übungen Musiktheorie'],
+      ...MODE_IDS.map((id) => [`ueben/${id}/`, `${MODES[id]} · Übungen Musiktheorie`]),
     ];
     let filesOk = 0;
     for (const [path, title] of pages) {
@@ -272,7 +272,7 @@ async function main() {
     check(page.url().startsWith(exercise('intervalle-bestimmen')), 'eine Übung öffnet sich');
     check(await page.evaluate(() => window.__ohneNeuladen === true), 'alles ohne die Seite neu zu laden');
     check(
-      (await page.title()) === 'Intervalle in Noten benennen (Feinbestimmung) · Musiktheorie üben',
+      (await page.title()) === 'Intervalle in Noten benennen (Feinbestimmung) · Übungen Musiktheorie',
       `der Titel im Tab folgt, mit der Gruppe («${await page.title()}»)`,
     );
     check(
