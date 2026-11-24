@@ -966,6 +966,116 @@
   margin-top: 24px;
 }
 
+/* ------------------------------------------------------------------ Kurse */
+
+/* Startseite: noch kein Kurs — ein Satz mit dem ⚙ der Übungsansicht. */
+.course-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.course-hint .icon {
+  display: inline-block;
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: -0.3em;
+}
+
+/* «2/5» rechts in der Kursliste, vor dem ›. */
+.course-progress,
+.course-done {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.course-done {
+  color: var(--good-ink);
+  font-weight: 700;
+}
+
+/* Ein Schritt: Titel der Übung, darunter klein, was an ihr eingestellt ist. */
+.course-step {
+  display: flex;
+  flex-direction: column;
+}
+
+.course-step-settings {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.course-share {
+  margin-top: 24px;
+}
+
+/* Einstellungsblatt: in welchen Kurs? */
+.course-choices {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.course-choices button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-choices button:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.course-choices button:disabled {
+  color: var(--ink-soft);
+  cursor: default;
+}
+
+.course-count {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.course-new-row {
+  display: flex;
+  gap: 8px;
+}
+
+.course-new-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.course-new-row .link-button {
+  min-height: 42px;
+}
+
+.course-added {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 0;
+}
+
+.course-added p {
+  margin: 0;
+}
+
 /* ---------------------------------------------------------- Übungsansicht */
 
 /*

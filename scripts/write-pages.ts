@@ -71,7 +71,7 @@ function write(path: string, html: string): void {
 }
 
 const pages = allPages();
-for (const meta of pages) write(meta.path, render(meta, { indexable: true }));
+for (const meta of pages) write(meta.path, render(meta, { indexable: !meta.noindex }));
 // Frühere Adressen: Titel, Vorschau und «canonical» der Seite, die jetzt dort
 // steht — Suchmaschinen führen dann nur noch diese.
 for (const alias of ALIASES) write(alias.path, render(metaFor(alias.route), { indexable: true }));

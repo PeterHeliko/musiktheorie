@@ -22,6 +22,7 @@ export type Route =
   | { page: 'thema'; topic: TopicId }
   | { page: 'uebung'; id: string }
   | { page: 'tonhoehe' }
+  | { page: 'kurs' }
   | { page: 'nicht-gefunden' };
 
 export interface PageMeta {
@@ -30,6 +31,11 @@ export interface PageMeta {
   /** Seitentitel ohne den Namen der Website. */
   title: string;
   description: string;
+  /**
+   * Nicht für Suchmaschinen: die Seite zeigt nur mit dem Abfrageteil etwas,
+   * etwa ein Kurs, der ganz im Link steht.
+   */
+  noindex?: boolean;
 }
 
 /**
@@ -61,6 +67,8 @@ export function pathOf(route: Route): string {
       return `ueben/${route.id}/`;
     case 'tonhoehe':
       return 'werkzeuge/tonhoehe/';
+    case 'kurs':
+      return 'kurs/';
     case 'nicht-gefunden':
       return '404.html';
   }
@@ -73,6 +81,7 @@ export function routeFromPath(path: string): Route {
   const alias = aliasTarget(clean);
   if (alias) return alias;
   if (clean === 'werkzeuge/tonhoehe') return { page: 'tonhoehe' };
+  if (clean === 'kurs') return { page: 'kurs' };
   const match = /^ueben\/([a-z0-9-]+)$/.exec(clean);
   if (match) {
     const topic = topicsWithGenerators().find((entry) => entry.id === match[1]);
@@ -127,6 +136,17 @@ export function metaFor(route: Route): PageMeta {
           'Singe oder spiele einen Ton: die Seite zeigt, welcher es ist und wie genau er ' +
           'getroffen ist. Der Ton wird nur im Browser ausgewertet.',
       };
+    case 'kurs':
+      // Eine Datei für alle Kurse: die Vorschau kann den Titel nicht kennen,
+      // denn Chats führen kein JavaScript aus (CONCEPT §7).
+      return {
+        path,
+        title: 'Kurs',
+        description:
+          'Ein Kurs mit Übungen zur Musiktheorie, zusammengestellt und als Link geteilt. ' +
+          'Unbegrenzt viele Aufgaben, ohne Konto.',
+        noindex: true,
+      };
     case 'nicht-gefunden':
       return {
         path,
@@ -143,6 +163,7 @@ export function allPages(): PageMeta[] {
     ...topicsWithGenerators().map((topic): Route => ({ page: 'thema', topic: topic.id })),
     ...GENERATORS.map((generator): Route => ({ page: 'uebung', id: generator.id })),
     { page: 'tonhoehe' },
+    { page: 'kurs' },
   ];
   return routes.map(metaFor);
 }

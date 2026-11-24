@@ -2,7 +2,8 @@
  * Einstellungen einer Übung — hinter dem ⚙ in der Übungsansicht.
  *
  * Hier steht alles, was nicht die Aufgabe selbst ist: Übungsform, Filter,
- * Zurücksetzen, Teilen. So bleibt die Übung selbst frei davon.
+ * Zurücksetzen, Zum Kurs hinzufügen, Teilen. So bleibt die Übung selbst frei
+ * davon.
  *
  * Änderungen gelten beim Schliessen, nicht bei jedem Antippen: wer drei Filter
  * umstellt, bekommt eine neue Aufgabe, nicht drei. Ändert sich nichts, läuft
@@ -10,11 +11,13 @@
  */
 
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { DEFAULT_ROUND } from '../courses';
 import { fullTitle, type FilterValues, type Generator, type Personal } from '../generators/types';
 import { canonicalFilters, encodeLink } from '../links';
 import { hrefFor } from '../router';
 import { ROUND_SIZES, type SessionSettings } from '../settings';
 import { VOICE_OPTIONS, isVoice } from '../sing/voice';
+import { AddToCourse } from './AddToCourse';
 import { FilterFields } from './FilterFields';
 import { ShareLinks } from './ShareLinks';
 
@@ -154,6 +157,14 @@ export function SettingsSheet({
               />
             </section>
           )}
+
+          <AddToCourse
+            step={{
+              exercise: generator.id,
+              filters: canonicalFilters(generator, draftFilters),
+              round: draftSession.mode === 'runde' ? draftSession.size : DEFAULT_ROUND,
+            }}
+          />
 
           <section class="sheet-section">
             <h3>Teilen</h3>

@@ -11,7 +11,8 @@ import { generatorById } from '../generators/index';
 import type { FilterValues, Generator } from '../generators/types';
 import { SITE_NAME, documentTitle, metaFor } from '../pages';
 import { hrefFor, useLocation } from '../router';
-import { TopicList, TopicPage } from './Overview';
+import { CoursePage } from './CoursePage';
+import { StartPage, TopicPage } from './Overview';
 import { PitchTool } from './PitchTool';
 
 /**
@@ -50,13 +51,17 @@ export function App() {
   const { route, search } = useLocation();
 
   useEffect(() => {
-    document.title = documentTitle(metaFor(route));
+    // Den Titel eines Kurses kennt nur die Kursseite; sie setzt ihn selbst.
+    if (route.page !== 'kurs') document.title = documentTitle(metaFor(route));
   }, [route]);
 
   let page;
   switch (route.page) {
     case 'start':
-      page = <TopicList heading={SITE_NAME} />;
+      page = <StartPage />;
+      break;
+    case 'kurs':
+      page = <CoursePage key={search} search={search} />;
       break;
     case 'thema':
       page = <TopicPage topic={route.topic} />;

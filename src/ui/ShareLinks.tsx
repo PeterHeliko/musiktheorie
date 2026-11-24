@@ -45,15 +45,22 @@ export function ShareLinks({
   );
 }
 
-function ShareRow({
+/** Ein Link zum Teilen. Auch für Kurse (CoursePage). */
+export function ShareRow({
   label,
   hint,
   title,
+  text,
   url,
 }: {
   label: string;
   hint: string;
   title: string;
+  /**
+   * Begleittext im Teilen-Menü des Telefons. Für Kurse: die Linkvorschau kann
+   * ihren Titel nicht zeigen, der Text schon.
+   */
+  text?: string;
   url: string;
 }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
@@ -64,7 +71,7 @@ function ShareRow({
   const share = async () => {
     if (canShare) {
       try {
-        await navigator.share({ title, url });
+        await navigator.share(text ? { title, text, url } : { title, url });
         return;
       } catch (error) {
         // Abgebrochen ist kein Fehler; alles andere: kopieren versuchen.

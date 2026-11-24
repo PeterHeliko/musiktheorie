@@ -143,6 +143,21 @@ export function isCourse(course: DecodedCourse): boolean {
   return course.steps.length > 0;
 }
 
+/** Titel zum Anzeigen. Neue Kurse haben immer einen; ein Link vielleicht nicht. */
+export function courseTitle(course: Course): string {
+  return course.title || 'Kurs ohne Titel';
+}
+
+/** Ist dieser Schritt erledigt? `done` sind die Schlüssel aus dem Speicher. */
+export function isDone(step: CourseStep, done: readonly string[]): boolean {
+  return done.includes(stepKey(step));
+}
+
+/** Wie viele Schritte erledigt sind — nur solche, die der Kurs noch hat. */
+export function countDone(course: Course, done: readonly string[]): number {
+  return course.steps.filter((step) => isDone(step, done)).length;
+}
+
 // ---------------------------------------------------------------------------
 // Ein Schritt in der Übung
 // ---------------------------------------------------------------------------

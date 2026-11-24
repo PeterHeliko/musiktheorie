@@ -9,29 +9,74 @@
  * Seitenwechsel ohne Neuladen erledigt der Router.
  */
 
+import { countDone, courseTitle, decodeCourse } from '../courses';
 import { topicSections, topicsWithGenerators } from '../generators/index';
 import { topicTitle, type TopicId } from '../generators/types';
+import { SITE_NAME } from '../pages';
 import { hrefFor } from '../router';
-import { SkillIcon } from './icons';
+import { listCourses } from '../settings';
+import { GearIcon, SkillIcon } from './icons';
 
-/** Startseite: die Themen. */
-export function TopicList({ heading }: { heading: string }) {
+/**
+ * Startseite: die Themen, die Kurse dieses Geräts und die Werkzeuge
+ * (Entscheid 2026-11-24). Die Themen brauchen keinen Zwischentitel — der Name
+ * der Website sagt, was sie sind.
+ */
+export function StartPage() {
   return (
     <div class="list-page">
-      <h1>{heading}</h1>
-      <ul class="nav-list">
-        {topicsWithGenerators().map((topic) => (
-          <li key={topic.id}>
-            <a href={hrefFor({ page: 'thema', topic: topic.id })}>{topic.title}</a>
+      <h1>{SITE_NAME}</h1>
+      <section>
+        <ul class="nav-list">
+          {topicsWithGenerators().map((topic) => (
+            <li key={topic.id}>
+              <a href={hrefFor({ page: 'thema', topic: topic.id })}>{topic.title}</a>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h2 class="nav-heading">Kurse</h2>
+        <CourseList />
+      </section>
+      <section>
+        <h2 class="nav-heading">Werkzeuge</h2>
+        <ul class="nav-list">
+          <li>
+            <a href={hrefFor({ page: 'tonhoehe' })}>Tonhöhe anzeigen</a>
           </li>
-        ))}
-      </ul>
-      <ul class="nav-list">
-        <li>
-          <a href={hrefFor({ page: 'tonhoehe' })}>Tonhöhe anzeigen</a>
-        </li>
-      </ul>
+        </ul>
+      </section>
     </div>
+  );
+}
+
+/** Die Kurse dieses Geräts, zuletzt benutzte zuerst, mit erledigten Schritten. */
+function CourseList() {
+  const courses = listCourses().map((stored) => ({ stored, course: decodeCourse(stored.link) }));
+  if (courses.length === 0) {
+    return (
+      <p class="course-hint">
+        Unter <GearIcon /> innerhalb einer Übung lassen sich Übungen zu einem Kurs hinzufügen.
+      </p>
+    );
+  }
+  return (
+    <ul class="nav-list">
+      {courses.map(({ stored, course }) => (
+        <li key={stored.id}>
+          <a href={hrefFor({ page: 'kurs' }, stored.link)}>
+            <span class="nav-label">{courseTitle(course)}</span>
+            <span
+              class="course-progress"
+              aria-label={`${countDone(course, stored.done)} von ${course.steps.length} erledigt`}
+            >
+              {countDone(course, stored.done)}/{course.steps.length}
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
