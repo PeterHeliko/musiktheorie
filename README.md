@@ -117,7 +117,9 @@ Link / Speicher / Filterformular
 - **Klang nach dem Prüfen:** Bei Intervallen und Akkorden in Noten, beim Notieren und auf der
   Klaviatur erklingt nach dem Prüfen einmal das Gefragte, alle Töne zusammen
   (`Question.afterSound`). Vorher bleibt es still: die Antwort soll gelesen oder abgezählt
-  werden, nicht gehört. Einzelne Töne klingen nicht nach.
+  werden, nicht gehört. Einzelne Töne klingen nicht nach. War eine geschriebene oder gespielte
+  Antwort richtig, klingt sie selbst — in der Oktave und Lage, in der sie gesetzt oder gespielt
+  wurde (`answeredTones` in `src/scoring/index.ts`); sonst die Lösung des Generators.
 - **Nie zweimal dieselbe Aufgabe hintereinander** (`src/generators/fresh.ts`): neu gewürfelt
   wird über den Startwert, Runden aus ihrem Startwert — Links bleiben reproduzierbar.
 - **⚙ Einstellungen:** Übungsform, Filter, Zurücksetzen, Teilen. Änderungen gelten beim
@@ -222,8 +224,8 @@ Dreiklängen). Entscheide 2026-11-24:
 
 - **Fünf Arten:** Dominantseptakkord, grosser Durseptakkord, kleiner Mollseptakkord,
   halbvermindert, vermindert. Der Theoriekern prüft jede Aufgabe mit `analyseSeventh`.
-- **Bezeichnung** unter ⚙: ausgeschriebene Namen («Dominantseptakkord auf G») oder
-  Akkordsymbole («G7», «Hm7♭5», «Cis°7») — auf den Knöpfen und in der Aufgabe.
+- **Bezeichnung** unter ⚙: Akkordsymbole («G7», «Hm7♭5», «Cis°7», Vorgabe) oder
+  ausgeschriebene Namen («Dominantseptakkord auf G») — auf den Knöpfen und in der Aufgabe.
 - **Vier Töne eng:** die Lage folgt aus der Umkehrung (Grundstellung = Septlage,
   Quintsextakkord = Oktavlage, Terzquartakkord = Terzlage, Sekundakkord = Quintlage).
 - **Basston abgesetzt = vierstimmig:** unten der Basston, darüber die drei übrigen Töne eng,

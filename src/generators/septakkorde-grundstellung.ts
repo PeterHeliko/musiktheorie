@@ -3,7 +3,8 @@
  *
  * Gefragt ist beim Benennen die Art, ein Tipp (Entscheid 2026-11-24); unter
  * «Gefragt ist» lässt sich der Grundton dazunehmen. Wie die Arten heissen —
- * ausgeschrieben oder als Akkordsymbol —, stellt man unter «Bezeichnung» ein.
+ * als Akkordsymbol (Vorgabe) oder ausgeschrieben —, stellt man unter
+ * «Bezeichnung» ein.
  *
  * Gemeinsames in `septakkorde-shared.ts`, Notenbild und Singen von den
  * Dreiklängen (`dreiklaenge-shared.ts`).
@@ -135,11 +136,11 @@ export const septakkordeBenennen: Generator<NamingFilters> = {
   version: 1,
   title: 'Septakkorde in Noten benennen',
   instruction: seventhAskInstruction(['type'], 'des Septakkords'),
-  hint: seventhHint(ALL_SEVENTHS, 'namen'),
+  hint: seventhHint(ALL_SEVENTHS, 'symbole'),
 
   filters: [ASK_FILTER, seventhQualityFilter(), WORDING_FILTER, CLEF_FILTER, ROOT_FILTER],
 
-  defaults: { ask: ['type'], chordTypes: ALL_SEVENTHS, wording: 'namen', clefs: ['treble'], accidentals: 'einfach' },
+  defaults: { ask: ['type'], chordTypes: ALL_SEVENTHS, wording: 'symbole', clefs: ['treble'], accidentals: 'einfach' },
 
   generate(values, rng: Rng): Question {
     const ask = multi(values, 'ask', this.defaults.ask);
@@ -199,7 +200,7 @@ export const septakkordeNotieren: Generator<WritingFilters> = {
 
   filters: [seventhQualityFilter(), WORDING_FILTER, CLEF_FILTER, ROOT_FILTER],
 
-  defaults: { chordTypes: ALL_SEVENTHS, wording: 'namen', clefs: ['treble'], accidentals: 'einfach' },
+  defaults: { chordTypes: ALL_SEVENTHS, wording: 'symbole', clefs: ['treble'], accidentals: 'einfach' },
 
   generate(values, rng: Rng): Question {
     const qualities = chosenSevenths(values, this.defaults.chordTypes);
@@ -252,11 +253,11 @@ export const septakkordeKlaviaturBenennen: Generator<KeyNamingFilters> = {
   version: 1,
   title: 'Septakkorde auf Klaviatur benennen',
   instruction: seventhAskInstruction(['type'], 'des Septakkords auf den markierten Tasten'),
-  hint: `${seventhKeyHint(ALL_SEVENTHS, 'namen')} Eine schwarze Taste hat zwei Namen; beide sind richtig.`,
+  hint: `${seventhKeyHint(ALL_SEVENTHS, 'symbole')} Eine schwarze Taste hat zwei Namen; beide sind richtig.`,
 
   filters: [ASK_FILTER, seventhQualityFilter(), WORDING_FILTER, ROOT_FILTER],
 
-  defaults: { ask: ['type'], chordTypes: ALL_SEVENTHS, wording: 'namen', accidentals: 'einfach' },
+  defaults: { ask: ['type'], chordTypes: ALL_SEVENTHS, wording: 'symbole', accidentals: 'einfach' },
 
   generate(values, rng: Rng): Question {
     const ask = multi(values, 'ask', this.defaults.ask);
@@ -315,7 +316,7 @@ export const septakkordeKlaviaturSpielen: Generator<KeyPlayingFilters> = {
 
   filters: [seventhQualityFilter(), WORDING_FILTER, ROOT_FILTER],
 
-  defaults: { chordTypes: ALL_SEVENTHS, wording: 'namen', accidentals: 'einfach' },
+  defaults: { chordTypes: ALL_SEVENTHS, wording: 'symbole', accidentals: 'einfach' },
 
   generate(values, rng: Rng): Question {
     const qualities = chosenSevenths(values, this.defaults.chordTypes);
@@ -390,7 +391,7 @@ export const septakkordeHoeren: Generator<HearingFilters> = {
     { kind: 'toggle', key: 'limitPlays', label: `Wiedergaben begrenzen (${LIMITED_PLAYS}×)` },
   ],
 
-  defaults: { chordTypes: ALL_SEVENTHS, wording: 'namen', playback: 'beides', limitPlays: false },
+  defaults: { chordTypes: ALL_SEVENTHS, wording: 'symbole', playback: 'beides', limitPlays: false },
 
   generate(values, rng: Rng): Question {
     const qualities = chosenSevenths(values, this.defaults.chordTypes);
@@ -444,7 +445,7 @@ export const septakkordeSingen: Generator<SingingFilters> = {
 
   filters: [seventhQualityFilter(), WORDING_FILTER, ROOT_FILTER, ...SING_FILTERS],
 
-  defaults: { chordTypes: ALL_SEVENTHS, wording: 'namen', accidentals: 'einfach', ...SING_DEFAULTS },
+  defaults: { chordTypes: ALL_SEVENTHS, wording: 'symbole', accidentals: 'einfach', ...SING_DEFAULTS },
 
   generate(values, rng: Rng, personal?: Personal): Question {
     const qualities = chosenSevenths(values, this.defaults.chordTypes);

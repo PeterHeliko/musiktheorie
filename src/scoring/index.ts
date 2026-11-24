@@ -21,7 +21,7 @@ import type {
 import { keyNames, whiteIndex } from '../music/piano';
 import { judgeSequence, judgeSung } from '../sing/judge';
 import { describeChordRule, describeKeys, describeNotes, judgeChordKeys, judgeChordNotes } from './chord';
-import { nameFromMidi } from '../sing/notes';
+import { nameFromMidi, pitchFromMidi } from '../sing/notes';
 import {
   DURATION_LABELS,
   germanNoteName,
@@ -591,4 +591,38 @@ export function scoreTask(
     possible: details.reduce((s, d) => s + d.possible, 0),
     details,
   };
+}
+
+/**
+ * Die Töne der eigenen Antwort, samt den vorgegebenen: der Startton und der
+ * gesetzte oder gespielte zweite Ton eines Intervalls, der gesetzte oder
+ * gespielte Akkord. Nach einer richtigen Antwort klingt genau das — in der
+ * Oktave und Lage, in der sie geschrieben oder gespielt wurde (Entscheid
+ * 2026-11-24). Null, wo die Aufgabe keine Töne setzen oder spielen lässt.
+ */
+export function answeredTones(task: Task, answer: unknown): Pitch[] | null {
+  if (task.kind === 'keyboard') {
+    const keys = (answer as KeyboardAnswer | undefined)?.keys ?? [];
+    if (keys.length === 0) return null;
+    const given = task.chord ? [] : (task.keyboard.marked ?? []);
+    return [...given, ...keys].map(pitchFromMidi);
+  }
+  if (task.kind !== 'notation') return null;
+  const given = (answer as NotationAnswer | undefined)?.n;
+  const sounding = (notes: InputNote[]) => notes.filter((note) => !note.r).map(toPitch);
+  let tones: Pitch[];
+  if (task.solution.type === 'chord') {
+    const value = (given as ChordAnswer | undefined) ?? {};
+    tones = sounding([...(value.u ?? []), ...(value.l ?? [])]);
+  } else if (task.solution.type === 'pitch') {
+    const fixed = task.score.measures
+      .flatMap((measure) => [...measure.notes, ...(measure.bass ?? [])])
+      .filter((note) => !note.placeholder && !note.rest)
+      .flatMap((note) => note.keys ?? [])
+      .map(parsePitch);
+    tones = [...fixed, ...sounding(Object.values((given as PitchAnswer | undefined) ?? {}).flat())];
+  } else {
+    return null;
+  }
+  return tones.length > 0 ? tones : null;
 }

@@ -24,7 +24,7 @@ shareable link for every exercise.
 | Visual style          | As simple as possible, "zero nonsense". The current plain look stays. Design changes only after the user has chosen between options. |
 | Choosing exercises    | Topics → exercises (`/ueben/<thema>/`) now. A topic may split its list under subheadings (Intervalle: Grobbestimmung, Feinbestimmung). When the Lernpfad exists, the start page leads with it, with the topics underneath. Lists show full titles only. |
 | Exercise view         | Full-screen session without site chrome: slim top bar (✕, title, task count or «7/10» in a round, ⚙), the task, and a **fixed bottom bar** with the verdict and the main button. Round mode, filters and sharing live in a settings sheet behind ⚙; the exercise starts immediately with the last settings. |
-| Sound after checking  | Intervals and chords where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. (2026-11-24) |
+| Sound after checking  | Intervals and chords where hearing isn't the exercise (in Noten, notieren, Klaviatur): after checking, the asked interval/chord sounds once, all tones together. Silent before, so the answer is read or counted, not heard. Not for single notes. A correct written or played answer sounds as the learner wrote or played it, in their octave and spacing. (2026-11-24) |
 | No repeats            | Never the same question twice in a row, in any exercise; re-drawn via the seed, so task and round links stay reproducible (2026-11-24) |
 | Feedback              | **Show, don't say.** The task shows the solution itself: outlined answer button, outlined key, green note in the staff (beside a wrong one). The bottom bar then says only «✓ Richtig» / «✗ Falsch». Words only where the task can't show it yet; screen readers always get words. |
 
@@ -292,8 +292,8 @@ tone); Oktavlage, Terzlage, Quintlage, Septlage (highest tone).
 
 Rules (decided 2026-11-24):
 
-- **Naming is a setting:** written-out names («Dominantseptakkord auf G») or chord symbols
-  («G7», «Cmaj7», «Dm7», «Hm7♭5», «Cis°7»), on the answer buttons and in the prompts.
+- **Naming is a setting:** chord symbols («G7», «Cmaj7», «Dm7», «Hm7♭5», «Cis°7»; the default)
+  or written-out names («Dominantseptakkord auf G»), on the answer buttons and in the prompts.
 - **One staff = four tones close.** The Lage follows from the Umkehrung (Grundstellung =
   Septlage, Quintsextakkord = Oktavlage, Terzquartakkord = Terzlage, Sekundakkord = Quintlage).
 - **A separate bass = four-part writing:** the bass, and the other three tones close above it,

@@ -22,7 +22,7 @@ import type { SelectTask, Task } from '../content/schema';
 import { eventsFor, tempoOf } from '../generators/index';
 import type { Question } from '../generators/types';
 import { NotationInput } from '../music/notation-input/NotationInput';
-import { scoreTask, type TaskResult } from '../scoring';
+import { answeredTones, scoreTask, type TaskResult } from '../scoring';
 import { AnswerProvider, type AnswerStore } from '../state';
 import { FeedbackDetails, Verdict, gradeOf, hasDetails } from './Feedback';
 import { KeyboardTaskView } from './KeyboardTaskView';
@@ -95,7 +95,8 @@ export function QuestionView({
    * Nach dem Prüfen erklingt einmal das gefragte Intervall oder der gefragte
    * Akkord, alle Töne zusammen (Entscheid 2026-11-24). Geladen wird gleich
    * mit der Aufgabe, damit er ohne Verzögerung kommt; mit der nächsten
-   * Aufgabe verstummt er.
+   * Aufgabe verstummt er. War eine geschriebene oder gespielte Antwort
+   * richtig, klingt sie selbst — in ihrer Oktave und Lage.
    */
   const afterSound = useMemo<AudioEvent[] | null>(
     () => (question.afterSound ? [{ pitches: question.afterSound.map(parsePitch), quarters: 3 }] : null),
@@ -108,7 +109,9 @@ export function QuestionView({
   }, [afterSound]);
   useEffect(() => {
     if (!result || !afterSound) return;
-    player.play(afterSound, DEFAULT_TEMPO).catch((error) => console.warn('Wiedergabe fehlgeschlagen:', error));
+    const own = gradeOf(result) === 'correct' ? answeredTones(question.task, store.get(question.task.id)) : null;
+    const sound = own ? [{ pitches: own, quarters: afterSound[0].quarters }] : afterSound;
+    player.play(sound, DEFAULT_TEMPO).catch((error) => console.warn('Wiedergabe fehlgeschlagen:', error));
   }, [result]);
 
   /**

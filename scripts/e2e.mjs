@@ -873,12 +873,30 @@ async function main() {
     const keyAt = (p, key) => p.locator(`.question .piano-key[data-key="${key}"]`);
 
     // Jeder angeschlagene Ton (ausser dem stillen Freischalt-Ton): wann er
-    // geplant ist, gemessen an der Uhr des Audiokontexts.
+    // geplant ist, gemessen an der Uhr des Audiokontexts, und welche Taste
+    // (MIDI) — jede Taste hat ihr eigenes Sample, «60.mp3» für c¹.
     await page.addInitScript(() => {
+      const urls = new WeakMap();
+      const samples = new WeakMap();
+      const arrayBuffer = Response.prototype.arrayBuffer;
+      Response.prototype.arrayBuffer = async function () {
+        const data = await arrayBuffer.call(this);
+        urls.set(data, this.url);
+        return data;
+      };
+      const decode = BaseAudioContext.prototype.decodeAudioData;
+      BaseAudioContext.prototype.decodeAudioData = async function (data, ...rest) {
+        const url = urls.get(data);
+        const buffer = await decode.call(this, data, ...rest);
+        if (url) samples.set(buffer, Number(/(\d+)\.mp3/.exec(url)?.[1]));
+        return buffer;
+      };
       const original = AudioBufferSourceNode.prototype.start;
       window.__tones = [];
       AudioBufferSourceNode.prototype.start = function (when = 0, ...rest) {
-        if ((this.buffer?.length ?? 0) > 1) window.__tones.push({ lead: when - this.context.currentTime });
+        if ((this.buffer?.length ?? 0) > 1) {
+          window.__tones.push({ lead: when - this.context.currentTime, key: samples.get(this.buffer) });
+        }
         return original.call(this, when, ...rest);
       };
     });
@@ -1013,23 +1031,34 @@ async function main() {
     );
     await page.screenshot({ path: join(SHOTS, 'klaviatur-akkord-falsch.png'), fullPage: true });
 
-    // Ein Septakkord als Akkordsymbol: «C7» heisst c e g b.
+    // Ein Septakkord, von Haus aus als Akkordsymbol. Feste Aufgabe: C7 ab
+    // der tiefsten Taste (c e g b). Gespielt weit, die Terz oben: richtig,
+    // und so erklingt er nach dem Prüfen — nicht in der Lage des Generators.
     await page.goto(
-      exercise('septakkorde-klaviatur-spielen', '?arten=dominant&bezeichnung=symbole&vorzeichen=stammton'),
+      exercise('septakkorde-klaviatur-spielen', '?arten=dominant&vorzeichen=stammton&aufgabe=1&v=1'),
       { waitUntil: 'networkidle' },
     );
     root = await chordRoot();
     check(
-      /^[A-H]7$/.test((await page.locator('.question .task-prompt').innerText()).trim()),
-      'Septakkord: als Akkordsymbol genannt',
+      (await page.locator('.question .task-prompt').innerText()).trim() === 'C7' && root === 48,
+      'Septakkord: als Akkordsymbol genannt («C7»)',
     );
-    for (const key of [root, root + 4, root + 7, root + 10]) await keyAt(page, key).click();
+    const spread = [48, 55, 58, 64];
+    for (const key of spread) await keyAt(page, key).click();
+    const tonesBeforeSeventh = await page.evaluate(() => window.__tones.length);
     await checkButton.click();
     await page.waitForSelector('.verdict');
     check(
       (await page.locator('.verdict-text').innerText()) === 'Richtig' &&
         (await page.locator('.question .piano-key[data-state="right"]').count()) === 4,
       'Septakkord: vier Tasten, Richtig, alle grün',
+    );
+    const soundedAfter = (await eventually(page, (before) => window.__tones.length >= before + 4, tonesBeforeSeventh))
+      ? await page.evaluate((before) => window.__tones.slice(before).map((tone) => tone.key), tonesBeforeSeventh)
+      : [];
+    check(
+      soundedAfter.length === 4 && [...soundedAfter].sort((a, b) => a - b).join() === spread.join(),
+      `nach dem Prüfen erklingt der Akkord so, wie er gespielt wurde (${soundedAfter.join(' ')})`,
     );
 
     // Vierstimmig verlangt (Terz unten, Quinte oben). Gespielt werden zwei
@@ -1039,7 +1068,7 @@ async function main() {
     await page.goto(
       exercise(
         'septakkorde-umkehrungen-klaviatur-spielen',
-        '?arten=dominant&bezeichnung=symbole&vorzeichen=stammton&gefragt=umkehrung,lage&mit-bass=ja' +
+        '?arten=dominant&vorzeichen=stammton&gefragt=umkehrung,lage&mit-bass=ja' +
           '&umkehrungen=quintsextakkord&lagen=quintlage',
       ),
       { waitUntil: 'networkidle' },

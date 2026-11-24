@@ -216,7 +216,7 @@ export const septUmkehrungenBenennen: Generator<NamingFilters> = {
     ...SEVENTH_UMKEHRUNG_DEFAULTS,
     clefs: ['treble'],
     chordTypes: DEFAULT_TYPES,
-    wording: 'namen',
+    wording: 'symbole',
     accidentals: 'einfach',
   },
 
@@ -328,7 +328,7 @@ export const septUmkehrungenNotieren: Generator<WritingFilters> = {
     ...SEVENTH_UMKEHRUNG_DEFAULTS,
     clefs: ['treble'],
     chordTypes: DEFAULT_TYPES,
-    wording: 'namen',
+    wording: 'symbole',
     accidentals: 'einfach',
   },
 
@@ -424,7 +424,7 @@ export const septUmkehrungenKlaviaturBenennen: Generator<KeyNamingFilters> = {
   defaults: {
     ...SEVENTH_UMKEHRUNG_DEFAULTS,
     chordTypes: AUDIBLE_SEVENTHS,
-    wording: 'namen',
+    wording: 'symbole',
     accidentals: 'einfach',
   },
 
@@ -510,7 +510,7 @@ export const septUmkehrungenKlaviaturSpielen: Generator<KeyPlayingFilters> = {
   defaults: {
     ...SEVENTH_UMKEHRUNG_DEFAULTS,
     chordTypes: DEFAULT_TYPES,
-    wording: 'namen',
+    wording: 'symbole',
     accidentals: 'einfach',
   },
 
@@ -603,7 +603,7 @@ export const septUmkehrungenHoeren: Generator<HearingFilters> = {
   defaults: {
     ...SEVENTH_UMKEHRUNG_DEFAULTS,
     chordTypes: AUDIBLE_SEVENTHS,
-    wording: 'namen',
+    wording: 'symbole',
     playback: 'beides',
     limitPlays: false,
   },
@@ -677,7 +677,7 @@ export const septUmkehrungenSingen: Generator<SingingFilters> = {
   defaults: {
     ...SEVENTH_UMKEHRUNG_DEFAULTS,
     chordTypes: DEFAULT_TYPES,
-    wording: 'namen',
+    wording: 'symbole',
     accidentals: 'einfach',
     ...SING_DEFAULTS,
   },

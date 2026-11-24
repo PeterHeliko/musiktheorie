@@ -12,8 +12,8 @@
  *
  *  - Die fünf üblichen Septakkorde: Dominantseptakkord, grosser
  *    Durseptakkord, kleiner Mollseptakkord, halbvermindert, vermindert.
- *  - Bezeichnung umschaltbar (Einstellung): ausgeschriebene Namen
- *    («Dominantseptakkord auf G») oder Akkordsymbole («G7»).
+ *  - Bezeichnung umschaltbar (Einstellung): Akkordsymbole («G7», Vorgabe)
+ *    oder ausgeschriebene Namen («Dominantseptakkord auf G»).
  *  - Vier Töne eng: die Lage folgt aus der Umkehrung — Grundstellung =
  *    Septlage, Quintsextakkord = Oktavlage, Terzquartakkord = Terzlage,
  *    Sekundakkord = Quintlage. Mit abgesetztem Basston steht der Akkord
@@ -93,14 +93,15 @@ export const WORDING_FILTER: FilterSpec = {
   key: 'wording',
   label: 'Bezeichnung',
   options: [
-    { value: 'namen', label: 'Namen' },
     { value: 'symbole', label: 'Akkordsymbole' },
+    { value: 'namen', label: 'Namen' },
   ],
-  hint: 'Etwa «Dominantseptakkord auf G» oder «G7».',
+  hint: 'Etwa «G7» oder «Dominantseptakkord auf G».',
 };
 
+/** Vorgabe sind die Akkordsymbole (Entscheid 2026-11-24). */
 export function wordingOf(values: FilterValues): Wording {
-  return single(values, 'wording', 'namen') === 'symbole' ? 'symbole' : 'namen';
+  return single(values, 'wording', 'symbole') === 'namen' ? 'namen' : 'symbole';
 }
 
 /** Kurz genug für einen Knopf; «halbvermindert» statt «halbverminderter Septakkord». */

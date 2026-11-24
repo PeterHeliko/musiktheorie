@@ -33,7 +33,7 @@ import {
 import { INTERVAL_KEYBOARD, chordExamples, isWhiteKey, keysBetween } from '../music/piano';
 import { pitchFromMidi } from '../sing/notes';
 import { VOICE_RANGES, type Voice } from '../sing/voice';
-import { fromPitch, keyInterval, scoreTask, toPitch, type InputNote } from '../scoring';
+import { answeredTones, fromPitch, keyInterval, scoreTask, toPitch, type InputNote } from '../scoring';
 import { LEDGER_ROOM, windowFor } from './shared';
 import {
   durationInQuarters,
@@ -1294,7 +1294,9 @@ describe('Septakkorde', () => {
   it('fragt nur die angekreuzten Arten und benennt sie wie eingestellt', () => {
     const chosen = generate('septakkorde-benennen', { chordTypes: ['dominant', 'vermindert'] });
     expect(answersFor(chosen, 'type')).toEqual(new Set(['dominant', 'vermindert']));
-    const names = generate('septakkorde-benennen', {}, 1)[0];
+    const symbols = generate('septakkorde-benennen', {}, 1)[0];
+    expect(field(symbols).options!.map((o) => o.label)).toEqual(['7', 'maj7', 'm7', 'm7♭5', '°7']);
+    const names = generate('septakkorde-benennen', { wording: 'namen' }, 1)[0];
     expect(field(names).options!.map((o) => o.label)).toEqual([
       'Dominantseptakkord',
       'grosser Durseptakkord',
@@ -1302,8 +1304,13 @@ describe('Septakkorde', () => {
       'halbvermindert',
       'vermindert',
     ]);
-    const symbols = generate('septakkorde-benennen', { wording: 'symbole' }, 1)[0];
-    expect(field(symbols).options!.map((o) => o.label)).toEqual(['7', 'maj7', 'm7', 'm7♭5', '°7']);
+  });
+
+  it('nennt die Akkorde von Haus aus als Akkordsymbol', () => {
+    for (const generator of GENERATORS.filter((entry) => entry.topic === 'septakkorde')) {
+      expect(generator.defaults.wording, generator.id).toBe('symbole');
+    }
+    expect((generate('septakkorde-notieren', {}, 1)[0].task as NotationTask).prompt).toMatch(/^[A-H](is|es|s)?(7|maj7|m7|m7♭5|°7)$/);
   });
 
   it('nennt beim Notieren und Spielen den Akkord ausgeschrieben oder als Symbol', () => {
@@ -1315,7 +1322,7 @@ describe('Septakkorde', () => {
       'verminderter Septakkord': 'vermindert',
     };
     const SYMBOLS: Record<string, string> = { '7': 'dominant', maj7: 'gross-dur', m7: 'klein-moll', 'm7♭5': 'halbvermindert', '°7': 'vermindert' };
-    for (const question of generate('septakkorde-klaviatur-spielen')) {
+    for (const question of generate('septakkorde-klaviatur-spielen', { wording: 'namen' })) {
       const task = question.task as KeyboardTask;
       const match = /^(.+) auf ([A-H][a-z]*)$/.exec(task.prompt!)!;
       expect(match, task.prompt).not.toBeNull();
@@ -1590,6 +1597,51 @@ describe('Klang nach dem Prüfen', () => {
     for (const question of generate('intervalle-klaviatur-benennen', {}, 20)) {
       expect(question.afterSound!.map((key) => midi(parsePitch(key)))).toEqual((question.task as SelectTask).keyboard!.marked);
     }
+  });
+
+  it('spielt nach einer richtigen Antwort die eigene, in ihrer Oktave und Lage', () => {
+    const heights = (tones: ReturnType<typeof answeredTones>) => tones!.map(midi).sort((a, b) => a - b);
+    // Akkord in Noten: alles eine Oktave höher ins obere System.
+    for (const question of generate('septakkorde-umkehrungen-notieren', { withBass: true, ask: ['inv', 'pos'] }, 30)) {
+      const task = question.task as NotationTask;
+      const solution = task.solution as Extract<NotationTask['solution'], { type: 'chord' }>;
+      const written = [...solution.example.lower!, ...solution.example.upper]
+        .map(parsePitch)
+        .map((p) => ({ ...p, octave: p.octave + 1 }));
+      const answer = { n: { u: written.map((p) => fromPitch(p, 'w')) } };
+      expect(scoreTask(task, answer).earned).toBe(task.points);
+      expect(heights(answeredTones(task, answer))).toEqual(written.map(midi).sort((a, b) => a - b));
+    }
+    // Akkord auf der Klaviatur: weit gespielt, mit Verdopplung.
+    for (const question of generate('dreiklaenge-klaviatur-spielen', {}, 30)) {
+      const task = question.task as KeyboardTask;
+      const keys = [task.accept[0], task.accept[2], task.accept[1] + 12, task.accept[0] + 12];
+      if (keys.some((key) => key > 71)) continue;
+      expect(scoreTask(task, { keys }).earned).toBe(task.points);
+      expect(heights(answeredTones(task, { keys }))).toEqual([...keys].sort((a, b) => a - b));
+    }
+    // Intervall frei auf- oder abwärts: der vorgegebene Ton und der gewählte.
+    let other = 0;
+    for (const question of generate('intervalle-klaviatur-spielen')) {
+      const task = question.task as KeyboardTask;
+      const key = task.accept[task.accept.length - 1];
+      if (key !== midi(parsePitch(question.afterSound![1]))) other++;
+      expect(heights(answeredTones(task, { keys: [key] }))).toEqual([task.keyboard.marked![0], key].sort((a, b) => a - b));
+    }
+    expect(other).toBeGreaterThan(0);
+    for (const question of generate('intervalle-notieren', {}, 50)) {
+      const task = question.task as NotationTask;
+      const slot = task.solution.type === 'pitch' ? task.solution.slots[0] : null;
+      const target = parsePitch(slot!.accept[slot!.accept.length - 1]);
+      const answer = { n: { '1': [fromPitch(target, 'w')] } };
+      expect(scoreTask(task, answer).earned).toBe(task.points);
+      expect(heights(answeredTones(task, answer))).toEqual(
+        [midi(parsePitch(question.afterSound![0])), midi(target)].sort((a, b) => a - b),
+      );
+    }
+    // Wo nichts gesetzt oder gespielt wird: nichts Eigenes.
+    const naming = generate('septakkorde-benennen', {}, 1)[0];
+    expect(answeredTones(naming.task, { type: 'dominant' })).toBeNull();
   });
 
   it('spielt beim Notieren und Spielen eine richtige Lösung', () => {
