@@ -1823,6 +1823,50 @@
   justify-content: center;
 }
 
+/*
+ * Gehörte Melodie auf Klaviatur, quer auf dem Telefon (Entscheid
+ * 2026-11-25): Tonart und Abspielknopf in einer Zeile, damit das System über
+ * der Klaviatur die Höhe bekommt. Die Klaviaturaufgabe wird dafür zu
+ * Rasterzellen (display: contents), wie die Noteneingaben quer. Steht die
+ * Erklärung darüber, ist es die zweite Zeile.
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  .question:has(> .audio-player + .keyboard-task) {
+    --melody-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    column-gap: 16px;
+    align-items: center;
+  }
+
+  .question:has(> .explanation):has(> .audio-player + .keyboard-task) {
+    --melody-row: 2;
+  }
+
+  .question:has(> .audio-player + .keyboard-task) > *,
+  .question:has(> .audio-player + .keyboard-task) > .keyboard-task > * {
+    grid-column: 1 / -1;
+  }
+
+  .question:has(> .audio-player + .keyboard-task) > .keyboard-task {
+    display: contents;
+  }
+
+  .question:has(> .audio-player + .keyboard-task) > .keyboard-task > .task-prompt {
+    grid-column: 1;
+    grid-row: var(--melody-row);
+    margin: 0;
+    font-size: 1.4rem;
+    text-align: left;
+  }
+
+  .question:has(> .audio-player + .keyboard-task) > .audio-player {
+    grid-column: 2;
+    grid-row: var(--melody-row);
+    margin: 0;
+  }
+}
+
 /* ------------------------------------------------- Aufgabe in der Übung */
 
 /* Breite der Aufgabe als Bezug für die Intervall-Anordnung (Container-Query). */

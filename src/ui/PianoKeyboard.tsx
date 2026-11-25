@@ -205,7 +205,10 @@ export function PianoKeyboard({
 function fitToRoom(piano: HTMLElement, ratio: number): void {
   const body = piano.closest<HTMLElement>('.session-body');
   const column = body?.firstElementChild as HTMLElement | null | undefined;
-  const parent = piano.parentElement;
+  // Eine Hülle ohne eigenen Kasten (display: contents; quer bei der gehörten
+  // Melodie, styles.css) hat keine Breite: dann zählt die nächste darüber.
+  let parent = piano.parentElement;
+  while (parent && getComputedStyle(parent).display === 'contents') parent = parent.parentElement;
   if (!body || !column || !parent) return;
   const style = getComputedStyle(body);
   const room = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);

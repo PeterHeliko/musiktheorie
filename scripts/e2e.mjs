@@ -1950,6 +1950,31 @@ async function main() {
     );
     await page.screenshot({ path: join(SHOTS, 'melodie-klaviatur.png') });
 
+    // Quer auf dem Telefon: Tonart und Abspielknopf in einer Zeile, damit das
+    // System lesbar bleibt; die Klaviatur ganz im Bild, über der Leiste.
+    const melodyQuer = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+    await melodyQuer.goto(exercise('gehoerte-melodie-klaviatur-spielen', '?tonleitern=dur&max-vorzeichen=2&aufgabe=2&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await melodyQuer.waitForSelector('.keyboard-task .score svg');
+    await melodyQuer.waitForTimeout(300);
+    const [quStaffBox, quPianoBox, quPromptBox, quPlayerBox, quBarBox] = await Promise.all(
+      ['.keyboard-task > .score svg', '.question .piano', '.keyboard-task .task-prompt', '.question .audio-player', '.session-bar'].map(
+        (selector) => melodyQuer.locator(selector).first().boundingBox(),
+      ),
+    );
+    const middle = (box) => box.y + box.height / 2;
+    check(
+      Math.abs(middle(quPromptBox) - middle(quPlayerBox)) < 20 &&
+        quStaffBox.height >= 60 &&
+        quPianoBox.x >= 0 &&
+        quPianoBox.x + quPianoBox.width <= 844 &&
+        quPianoBox.y + quPianoBox.height <= quBarBox.y + 1,
+      `quer: Tonart neben dem Abspielknopf, System ${Math.round(quStaffBox.height)} px hoch, Klaviatur ganz im Bild`,
+    );
+    await melodyQuer.screenshot({ path: join(SHOTS, 'melodie-klaviatur-quer.png') });
+    await melodyQuer.close();
+
     // Vorzeichen setzen: das fis im untersten Zwischenraum ist richtig, aber
     // üblich steht es oben. Bernsteinfarben daneben, mit einer Zeile.
     await page.goto(exercise('vorzeichen-setzen', '?max-vorzeichen=1&art=kreuz'), { waitUntil: 'networkidle' });
