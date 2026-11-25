@@ -618,8 +618,12 @@ button:focus-visible {
   -webkit-touch-callout: none;
 }
 /* Getroffen wird immer der Rahmen, nie das SVG: das wird beim Ziehen neu
-   gezeichnet, und iOS verlöre mit ihm den Finger. */
-.score-click-area svg {
+   gezeichnet, und iOS verlöre mit ihm den Finger. Auch nichts darin: VexFlow
+   legt über jede Note eine unsichtbare Trefferfläche (pointer-events="auto").
+   Setzte der Finger auf einer auf, gingen die Touch-Ereignisse ins Leere,
+   die Seite scrollte, und Chromium brach den Zug nach einer Sekunde ab. */
+.score-click-area svg,
+.score-click-area svg * {
   pointer-events: none;
 }
 /* Im Bearbeiten-Modus wird ausgewählt, nicht gesetzt. */
