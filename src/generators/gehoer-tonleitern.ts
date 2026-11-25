@@ -78,7 +78,6 @@ export const gehoerTonleitern: Generator<Filters> = {
         { value: 'fest', label: 'immer a' },
         { value: 'zufaellig', label: 'wechselnd' },
       ],
-      hint: 'Ein fester Grundton macht den Vergleich leichter: du hörst dann nur den Unterschied der Art.',
     },
     {
       kind: 'multi',
@@ -97,7 +96,6 @@ export const gehoerTonleitern: Generator<Filters> = {
       max: 160,
       step: 4,
       unit: 'bpm',
-      hint: 'Viertel pro Minute; jeder Ton der Tonleiter ist ein Viertel lang.',
     },
     { kind: 'toggle', key: 'limitPlays', label: `Wiedergaben begrenzen (${LIMITED_PLAYS}×)` },
   ],
