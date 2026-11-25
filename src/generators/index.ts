@@ -127,7 +127,6 @@ export const GENERATORS: Generator<FilterValues>[] = [
   tonleiternSingen,
   melodieKlaviatur,
   melodieDiktat,
-  gehoerDiktat,
   melodieSingen,
 ];
 
@@ -135,13 +134,15 @@ export const GENERATORS: Generator<FilterValues>[] = [
  * Vorerst zurückgestellt (Entscheid 2026-11-25): fertig und getestet, aber
  * ohne Seite, Link und Platz auf der Themenseite. Wieder anbieten heisst:
  * zurück nach GENERATORS. Mit den beiden Rhythmusübungen fällt das ganze
- * Thema «Rhythmus» weg (`topicsWithGenerators`).
+ * Thema «Rhythmus» weg (`topicsWithGenerators`). Das «Rhythmus- und
+ * Melodiediktat» ruht, bis es überarbeitet ist (Entscheid 2026-11-26).
  */
 export const SHELVED_GENERATORS: Generator<FilterValues>[] = [
   rhythmusNotenwerte,
   rhythmusPausen,
   tonartenHalbtonschritte,
   dreiklaengeStufen,
+  gehoerDiktat,
 ];
 
 /**

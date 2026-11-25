@@ -1047,8 +1047,8 @@ describe('Dreiklänge', () => {
     expect(TOPIC_GROUPS.dreiklaenge!.map((group) => group.title)).toEqual(['Grundstellung', 'Umkehrungen & Lagen']);
   });
 
-  it('stellt Rhythmus, «Stufen bestimmen» und «Halbtonschritte markieren» vorerst zurück', () => {
-    for (const id of ['notenwerte-zuordnen', 'pausen-ergaenzen', 'stufen-bestimmen', 'halbtonschritte-markieren']) {
+  it('stellt Rhythmus, «Stufen bestimmen», «Halbtonschritte markieren» und das Rhythmusdiktat vorerst zurück', () => {
+    for (const id of ['notenwerte-zuordnen', 'pausen-ergaenzen', 'stufen-bestimmen', 'halbtonschritte-markieren', 'melodiediktat']) {
       expect(generatorById(id), id).toBeUndefined();
     }
     expect(SHELVED_GENERATORS.map((entry) => [entry.id, entry.topic])).toEqual([
@@ -1056,6 +1056,7 @@ describe('Dreiklänge', () => {
       ['pausen-ergaenzen', 'rhythmus'],
       ['halbtonschritte-markieren', 'tonleitern'],
       ['stufen-bestimmen', 'tonleitern'],
+      ['melodiediktat', 'melodie'],
     ]);
     expect(topicsWithGenerators().map((topic) => topic.id)).not.toContain('rhythmus');
   });
@@ -2183,7 +2184,7 @@ describe('Melodiediktat', () => {
   });
 
   it('wirft verständlich, wenn kein Notenwert in den Takt passt', () => {
-    const generator = generatorById('melodiediktat')!;
+    const generator = SHELVED_GENERATORS.find((entry) => entry.id === 'melodiediktat')!;
     expect(() =>
       generator.generate(
         { ...generator.defaults, timeSignature: '4/4', durations: ['q.'] } as never,

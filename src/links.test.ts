@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GENERATORS } from './generators/index';
+import { GENERATORS, SHELVED_GENERATORS } from './generators/index';
 import { deriveSeeds, makeRng, type Rng } from './generators/rng';
 import type { FilterValues, Generator } from './generators/types';
 import {
@@ -144,7 +144,7 @@ describe('Hin und zurück', () => {
   });
 
   it('lässt Kommas und Schrägstriche lesbar stehen', () => {
-    const generator = GENERATORS.find((g) => g.id === 'melodiediktat')!;
+    const generator = SHELVED_GENERATORS.find((g) => g.id === 'melodiediktat')!;
     const query = encodeLink(generator, {
       filters: { ...generator.defaults, timeSignature: '3/4', durations: ['h', 'q'] },
       round: null,
@@ -205,7 +205,7 @@ describe('Kaputte und alte Links', () => {
   });
 
   it('halten Zahlen im erlaubten Bereich', () => {
-    const generator = GENERATORS.find((g) => g.id === 'melodiediktat')!;
+    const generator = SHELVED_GENERATORS.find((g) => g.id === 'melodiediktat')!;
     expect(decodeLink(generator, '?takte=99').filters.bars).toBe(8);
     expect(decodeLink(generator, '?takte=0').filters.bars).toBe(2);
     expect(decodeLink(generator, '?tempo=77').filters.tempo).toBe(78);
@@ -246,7 +246,7 @@ describe('Kaputte und alte Links', () => {
 
 describe('Aufgabenlinks', () => {
   it('bringen Mehrfachauswahlen in Optionsreihenfolge', () => {
-    const generator = GENERATORS.find((g) => g.id === 'melodiediktat')!;
+    const generator = SHELVED_GENERATORS.find((g) => g.id === 'melodiediktat')!;
     const values = canonicalFilters(generator, { ...generator.defaults, durations: ['8', 'w', 'h'] });
     expect(values.durations).toEqual(['w', 'h', '8']);
   });

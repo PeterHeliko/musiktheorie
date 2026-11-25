@@ -78,7 +78,6 @@ const MODES = {
   'tonleitern-singen': 'Tonleitern singen',
   'gehoerte-melodie-klaviatur-spielen': 'Gehörte Melodie auf Klaviatur spielen',
   'generiertes-melodiediktat': 'Generiertes Melodiediktat',
-  melodiediktat: 'Rhythmus- und Melodiediktat',
   'generierte-melodie-singen': 'Generierte Melodie singen',
 };
 const MODE_IDS = Object.keys(MODES);
@@ -237,6 +236,9 @@ async function main() {
     );
     const unknownExercise = await page.goto(exercise('gibt-es-nicht'), { waitUntil: 'networkidle' });
     check(unknownExercise.status() === 404, 'unbekannte Übung antwortet mit 404');
+    // Ruht, bis es überarbeitet ist (2026-11-26). Ohne Browser, sonst zählt die 404 als Mangel.
+    const shelvedDictation = await fetch(exercise('melodiediktat'));
+    check(shelvedDictation.status === 404, 'das zurückgestellte Rhythmus- und Melodiediktat hat keine Seite');
 
     // ------------------------------------------------- Themen → Übungen
     console.log('\nAuswahl: Themen, dann Übungen');
@@ -354,7 +356,7 @@ async function main() {
     console.log('\nÜbung auf dem Telefon');
     const phone = await browser.newContext({ ...devices['iPhone 13'] });
     const phonePage = await phone.newPage();
-    for (const mode of ['intervalle-hoeren', 'umkehrungen-benennen', 'melodiediktat', 'intervalle-singen']) {
+    for (const mode of ['intervalle-hoeren', 'umkehrungen-benennen', 'generiertes-melodiediktat', 'intervalle-singen']) {
       await phonePage.goto(exercise(mode), { waitUntil: 'networkidle' });
       await phonePage.waitForSelector('.question');
       const viewport = phonePage.viewportSize();
@@ -1291,10 +1293,6 @@ async function main() {
     await explainPage.locator('.session-bar button:has-text("Weiter")').click();
     await explainPage.waitForSelector('.question .choice:not([disabled])');
     check((await explainPage.locator('.explanation').count()) === 0, 'mit der nächsten Aufgabe ist sie wieder weg');
-    await explainPage.goto(exercise('melodiediktat'), { waitUntil: 'networkidle' });
-    await explainPage.waitForSelector('.task-context');
-    const dictationContext = await explainPage.locator('.task-context').innerText();
-    check(/\d Takte, \d\/\d-Takt, \S+-(Dur|Moll)/.test(dictationContext), `das Diktat nennt seine Eckdaten («${dictationContext}»)`);
     await explainContext.close();
 
     // ------------------------------------------------- Leiste unten

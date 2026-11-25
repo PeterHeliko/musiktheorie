@@ -235,8 +235,8 @@ describe('Beschreibung eines Schritts', () => {
   });
 
   it('nennt Zahlen mit Einheit dahinter, ohne Einheit nach einem Doppelpunkt', () => {
-    const dictation = generator('melodiediktat');
-    expect(describeSettings(dictation, { ...dictation.defaults, bars: 6 })).toEqual(['Länge 6 Takte']);
+    const dictation = generator('generiertes-melodiediktat');
+    expect(describeSettings(dictation, { ...dictation.defaults, length: 6 })).toEqual(['Länge 6 Töne']);
     const scales = generator('tonleitern-notieren');
     expect(describeSettings(scales, { ...scales.defaults, maxAccidentals: 2 })).toEqual([
       'Maximale Anzahl Vorzeichen: 2',

@@ -197,7 +197,8 @@ they are sliders; the lower one pushes the upper one along. In links they read
 
 ⏸ The whole topic Rhythmus is shelved for now (2026-11-25): both exercises are built and tested,
 but not offered (`SHELVED_GENERATORS`), so the topic is off the start page. The Rhythmusdiktat
-lives on as «Rhythmus- und Melodiediktat» under Melodie.
+lives on as «Rhythmus- und Melodiediktat» under Melodie, but that is shelved too (2026-11-26)
+until it is reworked.
 
 ### Intervalle
 
@@ -380,7 +381,7 @@ Rules (decided 2026-11-24):
 
 | Übung                       | Fertigkeit |       |
 | --------------------------- | ---------- | ----- |
-| Melodiediktat               | Hören      | ✓     |
+| Melodiediktat               | Hören      | ✓ ⏸   |
 | Melodie nachsingen          | Singen     | ★     |
 | Melodie vom Blatt singen    | Singen     | ★     |
 | Generierte Melodie singen   | Singen     | ✓     |
