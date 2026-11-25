@@ -13,30 +13,35 @@
  * oder der Grundton-Akkord. Gesungen wird Ton für Ton wie bei den Tonleitern
  * (`judgeSequence`), mit Metronom ein Ton je Schlag (`judgeTimed`).
  *
- * Tritonus und Septime springt die Melodie nie, und sie wiederholt kaum je
- * einen Ton gleich: beides singt sich schlecht vom Blatt, und ein
- * wiederholter Ton lässt sich nur mit Absetzen dazwischen als zweiter
- * erkennen (hold.ts).
+ * **Chromatisch** (Skala) heisst: alle zwölf Halbtöne, ganz frei, ohne
+ * Grundton und Tonart; die Melodie beginnt und endet irgendwo, vorher
+ * erklingt nur der Anfangston. Ist chromatisch gewählt, gelten Tonumfang und
+ * Grösstes Intervall in feinen Intervallen (Halbtönen), für alle Aufgaben;
+ * sonst in groben (Tonleiterstufen). Sekunden bleiben in Dur und Moll immer
+ * erlaubt, sonst ginge es mit «kleine Sekunde» nicht weiter.
+ *
+ * Gleich wiederholt sich ein Ton kaum je: ein wiederholter Ton lässt sich nur
+ * mit Absetzen dazwischen als zweiter erkennen (hold.ts).
  */
 
 import { OPTION_SETS } from '../content/options';
-import type { NoteSpec, SingTask } from '../content/schema';
-import { MAJOR_MINOR, isMinorScale, scaleName, scaleSignature, type ScaleType } from '../music/scales';
+import type { NoteSpec, SelectOption, SingTask } from '../content/schema';
+import { MAJOR_MINOR, isMinorScale, scaleName, scaleSignature, scaleTonics, type ScaleType } from '../music/scales';
 import { staffSpace } from '../music/staff-space';
 import {
-  diatonicIndex,
   midi,
   parseIntervalLabel,
   transposeByInterval,
   vexKeySignature,
   type Pitch,
+  type Step,
 } from '../music/theory';
 import { DEFAULT_VOICE, VOICE_RANGES } from '../sing/voice';
 import { CLEF_FILTER, SING_DEFAULTS, SING_FILTERS, SING_HINT, metronomeOf, placeInVoice, withTempo } from './dreiklaenge-shared';
 import { pitchForDegree, walk } from './melody';
 import type { Rng } from './rng';
-import { candidatePitches, insist, pitchKey, taskId } from './shared';
-import { MAX_ACCIDENTALS_FILTER, pickScale } from './tonleitern';
+import { candidatePitches, insist, pitchKey, taskId, type Window } from './shared';
+import { MAX_ACCIDENTALS_FILTER } from './tonleitern';
 import {
   multi,
   range,
@@ -48,26 +53,81 @@ import {
   type Question,
 } from './types';
 
-/** Dur und die drei Moll; Kirchentonarten fehlen, eine Kadenz in dorisch wäre keine. */
-const SCALE_OPTIONS = OPTION_SETS.scaleType.filter((option) => MAJOR_MINOR.includes(option.value as ScaleType));
+const CHROMATIC = 'chromatisch';
 
-/** Umfang in Tonleiterstufen, wie in melody.ts. */
-const SPAN_OPTIONS = [
-  { value: '4', label: 'Quinte' },
-  { value: '5', label: 'Sexte' },
-  { value: '7', label: 'Oktave' },
-  { value: '9', label: 'Dezime' },
+/** Dur, die drei Moll und chromatisch; Kirchentonarten fehlen, eine Kadenz in dorisch wäre keine. */
+const SCALE_OPTIONS: SelectOption[] = [
+  ...OPTION_SETS.scaleType.filter((option) => MAJOR_MINOR.includes(option.value as ScaleType)),
+  { value: CHROMATIC, label: 'chromatisch' },
 ];
 
-/** Grösster Sprung in Tonleiterstufen; die Septime fehlt (siehe oben). */
-const LEAP_OPTIONS = [
+/** Grobe Intervalle, in Tonleiterstufen. */
+const COARSE: SelectOption[] = [
   { value: '1', label: 'Sekunde' },
   { value: '2', label: 'Terz' },
   { value: '3', label: 'Quarte' },
   { value: '4', label: 'Quinte' },
   { value: '5', label: 'Sexte' },
+  { value: '6', label: 'Septime' },
   { value: '7', label: 'Oktave' },
 ];
+
+/** Feine Intervalle, in Halbtönen. */
+const FINE: (SelectOption & { semitones: number })[] = [
+  { value: 'k2', label: 'kleine Sekunde', semitones: 1 },
+  { value: 'g2', label: 'grosse Sekunde', semitones: 2 },
+  { value: 'k3', label: 'kleine Terz', semitones: 3 },
+  { value: 'g3', label: 'grosse Terz', semitones: 4 },
+  { value: 'r4', label: 'Quarte', semitones: 5 },
+  { value: 'tritonus', label: 'Tritonus', semitones: 6 },
+  { value: 'r5', label: 'Quinte', semitones: 7 },
+  { value: 'k6', label: 'kleine Sexte', semitones: 8 },
+  { value: 'g6', label: 'grosse Sexte', semitones: 9 },
+  { value: 'k7', label: 'kleine Septime', semitones: 10 },
+  { value: 'g7', label: 'grosse Septime', semitones: 11 },
+  { value: 'r8', label: 'Oktave', semitones: 12 },
+];
+
+const WHOLE_VOICE: SelectOption = { value: 'stimmlage', label: 'Gesamte Stimmlage' };
+
+/** Gegenstücke beim Umschalten zwischen grob und fein: Terz ↔ grosse Terz. */
+const EQUIVALENT: Record<string, string> = {
+  '1': 'g2',
+  '2': 'g3',
+  '3': 'r4',
+  '4': 'r5',
+  '5': 'g6',
+  '6': 'g7',
+  '7': 'r8',
+  k2: '1',
+  g2: '1',
+  k3: '2',
+  g3: '2',
+  r4: '3',
+  tritonus: '3',
+  r5: '4',
+  k6: '5',
+  g6: '5',
+  k7: '6',
+  g7: '6',
+  r8: '7',
+};
+
+const plain = (options: SelectOption[]): SelectOption[] => options.map(({ value, label }) => ({ value, label }));
+
+/** Tonumfang: ab der Terz bis zur Oktave, dann die ganze Stimmlage. */
+const COARSE_SPANS = [...COARSE.slice(1), WHOLE_VOICE];
+const FINE_SPANS = [...plain(FINE.slice(2)), WHOLE_VOICE];
+
+/** Feine Intervalle gelten, sobald chromatisch unter den Skalen ist. */
+function fineIntervals(values: FilterValues): boolean {
+  return multi(values, 'scales', MAJOR_MINOR).includes(CHROMATIC);
+}
+
+function onlyChromatic(values: FilterValues): boolean {
+  const scales = multi(values, 'scales', MAJOR_MINOR);
+  return scales.length === 1 && scales[0] === CHROMATIC;
+}
 
 type Prelude = 'nichts' | 'root' | 'kadenz' | 'stufen' | 'akkord' | 'akkord-gebrochen';
 
@@ -84,7 +144,7 @@ const PRELUDE_FILTER: FilterSpec = {
     { value: 'akkord', label: 'Grundton-Akkord zusammen' },
     { value: 'akkord-gebrochen', label: 'Grundton-Akkord gebrochen' },
   ],
-  hint: 'Danach erklingt immer der Anfangston. Die Kadenz ist I IV V I, vierstimmig in Oktavlage.',
+  disabledBy: (values) => (onlyChromatic(values) ? 'Chromatisch erklingt nur der Anfangston.' : null),
 };
 
 /** Was vor dem Anfangston erklingt, in Worten für die Anweisung. */
@@ -103,12 +163,16 @@ const SING_TEXT =
 /** So lange muss ein Ton gehalten sein, bis er zählt (ms) — wie bei den Tonleitern. */
 const MELODY_HOLD_MS = 500;
 
-/** Zeichenbreite je Ganze im System, und je Vorzeichen der Tonart. */
+/** Zeichenbreite je Ganze im System (chromatisch mit Vorzeichen davor), und je Vorzeichen der Tonart. */
 const NOTE_ROOM = 42;
+const CHROMATIC_NOTE_ROOM = 50;
 const SIGNATURE_ROOM = 11;
 
 /** Tiefster und höchster Klavierton der Samples (audio/player.ts): die Kadenz bleibt darin. */
 const PIANO = { low: 36, high: 84 };
+
+/** So oft wird höchstens neu gewürfelt, bis die Melodie passt. */
+const MAX_ATTEMPTS = 50;
 
 interface Filters extends FilterValues {
   scales: string[];
@@ -122,26 +186,65 @@ interface Filters extends FilterValues {
   metronome: string;
 }
 
+/** Tonumfang: die ganze Stimmlage, Tonleiterstufen oder Halbtöne. */
+type Span = { kind: 'voice' } | { kind: 'steps'; steps: number } | { kind: 'semitones'; semitones: number };
+/** Grösstes Intervall: Tonleiterstufen oder Halbtöne. */
+type Leap = { kind: 'steps'; steps: number } | { kind: 'semitones'; semitones: number };
+
+/** Ein Intervallwert, wie er für die Einstellung gilt: grob oder fein, ein Link kann beides liefern. */
+function intervalValue(value: string, fine: boolean): string {
+  const isFine = FINE.some((option) => option.value === value);
+  return value === WHOLE_VOICE.value || isFine === fine ? value : (EQUIVALENT[value] ?? value);
+}
+
+function spanOf(values: FilterValues, fine: boolean): Span {
+  const value = intervalValue(single(values, 'span', '7'), fine);
+  if (value === WHOLE_VOICE.value) return { kind: 'voice' };
+  const semitones = FINE.find((option) => option.value === value)?.semitones;
+  if (semitones !== undefined) return { kind: 'semitones', semitones };
+  const steps = Number(value);
+  return Number.isInteger(steps) && steps >= 2 && steps <= 7 ? { kind: 'steps', steps } : { kind: 'steps', steps: 7 };
+}
+
+function leapOf(values: FilterValues, fine: boolean): Leap {
+  const value = intervalValue(single(values, 'maxLeap', '4'), fine);
+  const semitones = FINE.find((option) => option.value === value)?.semitones;
+  if (semitones !== undefined) return { kind: 'semitones', semitones };
+  const steps = Number(value);
+  return Number.isInteger(steps) && steps >= 1 && steps <= 7 ? { kind: 'steps', steps } : { kind: 'steps', steps: 4 };
+}
+
 export const melodieSingen: Generator<Filters> = {
   id: 'generierte-melodie-singen',
   topic: 'melodie',
   skill: 'singen',
-  version: 1,
+  version: 2,
   title: 'Generierte Melodie singen',
   instruction: `${PRELUDE_TEXT.kadenz} ${SING_TEXT}`,
   hint: SING_HINT,
 
   filters: [
     { kind: 'multi', key: 'scales', label: 'Skala', options: SCALE_OPTIONS },
-    MAX_ACCIDENTALS_FILTER,
+    {
+      ...MAX_ACCIDENTALS_FILTER,
+      disabledBy: (values) => (onlyChromatic(values) ? 'Chromatisch steht ohne Tonart.' : null),
+    },
     { kind: 'range', key: 'length', label: 'Länge', min: 4, max: 12, unit: 'Töne' },
-    { kind: 'single', key: 'span', label: 'Tonumfang', options: SPAN_OPTIONS },
+    {
+      kind: 'single',
+      key: 'span',
+      label: 'Tonumfang',
+      options: [...COARSE_SPANS.slice(0, -1), ...FINE_SPANS],
+      shownOptions: (values) => (fineIntervals(values) ? FINE_SPANS : COARSE_SPANS),
+      equivalent: EQUIVALENT,
+    },
     {
       kind: 'single',
       key: 'maxLeap',
       label: 'Grösstes Intervall',
-      options: LEAP_OPTIONS,
-      hint: 'Meist geht die Melodie in Schritten; Sprünge sind selten. Tritonus und Septime kommen nicht vor.',
+      options: [...COARSE, ...plain(FINE)],
+      shownOptions: (values) => (fineIntervals(values) ? plain(FINE) : COARSE),
+      equivalent: EQUIVALENT,
     },
     CLEF_FILTER,
     PRELUDE_FILTER,
@@ -159,113 +262,206 @@ export const melodieSingen: Generator<Filters> = {
   },
 
   generate(values, rng: Rng, personal?: Personal): Question {
-    const { type, tonic } = pickScale(values, rng);
+    const scales = multi(values, 'scales', this.defaults.scales).filter((scale) =>
+      SCALE_OPTIONS.some((option) => option.value === scale),
+    );
+    const chosen = rng.pick(scales.length > 0 ? scales : this.defaults.scales);
+    const fine = scales.includes(CHROMATIC);
     const clef = rng.pick(multi(values, 'clefs', this.defaults.clefs)) as 'treble' | 'bass';
     const count = Math.max(4, Math.min(12, Math.round(range(values, 'length', 8))));
-    const span = Number(single(values, 'span', '7'));
-    // Weiter springen, als der Umfang reicht, geht nicht.
-    const maxLeap = Math.min(span, Number(single(values, 'maxLeap', '4')));
-    const prelude = single(values, 'prelude', 'kadenz') as Prelude;
+    const span = spanOf(values, fine);
+    const leap = leapOf(values, fine);
     const tolerance = Number(single(values, 'tolerance', '50'));
     const voiceRange = VOICE_RANGES[personal?.voice ?? DEFAULT_VOICE];
-
-    // Tonart und Stufen stehen fest, bevor die Stimmlage zählt: derselbe
-    // Aufgabenlink fragt bei allen dieselbe Melodie, in der eigenen Lage.
-    const degrees = melodyDegrees(rng, count, type, span, maxLeap);
-    const written = melodyPitches(degrees, type, tonic);
-    const placed = placeInVoice(rng, written, voiceRange);
-    // Der Grundton der Melodie (Stufe 0) in ihrer Lage.
-    const shift = Math.round((midi(placed[0]) - midi(written[0])) / 12);
-    const home = { ...tonic, octave: tonic.octave + shift };
-    checkMelody(placed, degrees, type, home, maxLeap);
-
-    const signature = scaleSignature(type, tonic) ?? 0;
-    const notes: NoteSpec[] = placed.map((pitch) => ({ keys: [pitchKey(pitch)], duration: 'w' }));
-    // Platz über und unter dem System: so viel, wie die Stimmlage braucht,
-    // für alle Aufgaben gleich; ragt die Melodie hinaus (Dezime), mehr.
-    const base = staffSpace(clef, candidatePitches({ low: voiceRange.low - 1, high: voiceRange.high + 1 }, [-1, 0, 1]));
-    const needed = staffSpace(clef, placed);
     const tempo = metronomeOf(values);
+
+    let melody: Pitch[];
+    let prompt: string;
+    let signature: number | null = null;
+    let prelude: Prelude = 'nichts';
+    let sounds: SingTask['prelude'];
+    if (chosen === CHROMATIC) {
+      // In der Stimmlage gewürfelt; ein Tonumfang in Halbtönen wird danach
+      // hineingelegt wie bei Dur und Moll.
+      melody = chromaticMelody(rng, count, span, leap, voiceRange);
+      prompt = 'Chromatisch';
+    } else {
+      const type = chosen as ScaleType;
+      const maxAccidentals = Math.round(range(values, 'maxAccidentals', 4));
+      const tonics = scaleTonics(type, maxAccidentals);
+      insist(tonics.length > 0, 'Mit dieser Vorzeichengrenze bleibt keine Tonart übrig.');
+      const tonic = rng.pick(tonics);
+      const placed = diatonicMelody(rng, type, tonic, count, span, leap, voiceRange);
+      melody = placed.pitches;
+      prompt = scaleName(type, tonic);
+      signature = scaleSignature(type, tonic) ?? 0;
+      prelude = single(values, 'prelude', 'kadenz') as Prelude;
+      if (!(prelude in PRELUDE_TEXT)) prelude = 'kadenz';
+      if (prelude !== 'nichts') sounds = preludeSounds(prelude, type, placed.home, melody);
+    }
+
+    const notes: NoteSpec[] = melody.map((pitch) => ({ keys: [pitchKey(pitch)], duration: 'w' }));
+    // Platz über und unter dem System: so viel, wie die Stimmlage braucht,
+    // für alle Aufgaben gleich; ragt die Melodie hinaus, mehr.
+    const base = staffSpace(clef, candidatePitches({ low: voiceRange.low - 1, high: voiceRange.high + 1 }, [-1, 0, 1]));
+    const needed = staffSpace(clef, melody);
+    const room = signature === null ? CHROMATIC_NOTE_ROOM : NOTE_ROOM;
 
     const task: SingTask = {
       id: taskId('gms', rng),
       kind: 'sing',
-      prompt: scaleName(type, tonic),
+      prompt,
       score: {
         clef,
-        keySignature: vexKeySignature(signature),
+        ...(signature !== null ? { keySignature: vexKeySignature(signature) } : {}),
         accidentalsByKey: true,
-        width: 100 + SIGNATURE_ROOM * Math.abs(signature) + NOTE_ROOM * placed.length,
+        width: 100 + SIGNATURE_ROOM * Math.abs(signature ?? 0) + room * melody.length,
         scale: 1.6,
         space: { above: Math.max(base.above, needed.above), below: Math.max(base.below, needed.below) },
         endBar: true,
         measures: [{ notes }],
       },
-      reference: pitchKey(placed[0]),
-      target: pitchKey(placed[placed.length - 1]),
-      sequence: placed.map(pitchKey),
+      reference: pitchKey(melody[0]),
+      target: pitchKey(melody[melody.length - 1]),
+      sequence: melody.map(pitchKey),
       tolerance,
       ...(tempo ? { tempo } : {}),
       melodic: true,
       notated: true,
       holdMs: MELODY_HOLD_MS,
-      ...(prelude !== 'nichts' ? { prelude: preludeSounds(prelude, type, home, placed) } : {}),
+      ...(sounds ? { prelude: sounds } : {}),
       points: 2,
     };
 
-    const said = `${PRELUDE_TEXT[prelude] ?? PRELUDE_TEXT.kadenz} ${SING_TEXT}`;
+    const said = `${PRELUDE_TEXT[prelude]} ${SING_TEXT}`;
     const instruction = tempo ? withTempo(task, said) : said;
     return { task, ...(instruction !== this.instruction ? { instruction } : {}) };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Melodie
+// Dur und Moll
 // ---------------------------------------------------------------------------
 
+/** Die Formen, in denen eine Stufe erklingen kann: melodisch Moll erhöht oder natürlich. */
+function formsOf(type: ScaleType): ScaleType[] {
+  return type === 'moll-melodisch' ? ['moll-melodisch', 'moll-natuerlich'] : [type];
+}
+
+/** Die Tonhöhe einer Stufe in jeder ihrer Formen (MIDI). */
+function degreeMidis(type: ScaleType, home: Pitch, degree: number): number[] {
+  return formsOf(type).map((form) => midi(pitchForDegree(degree, { tonic: home, scale: form })));
+}
+
+/** So viele Halbtöne liegen höchstens zwischen zwei Stufen, über alle Formen. */
+function widthOf(type: ScaleType, home: Pitch, from: number, to: number): number {
+  const all = [...degreeMidis(type, home, from), ...degreeMidis(type, home, to)];
+  return Math.max(...all) - Math.min(...all);
+}
+
 /**
- * Die Stufen der Melodie (melody.ts), ohne schwer singbare Sprünge und ohne
- * gleich wiederholten Ton. Den Schlusston setzt der Gang selbst: liegt schon
- * der vorletzte auf dem Grundton, wiederholte er sich. Dann wird neu
- * gewürfelt, aus demselben Zufall weiter, also für denselben Startwert gleich.
- * Nur in Sekunden und mit gerader Länge geht es nicht anders (vom Grundton
- * zurück zum Grundton braucht eine gerade Zahl Schritte); dann bleibt die
- * Wiederholung stehen.
+ * Eine Melodie in Dur oder Moll, in der Stimmlage. Mit «Gesamte Stimmlage»
+ * liegt der Grundton irgendwo darin und die Melodie darf sie ganz nutzen;
+ * sonst wird sie mit dem Tonumfang gewürfelt und dann hineingelegt.
  */
-function melodyDegrees(rng: Rng, count: number, type: ScaleType, span: number, maxLeap: number): number[] {
-  const options = { span, maxLeap, forbid: (from: number, to: number) => from === to || awkward(type, from, to) };
+function diatonicMelody(
+  rng: Rng,
+  type: ScaleType,
+  tonic: Pitch,
+  count: number,
+  span: Span,
+  leap: Leap,
+  voice: Window,
+): { pitches: Pitch[]; home: Pitch } {
+  if (span.kind === 'voice') {
+    const homes = [2, 3, 4, 5]
+      .map((octave) => ({ ...tonic, octave }))
+      .filter((pitch) => midi(pitch) >= voice.low && midi(pitch) <= voice.high);
+    insist(homes.length > 0, 'Kein Grundton in der Stimmlage');
+    const home = rng.pick(homes);
+    const inVoice = (degree: number) => degreeMidis(type, home, degree).every((value) => value >= voice.low && value <= voice.high);
+    let lowest = 0;
+    while (inVoice(lowest - 1)) lowest--;
+    let highest = 0;
+    while (inVoice(highest + 1)) highest++;
+    const degrees = melodyDegrees(rng, count, type, home, { lowest, highest }, leap);
+    return { pitches: melodyPitches(degrees, type, home), home };
+  }
+
+  const bounds = span.kind === 'steps' ? stepBounds(span.steps) : semitoneBounds(type, tonic, span.semitones);
+  const degrees = melodyDegrees(rng, count, type, tonic, bounds, leap);
+  const written = melodyPitches(degrees, type, tonic);
+  const placed = placeInVoice(rng, written, voice);
+  // Der Grundton der Melodie (Stufe 0) in ihrer Lage.
+  const shift = Math.round((midi(placed[0]) - midi(written[0])) / 12);
+  return { pitches: placed, home: { ...tonic, octave: tonic.octave + shift } };
+}
+
+/** Der Umfang in Stufen, wie melody.ts ihn legt: ein Drittel unter dem Grundton. */
+function stepBounds(steps: number): { lowest: number; highest: number } {
+  const lowest = -Math.floor(steps / 3);
+  return { lowest, highest: lowest + steps };
+}
+
+/** Der grösste Umfang in Stufen, der höchstens so viele Halbtöne umfasst. */
+function semitoneBounds(type: ScaleType, tonic: Pitch, semitones: number): { lowest: number; highest: number } {
+  for (let steps = 7; steps > 1; steps--) {
+    const bounds = stepBounds(steps);
+    if (widthOf(type, tonic, bounds.lowest, bounds.highest) <= semitones) return bounds;
+  }
+  return stepBounds(1);
+}
+
+/**
+ * Die Stufen der Melodie (melody.ts), ohne gleich wiederholten Ton und, bei
+ * feinen Intervallen, ohne Sprung über das grösste erlaubte. Den Schlusston
+ * setzt der Gang selbst: liegt schon der vorletzte auf dem Grundton,
+ * wiederholte er sich. Dann wird neu gewürfelt, aus demselben Zufall weiter,
+ * also für denselben Startwert gleich. Nur in Sekunden und mit gerader Länge
+ * geht es nicht anders (vom Grundton zurück zum Grundton braucht eine gerade
+ * Zahl Schritte); dann bleibt die Wiederholung stehen.
+ */
+function melodyDegrees(
+  rng: Rng,
+  count: number,
+  type: ScaleType,
+  home: Pitch,
+  bounds: { lowest: number; highest: number },
+  leap: Leap,
+): number[] {
+  const room = bounds.highest - bounds.lowest;
+  // Sekunden gehen immer; feine Grenzen gelten für Sprünge.
+  const tooWide = (from: number, to: number) =>
+    leap.kind === 'semitones' && Math.abs(to - from) > 1 && widthOf(type, home, from, to) > leap.semitones;
+  let maxLeap: number;
+  if (leap.kind === 'steps') {
+    maxLeap = leap.steps;
+  } else {
+    maxLeap = 1;
+    for (let steps = 2; steps <= room; steps++) {
+      for (let from = bounds.lowest; from + steps <= bounds.highest; from++) {
+        if (!tooWide(from, from + steps)) maxLeap = steps;
+      }
+    }
+  }
+  maxLeap = Math.max(1, Math.min(maxLeap, room));
+
+  const options = { span: room, maxLeap, bounds, forbid: (from: number, to: number) => from === to || tooWide(from, to) };
   const repeats = (degrees: number[]) => degrees.some((degree, index) => index > 0 && degree === degrees[index - 1]);
+  const wide = (degrees: number[]) => degrees.some((degree, index) => index > 0 && tooWide(degrees[index - 1], degree));
   let degrees = walk(rng, count, options);
-  for (let attempt = 0; attempt < MAX_ATTEMPTS && repeats(degrees); attempt++) degrees = walk(rng, count, options);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS && (repeats(degrees) || wide(degrees)); attempt++) {
+    degrees = walk(rng, count, options);
+  }
+  insist(!wide(degrees), 'Ein Sprung ist grösser als erlaubt');
+  checkDegrees(degrees, type, home, bounds, maxLeap);
   return degrees;
 }
 
-/** So oft wird höchstens neu gewürfelt, bis kein Ton sich gleich wiederholt. */
-const MAX_ATTEMPTS = 20;
-
-/** Ein Tonleitermuster als Halbtöne über dem Grundton, je Stufe 0–6. */
-function semitonesOf(type: ScaleType, degree: number, tonic: Pitch): number {
-  return midi(pitchForDegree(degree, { tonic, scale: type })) - midi(tonic);
-}
-
 /**
- * Ein Sprung, der sich schlecht singt: Tritonus (übermässige Quarte,
- * verminderte Quinte) oder Septime. Bei melodisch Moll in beiden Formen
- * geprüft, denn welche gilt, entscheidet erst der Verlauf.
- */
-function awkward(type: ScaleType, from: number, to: number): boolean {
-  const steps = Math.abs(to - from);
-  if (steps <= 1) return false;
-  if (steps % 7 === 6) return true;
-  const reference: Pitch = { step: 'c', alter: 0, octave: 4 };
-  const forms: ScaleType[] = type === 'moll-melodisch' ? ['moll-melodisch', 'moll-natuerlich'] : [type];
-  return forms.some((form) => Math.abs(semitonesOf(form, to, reference) - semitonesOf(form, from, reference)) % 12 === 6);
-}
-
-/**
- * Stufen → Tonhöhen ab dem Grundton (Oktave 4). Melodisch Moll: Sexte und
- * Septime erhöht, wenn es danach aufwärts geht, sonst natürlich — wie die
- * Leiter selbst (music/scales.ts).
+ * Stufen → Tonhöhen ab dem Grundton. Melodisch Moll: Sexte und Septime
+ * erhöht, wenn es danach aufwärts geht, sonst natürlich — wie die Leiter
+ * selbst (music/scales.ts).
  */
 export function melodyPitches(degrees: readonly number[], type: ScaleType, tonic: Pitch): Pitch[] {
   return degrees.map((degree, index) => {
@@ -279,24 +475,100 @@ export function melodyPitches(degrees: readonly number[], type: ScaleType, tonic
 }
 
 /**
- * Nachgerechnet: jeder Ton gehört zur Leiter (melodisch Moll: einer ihrer
- * beiden Formen), kein Sprung ist grösser als erlaubt, kein Ton wiederholt
- * sich gleich, und der letzte ist der Grundton.
+ * Nachgerechnet: alle Stufen im Umfang, kein Sprung grösser als erlaubt, und
+ * die letzte ist ein Grundton. Dass die Töne zur Leiter gehören, sichert
+ * `pitchForDegree`.
  */
-function checkMelody(pitches: readonly Pitch[], degrees: readonly number[], type: ScaleType, home: Pitch, maxLeap: number): void {
-  const forms: ScaleType[] = type === 'moll-melodisch' ? ['moll-melodisch', 'moll-natuerlich'] : [type];
-  const classes = new Set(
-    forms.flatMap((form) => [0, 1, 2, 3, 4, 5, 6].map((degree) => (midi(pitchForDegree(degree, { tonic: home, scale: form })) % 12 + 12) % 12)),
-  );
-  insist(pitches.length === degrees.length, `${pitches.length} statt ${degrees.length} Töne`);
-  pitches.forEach((pitch, index) => {
-    insist(classes.has(((midi(pitch) % 12) + 12) % 12), `${pitchKey(pitch)} gehört nicht zu ${scaleName(type, home)}`);
-    if (index === 0) return;
-    const steps = Math.abs(diatonicIndex(pitch) - diatonicIndex(pitches[index - 1]));
-    insist(steps <= maxLeap, `Sprung von ${steps} Stufen, erlaubt sind ${maxLeap}`);
+function checkDegrees(
+  degrees: readonly number[],
+  type: ScaleType,
+  home: Pitch,
+  bounds: { lowest: number; highest: number },
+  maxLeap: number,
+): void {
+  const name = scaleName(type, home);
+  degrees.forEach((degree, index) => {
+    insist(degree >= bounds.lowest && degree <= bounds.highest, `${name}: Stufe ${degree} ausserhalb des Umfangs`);
+    if (index > 0) insist(Math.abs(degree - degrees[index - 1]) <= maxLeap, `${name}: Sprung grösser als ${maxLeap} Stufen`);
   });
-  const last = pitches[pitches.length - 1];
-  insist(midi(last) % 12 === ((midi(home) % 12) + 12) % 12, `Die Melodie endet auf ${pitchKey(last)}, nicht auf dem Grundton`);
+  insist(degrees[degrees.length - 1] % 7 === 0, `${name}: endet nicht auf dem Grundton`);
+}
+
+// ---------------------------------------------------------------------------
+// Chromatisch
+// ---------------------------------------------------------------------------
+
+/**
+ * Eine chromatische Melodie: ganz frei, ohne Grundton; beginnt und endet
+ * irgendwo. Meist kleine und grosse Sekunden, Sprünge seltener und
+ * gegenläufig aufgefangen, wie bei Dur und Moll; kein Ton gleich zweimal.
+ * Mit «Gesamte Stimmlage» darin gewürfelt, sonst im Tonumfang und dann in
+ * die Stimmlage gelegt.
+ */
+function chromaticMelody(rng: Rng, count: number, span: Span, leap: Leap, voice: Window): Pitch[] {
+  // Chromatisch gelten immer feine Intervalle; grobe kommen nur aus alten Links.
+  const width = span.kind === 'voice' ? voice.high - voice.low : span.kind === 'semitones' ? span.semitones : 12;
+  const largest = leap.kind === 'semitones' ? leap.semitones : (FINE.find((option) => option.value === EQUIVALENT[String(leap.steps)])?.semitones ?? 7);
+  const maxLeap = Math.max(1, Math.min(largest, width));
+  let low: number;
+  let start: number;
+  if (span.kind === 'voice') {
+    low = voice.low;
+    start = rng.int(voice.low, voice.high);
+  } else {
+    // Anfangston und seine Lage im Umfang; die Oktave folgt aus der Stimmlage.
+    start = 60 + rng.int(0, 11);
+    low = start - rng.int(0, width);
+  }
+  const high = low + width;
+
+  const sizes = Array.from({ length: maxLeap }, (_, index) => index + 1);
+  // Sekunden am häufigsten, Terzen seltener, grössere Sprünge selten.
+  const weights = sizes.map((size) => (size <= 2 ? 4 : size <= 4 ? 2 : 1));
+  const tones = [start];
+  let current = start;
+  let lastLeap = 0;
+  for (let index = 1; index < count; index++) {
+    // Nach einem Sprung (ab der kleinen Terz) geht es gegenläufig weiter.
+    const preferred = Math.abs(lastLeap) >= 3 ? -Math.sign(lastLeap) : rng.chance(0.5) ? 1 : -1;
+    const size = rng.weighted(sizes, weights);
+    const candidates = [current + preferred * size, current - preferred * size, current + preferred, current - preferred];
+    const next = candidates.find((value) => value >= low && value <= high)!;
+    lastLeap = next - current;
+    current = next;
+    tones.push(next);
+  }
+
+  const spelled = spell(tones);
+  // Nachgerechnet: im Umfang, kein Sprung zu gross, kein Ton gleich zweimal.
+  spelled.forEach((pitch, index) => {
+    insist(midi(pitch) === tones[index], `${pitchKey(pitch)} ist nicht MIDI ${tones[index]}`);
+    if (index === 0) return;
+    const distance = Math.abs(tones[index] - tones[index - 1]);
+    insist(distance >= 1 && distance <= maxLeap, `Schritt von ${distance} Halbtönen, erlaubt sind 1 bis ${maxLeap}`);
+  });
+  insist(Math.max(...tones) - Math.min(...tones) <= width, 'Die Melodie ist weiter als der Tonumfang');
+  return span.kind === 'voice' ? spelled : placeInVoice(rng, spelled, voice);
+}
+
+const NATURAL: Partial<Record<number, Step>> = { 0: 'c', 2: 'd', 4: 'e', 5: 'f', 7: 'g', 9: 'a', 11: 'b' };
+
+/**
+ * Schreibweise der chromatischen Töne: aufwärts erreicht mit ♯, abwärts mit ♭
+ * (der erste Ton nach der Richtung, in die es weitergeht). Weisse Tasten
+ * ohne Vorzeichen.
+ */
+export function spell(tones: readonly number[]): Pitch[] {
+  return tones.map((value, index) => {
+    const rising = index > 0 ? value > tones[index - 1] : (tones[1] ?? value) > value;
+    const pitchClass = ((value % 12) + 12) % 12;
+    const octave = Math.floor(value / 12) - 1;
+    const natural = NATURAL[pitchClass];
+    if (natural) return { step: natural, alter: 0, octave };
+    return rising
+      ? { step: NATURAL[pitchClass - 1]!, alter: 1, octave }
+      : { step: NATURAL[pitchClass + 1]!, alter: -1, octave };
+  });
 }
 
 // ---------------------------------------------------------------------------

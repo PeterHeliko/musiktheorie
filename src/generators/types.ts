@@ -126,6 +126,16 @@ export type FilterSpec =
        * Link kann beide vertauscht liefern.
        */
       slider?: { notAbove?: string; notBelow?: string };
+      /**
+       * Nur einen Teil der Optionen zeigen, je nach den übrigen Einstellungen
+       * (feine Intervalle, sobald «chromatisch» gewählt ist). `options` bleibt
+       * die ganze Liste: Links und Speicher kennen jeden Wert. Steht der
+       * gewählte Wert nicht mehr darunter, gilt sein Gegenstück aus
+       * `equivalent` (Terz ↔ grosse Terz). Der Generator muss beide Werte
+       * trotzdem selbst verstehen, denn ein Link kann jeden liefern.
+       */
+      shownOptions?(values: FilterValues): SelectOption[];
+      equivalent?: Record<string, string>;
     })
   | (FilterBase & { kind: 'toggle' })
   | (FilterBase & {

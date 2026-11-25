@@ -386,17 +386,23 @@ Rules (decided 2026-11-24):
 | Generierte Melodie singen   | Singen     | ✓     |
 
 **Generierte Melodie singen** (decided 2026-11-25) is the first Melodie vom Blatt: no rhythm
-(equal whole notes); a version with rhythm follows later. Settings in this order: Skala (Dur
-and the three Moll), Maximale Anzahl Vorzeichen, Länge (4–12 notes), Tonumfang, Grösstes
-Intervall, Schlüssel, Vor Beginn spielen, Genauigkeit, Metronom; Stimmlage as everywhere.
+(equal whole notes); a version with rhythm follows later. Settings in this order: Skala (Dur,
+the three Moll, chromatisch), Maximale Anzahl Vorzeichen, Länge (4–12 notes), Tonumfang (Terz
+to Oktave, then Gesamte Stimmlage), Grösstes Intervall (Sekunde to Oktave), Schlüssel, Vor
+Beginn spielen, Genauigkeit, Metronom; Stimmlage as everywhere.
+- **Chromatisch:** all twelve semitones, completely free (no tonic, no key; starts and ends
+  anywhere), only the Anfangston before. With chromatisch ticked, Tonumfang and Grösstes
+  Intervall switch to fine intervals (kleine Sekunde … Oktave, Tritonus included) and apply to
+  every task; the choice carries over (Terz ↔ grosse Terz).
 - **Vor Beginn spielen:** one choice, Kadenz by default: nichts, Grundton, Kadenz (I IV V I,
   four voices, Oktavlage), 1 2 3 4 5 4 3 2 1, Grundton-Akkord zusammen or gebrochen. The
-  Anfangston always follows.
+  Anfangston always follows. No sound when a setting is picked.
 - **The whole melody is notated** with the key signature; the next note is blue, a sung note
   turns green, one with a wrong attempt red and stays red.
 - **Judging** as for scales (note by note, or one note per beat with Metronom), but only a
   repeat of the note just sung is ignored.
-- No tritone or seventh leaps, and no immediate repeats unless unavoidable.
+- Every interval up to the chosen one may occur (tritone and sevenths included); no immediate
+  repeats unless unavoidable.
 
 *Später:* Fehler finden (hear a melody, click the wrong note in the score).
 

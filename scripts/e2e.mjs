@@ -1926,10 +1926,10 @@ async function main() {
     );
     await singPage.screenshot({ path: join(SHOTS, 'tonleitern-singen-metronom.png') });
 
-    // Generierte Melodie singen: feste Aufgabe G-Dur g a h e fis g d g, mit
+    // Generierte Melodie singen: feste Aufgabe G-Dur g c h e fis g c g, mit
     // der Kadenz davor. Die ganze Melodie steht da, mit den Vorzeichen der
     // Tonart (das fis ohne eigenes ♯); der nächste Ton ist blau. Nach dem
-    // gesungenen g ist es grün, das a blau.
+    // gesungenen g ist es grün, das c blau.
     console.log('\nGenerierte Melodie singen');
     const melodyColours = () =>
       singPage.locator('.sing-task .score svg .vf-stavenote').evaluateAll((notes) =>
@@ -1943,7 +1943,7 @@ async function main() {
                 : 'black',
         ),
       );
-    await singPage.goto(`${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&aufgabe=a&v=1`, {
+    await singPage.goto(`${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&aufgabe=s&v=2`, {
       waitUntil: 'networkidle',
     });
     check((await singPage.locator('.sing-task .task-prompt').innerText()) === 'G-Dur', 'nennt die Tonart');
@@ -1975,7 +1975,7 @@ async function main() {
     const sungFirst = await melodyColours();
     check(
       sungFirst.slice(0, 3).join(' ') === 'green blue black' && (await singPage.locator('.verdict').count()) === 0,
-      `das g grün, das a blau, kein Urteil (${sungFirst.join(', ')})`,
+      `das g grün, das c blau, kein Urteil (${sungFirst.join(', ')})`,
     );
     await singPage.screenshot({ path: join(SHOTS, 'melodie-singen-zaehlt.png') });
 
@@ -1984,7 +1984,7 @@ async function main() {
     // davon ab, ob das künstliche Mikrofon auf dem Schlag gerade klingt: sein
     // Dauerton setzt zwischendurch aus (gestrichelte Kurve).
     await singPage.goto(
-      `${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&laenge=4&vorspiel=nichts&metronom=100&aufgabe=a&v=1`,
+      `${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&laenge=4&vorspiel=nichts&metronom=100&aufgabe=a&v=2`,
       { waitUntil: 'networkidle' },
     );
     await singPage.locator('.sing-mic button').click();
@@ -2002,6 +2002,33 @@ async function main() {
       `im Tempo: Falsch, a und h rot, jeder Ton bewertet (${timedMelody.join(', ')})`,
     );
     await singPage.screenshot({ path: join(SHOTS, 'melodie-singen-metronom.png') });
+
+    // ⚙: mit «chromatisch» zeigen Tonumfang und Grösstes Intervall feine
+    // Intervalle; die Wahl geht mit (Oktave, Quinte).
+    await singPage.goto(`${BASE}ueben/generierte-melodie-singen/`, { waitUntil: 'networkidle' });
+    await singPage.locator('.session-settings').click();
+    await singPage.waitForSelector('.sheet');
+    const melodyField = (label) =>
+      singPage
+        .locator('.sheet .filter-field')
+        .filter({ has: singPage.locator('.filter-label', { hasText: new RegExp(`^${label}$`) }) });
+    const melodyChips = (label) => melodyField(label).locator('.filter-chip').allInnerTexts();
+    const melodyChosen = async (label) => (await melodyField(label).locator('.filter-chip.is-selected').allInnerTexts()).join();
+    const coarseSpan = await melodyChips('Tonumfang');
+    check(
+      coarseSpan.includes('Terz') && coarseSpan.includes('Gesamte Stimmlage') && !coarseSpan.includes('Tritonus'),
+      `ohne chromatisch: grobe Intervalle (${coarseSpan.join(', ')})`,
+    );
+    await melodyField('Skala').locator('.filter-chip', { hasText: 'chromatisch' }).click();
+    const fineSpan = await melodyChips('Tonumfang');
+    check(
+      fineSpan.includes('Tritonus') && fineSpan.includes('Gesamte Stimmlage') && !fineSpan.includes('Terz'),
+      `mit chromatisch: feine Intervalle (${fineSpan.join(', ')})`,
+    );
+    check(
+      (await melodyChosen('Tonumfang')) === 'Oktave' && (await melodyChosen('Grösstes Intervall')) === 'Quinte',
+      'die Wahl geht mit: Oktave und Quinte',
+    );
 
     // «Ohne Fehlerurteil»: das falsche g beendet die Aufgabe nicht.
     await singPage.goto(

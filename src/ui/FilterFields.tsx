@@ -23,7 +23,8 @@ export function FilterFields({
   values: FilterValues;
   onChange: (next: FilterValues) => void;
 }) {
-  const set = (key: string, value: FilterValues[string]) => onChange(withPushed(filters, { ...values, [key]: value }, key));
+  const set = (key: string, value: FilterValues[string]) =>
+    onChange(withShown(filters, withPushed(filters, { ...values, [key]: value }, key)));
   return (
     <>
       {filters.map((filter) => (
@@ -46,6 +47,25 @@ function withPushed(filters: FilterSpec[], values: FilterValues, changed: string
   if (notAbove && index(notAbove) >= 0 && own > index(notAbove)) return { ...values, [notAbove]: values[changed] };
   if (notBelow && index(notBelow) >= 0 && own < index(notBelow)) return { ...values, [notBelow]: values[changed] };
   return values;
+}
+
+/**
+ * Zeigt ein Feld nach einer Änderung andere Optionen (`shownOptions`), wird
+ * sein Wert zum Gegenstück aus der neuen Liste (`equivalent`) oder, ohne
+ * eines, zu ihrer ersten Option.
+ */
+export function withShown(filters: FilterSpec[], values: FilterValues): FilterValues {
+  let out = values;
+  for (const filter of filters) {
+    if (filter.kind !== 'single' || !filter.shownOptions) continue;
+    const shown = filter.shownOptions(out);
+    const current = out[filter.key];
+    if (shown.length === 0 || shown.some((option) => option.value === current)) continue;
+    const counterpart = typeof current === 'string' ? filter.equivalent?.[current] : undefined;
+    const next = shown.find((option) => option.value === counterpart) ?? shown[0];
+    out = { ...out, [filter.key]: next.value };
+  }
+  return out;
 }
 
 function FilterField({
@@ -224,15 +244,20 @@ function SingleField({
       </div>
     );
   }
+  // Wo die Liste von anderen Einstellungen abhängt, zählt ein Wert aus der
+  // anderen Liste als sein Gegenstück (ein Link mit «Terz» bei chromatisch).
+  const shown = filter.shownOptions?.(values) ?? filter.options;
+  const selected =
+    current !== undefined && !shown.some((option) => option.value === current) ? filter.equivalent?.[current] : current;
   return (
     <div class="filter-options" role="radiogroup" aria-label={filter.label}>
-      {filter.options.map((option) => (
+      {shown.map((option) => (
         <button
           key={option.value}
           type="button"
           role="radio"
-          aria-checked={current === option.value}
-          class={`filter-chip ${current === option.value ? 'is-selected' : ''}`}
+          aria-checked={selected === option.value}
+          class={`filter-chip ${selected === option.value ? 'is-selected' : ''}`}
           aria-label={spokenLabel(option.label)}
           onClick={() => set(filter.key, option.value)}
         >

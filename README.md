@@ -352,11 +352,21 @@ eine Melodie vom Blatt singen. Eine Übung mit Rhythmus folgt später.
 
 - **Ohne Rhythmus:** gleich lange Töne, ganze Noten ohne Taktart. Gewürfelt wie beim Diktat
   (`melody.ts`): meist Schritte, Sprünge gegenläufig aufgefangen, Schluss auf dem Grundton.
-  Tritonus und Septime springt sie nie, und gleich wiederholt sich ein Ton nur, wo es nicht
-  anders geht (nur Sekunden, gerade Länge).
-- **Einstellungen** in dieser Reihenfolge: Skala (Dur und die drei Moll, ohne Kirchentonarten),
-  Maximale Anzahl Vorzeichen, Länge (4 bis 12 Töne), Tonumfang, Grösstes Intervall, Schlüssel,
-  Vor Beginn spielen, Genauigkeit, Metronom. Die Stimmlage steht wie überall unter ⚙.
+  Gleich wiederholt sich ein Ton nur, wo es nicht anders geht (nur Sekunden möglich, gerade
+  Länge).
+- **Einstellungen** in dieser Reihenfolge: Skala (Dur, die drei Moll, chromatisch; ohne
+  Kirchentonarten), Maximale Anzahl Vorzeichen, Länge (4 bis 12 Töne), Tonumfang (Terz bis
+  Oktave, dann Gesamte Stimmlage), Grösstes Intervall (Sekunde bis Oktave), Schlüssel, Vor
+  Beginn spielen, Genauigkeit, Metronom. Die Stimmlage steht wie überall unter ⚙.
+- **Chromatisch:** alle zwölf Halbtöne, ganz frei: ohne Grundton und Tonart, die Melodie
+  beginnt und endet irgendwo; vorher erklingt nur der Anfangston. Geschrieben aufwärts mit ♯,
+  abwärts mit ♭, die Vorzeichen vor den Noten. Ist chromatisch gewählt, zeigen Tonumfang und
+  Grösstes Intervall feine Intervalle (kleine Sekunde bis Oktave, mit Tritonus) und gelten in
+  Halbtönen für alle Aufgaben, auch in Dur und Moll; Sekunden gehen dort immer. Umgeschaltet
+  wird die Wahl mitgenommen (Terz ↔ grosse Terz: `FilterSpec.shownOptions`, `equivalent`).
+- **Gesamte Stimmlage:** die Melodie darf die ganze Lage nutzen, der Grundton liegt irgendwo
+  darin. Weil die Lage persönlich ist, ergibt derselbe Aufgabenlink hier je nach Stimmlage eine
+  andere Melodie.
 - **Vor Beginn spielen** (eins davon, Vorgabe Kadenz): nichts, Grundton, Kadenz (I IV V I,
   vierstimmig in Oktavlage, in Moll mit Leitton), 1 2 3 4 5 4 3 2 1, Grundton-Akkord zusammen
   oder gebrochen (1 3 5). Danach erklingt immer der Anfangston (`SingTask.prelude`).

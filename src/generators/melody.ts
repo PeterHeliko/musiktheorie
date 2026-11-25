@@ -53,6 +53,11 @@ export interface MelodyOptions {
    * derselbe Startwert ergibt dieselbe Melodie wie vorher.
    */
   forbid?: (from: number, to: number) => boolean;
+  /**
+   * Tiefste und höchste Stufe ab dem Grundton, statt sie aus `span` zu
+   * rechnen (ein Drittel unter dem Grundton) — etwa die ganze Stimmlage.
+   */
+  bounds?: { lowest: number; highest: number };
 }
 
 /**
@@ -139,11 +144,11 @@ export function usableDurations(
 export function walk(
   rng: Rng,
   count: number,
-  options: Pick<MelodyOptions, 'span' | 'maxLeap' | 'forbid'>,
+  options: Pick<MelodyOptions, 'span' | 'maxLeap' | 'forbid' | 'bounds'>,
 ): number[] {
-  const { span, maxLeap, forbid } = options;
-  const lowest = -Math.floor(span / 3);
-  const highest = lowest + span;
+  const { span, maxLeap, forbid, bounds } = options;
+  const lowest = bounds?.lowest ?? -Math.floor(span / 3);
+  const highest = bounds?.highest ?? lowest + span;
 
   if (count <= 1) return [0];
 
