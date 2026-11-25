@@ -29,7 +29,9 @@ import {
 import type { MeasureSpec, NoteSpec, ScoreSpec } from '../content/schema';
 import {
   accidentalGlyph,
+  accidentalsOfVexKey,
   diatonicIndex,
+  keySignatureSteps,
   midi,
   parsePitch,
   toVexKey,
@@ -157,7 +159,24 @@ const ACCIDENTAL_GLYPHS = {
  */
 type MeasureAlters = Map<string, number>;
 
-function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlters = new Map()): DrawnNote {
+/**
+ * Was die Tonart je Stammton vorzeichnet (`ScoreSpec.accidentalsByKey`):
+ * «G» → f: +1. Null, wo die Vorzeichen nicht nach der Tonart gehen.
+ */
+type KeyAlters = Map<Step, number> | null;
+
+function keyAltersOf(spec: ScoreSpec): KeyAlters {
+  if (!spec.accidentalsByKey) return null;
+  const { steps, sign } = keySignatureSteps(accidentalsOfVexKey(spec.keySignature ?? 'C'));
+  return new Map(steps.map((step) => [step, sign]));
+}
+
+function buildNote(
+  spec: NoteSpec,
+  clef: 'treble' | 'bass',
+  alters: MeasureAlters = new Map(),
+  keyAlters: KeyAlters = null,
+): DrawnNote {
   if (spec.glyph) {
     // GlyphNote zeichnet genau ein Zeichen auf einer Notenlinie — ohne
     // Notenkopf, ohne Hals. Die Zeile ergibt sich aus der Tonhöhe.
@@ -209,12 +228,18 @@ function buildNote(spec: NoteSpec, clef: 'treble' | 'bass', alters: MeasureAlter
       // Auflösungszeichen nur setzen, wenn es wirklich gebraucht wird —
       // ein ♮ vor jeder Stammtonnote wäre falscher Notensatz. Gebraucht wird
       // es, wenn an derselben Stelle im Takt vorher ein Vorzeichen stand.
-      const earlier = alters.get(`${pitch.step}${pitch.octave}`) ?? 0;
+      const earlier = alters.get(`${pitch.step}${pitch.octave}`);
       const headMark = headMarks.get(`${pitch.step}${pitch.alter}/${pitch.octave}`);
       const headStyle = headMark
         ? { fillStyle: headMark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR, strokeStyle: headMark === 'correct' ? CORRECT_COLOUR : WRONG_COLOUR }
         : null;
-      if (glyph && (pitch.alter !== 0 || earlier !== 0)) {
+      // Nach der Tonart: ein Zeichen nur, wo der Ton von dem abweicht, was an
+      // dieser Stelle gerade gilt — der Takt vor der Tonart. Sonst vor jedem
+      // erhöhten oder erniedrigten Ton.
+      const needed = keyAlters
+        ? pitch.alter !== (earlier ?? keyAlters.get(pitch.step) ?? 0)
+        : pitch.alter !== 0 || (earlier ?? 0) !== 0;
+      if (glyph && needed) {
         const accidental = new Accidental(glyph);
         // Das Vorzeichen gehört zum Ton: es trägt dieselbe Farbe wie sein Kopf.
         if (headStyle) accidental.setStyle(headStyle);
@@ -318,7 +343,8 @@ interface LayoutMetrics {
 }
 
 function computeLayout(spec: ScoreSpec, width: number): LayoutMetrics {
-  const accidentalCount = spec.keySignature ? Math.min(7, spec.keySignature.length + 1) : 0;
+  // Ein Zeichen Luft mehr, als die Tonart hat: VexFlow setzt davor und danach etwas Abstand.
+  const accidentalCount = spec.keySignature ? Math.min(8, Math.abs(accidentalsOfVexKey(spec.keySignature)) + 1) : 0;
   const prefix =
     (spec.hideClef ? 0 : 34) +
     (spec.keySignature && spec.keySignature !== 'C' ? 10 + accidentalCount * 11 : 0) +
@@ -379,7 +405,8 @@ function drawSystem(
 
     const specs = pick(measure);
     const alters: MeasureAlters = new Map();
-    const built = specs.map((n) => buildNote(n, clef, alters));
+    const keyAlters = keyAltersOf(spec);
+    const built = specs.map((n) => buildNote(n, clef, alters, keyAlters));
     notes.push(built);
 
     if (built.length > 0) {

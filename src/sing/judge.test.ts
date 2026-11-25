@@ -312,3 +312,27 @@ describe('freie Oktave am Ende einer Tonleiter', () => {
     expect(judgeTimed(scale, [60, 62, 64, 65, 67, 69, null, 72]).correct).toBe(false);
   });
 });
+
+describe('Melodien: nur der eben gesungene Ton darf noch einmal kommen', () => {
+  // c d e d c — in der Melodie kommen d und c zweimal vor.
+  const melody = { reference: 60, targets: [60, 62, 64, 62, 60], tolerance: 50 };
+
+  it('zählt einen früheren, nicht den eben gesungenen Ton als falsch', () => {
+    // Verlangt ist nach c d das e; gesungen wird noch einmal c.
+    expect(judgeSequence(melody, [60, 62, 60]).roles).toEqual(['right', 'right', 'repeat']);
+    const strict = judgeSequence({ ...melody, repeats: 'previous' }, [60, 62, 60]);
+    expect(strict.roles).toEqual(['right', 'right', 'wrong']);
+    expect(strict.wrong).toMatchObject([{ index: 2, expected: 2 }]);
+  });
+
+  it('übergeht den eben gesungenen Ton, etwa über ein Atemholen hinweg', () => {
+    const verdict = judgeSequence({ ...melody, repeats: 'previous' }, [60, 62, 62, 64, 62, 60]);
+    expect(verdict.roles).toEqual(['right', 'right', 'repeat', 'right', 'right', 'right']);
+    expect(verdict).toMatchObject({ done: true, correct: true });
+  });
+
+  it('nimmt einen wiederholten Ton als den nächsten, wo die Melodie ihn verlangt', () => {
+    const repeated = { reference: 60, targets: [60, 60, 62], tolerance: 50, repeats: 'previous' as const };
+    expect(judgeSequence(repeated, [60, 60, 62])).toMatchObject({ done: true, correct: true });
+  });
+});

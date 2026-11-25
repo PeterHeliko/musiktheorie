@@ -724,10 +724,19 @@ export function keySignaturePitches(accidentals: number, clef: 'treble' | 'bass'
 }
 
 /** VexFlow-Kürzel der Tonart, z.B. «Eb» für Es-Dur. Nur für die Anzeige. */
+const VEX_SHARP_KEYS = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
+const VEX_FLAT_KEYS = ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];
+
 export function vexKeySignature(accidentals: number): string {
-  const sharps = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
-  const flats = ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb'];
-  return accidentals >= 0 ? sharps[accidentals] : flats[-accidentals];
+  return accidentals >= 0 ? VEX_SHARP_KEYS[accidentals] : VEX_FLAT_KEYS[-accidentals];
+}
+
+/** Umkehrung von `vexKeySignature`: «Eb» → −3. Unbekannte Kürzel zählen als C-Dur. */
+export function accidentalsOfVexKey(name: string): number {
+  const sharps = VEX_SHARP_KEYS.indexOf(name);
+  if (sharps >= 0) return sharps;
+  const flats = VEX_FLAT_KEYS.indexOf(name);
+  return flats >= 0 ? -flats : 0;
 }
 
 /** Die sieben Stammtöne einer Durtonleiter ab dem Grundton. */

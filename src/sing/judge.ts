@@ -140,6 +140,13 @@ export interface SequenceGoal {
    * bleiben.
    */
   optionalLast?: boolean;
+  /**
+   * Welche schon gesungenen Töne übergangen werden, wenn sie noch einmal
+   * kommen: alle (Vorgabe; Akkorde und Tonleitern) oder nur der eben
+   * gesungene (Melodien, wo fast jeder Ton schon vorher vorkommt: sonst
+   * zählte kaum ein falscher Ton als falsch).
+   */
+  repeats?: 'any' | 'previous';
 }
 
 /** Wie viele Töne der Folge gesungen sein müssen. */
@@ -195,7 +202,7 @@ export interface SequenceVerdict {
  * Ton, der über ein Atemholen hinweg oder nach kurzem Schwanken noch einmal
  * als gehalten erkannt wird (hold.ts), gegen den nächsten. Das gilt auch für
  * den Grundton einer Tonleiter, obwohl er als Oktave am Schluss noch einmal
- * kommt.
+ * kommt. Bei Melodien (`repeats: 'previous'`) nur für den eben gesungenen Ton.
  */
 export function judgeSequence(goal: SequenceGoal, notes: readonly number[]): SequenceVerdict {
   const roles: SequenceRole[] = [];
@@ -210,7 +217,8 @@ export function judgeSequence(goal: SequenceGoal, notes: readonly number[]): Seq
       roles.push('after');
       return;
     }
-    const sung = [goal.reference, ...goal.targets.slice(0, at)];
+    const sung =
+      goal.repeats === 'previous' ? [goal.targets[at - 1] ?? goal.reference] : [goal.reference, ...goal.targets.slice(0, at)];
     if (at > 0 && !samePitch(goal.targets[at], note) && sung.some((tone) => samePitch(tone, note))) {
       roles.push('repeat');
       return;

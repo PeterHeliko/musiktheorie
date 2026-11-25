@@ -345,6 +345,31 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   nimmt den übrigen Platz (`fit`).
 - **Tonleitern hörend erkennen:** Tempo einstellbar (60 bis 160), Vorgabe 96.
 
+### Generierte Melodie singen
+
+`/ueben/generierte-melodie-singen/` (`src/generators/melodie-singen.ts`, Entscheide 2026-11-25):
+eine Melodie vom Blatt singen. Eine Übung mit Rhythmus folgt später.
+
+- **Ohne Rhythmus:** gleich lange Töne, ganze Noten ohne Taktart. Gewürfelt wie beim Diktat
+  (`melody.ts`): meist Schritte, Sprünge gegenläufig aufgefangen, Schluss auf dem Grundton.
+  Tritonus und Septime springt sie nie, und gleich wiederholt sich ein Ton nur, wo es nicht
+  anders geht (nur Sekunden, gerade Länge).
+- **Einstellungen** in dieser Reihenfolge: Skala (Dur und die drei Moll, ohne Kirchentonarten),
+  Maximale Anzahl Vorzeichen, Länge (4 bis 12 Töne), Tonumfang, Grösstes Intervall, Schlüssel,
+  Vor Beginn spielen, Genauigkeit, Metronom. Die Stimmlage steht wie überall unter ⚙.
+- **Vor Beginn spielen** (eins davon, Vorgabe Kadenz): nichts, Grundton, Kadenz (I IV V I,
+  vierstimmig in Oktavlage, in Moll mit Leitton), 1 2 3 4 5 4 3 2 1, Grundton-Akkord zusammen
+  oder gebrochen (1 3 5). Danach erklingt immer der Anfangston (`SingTask.prelude`).
+- **Im System** steht die ganze Melodie mit den Vorzeichen der Tonart (`ScoreSpec.accidentalsByKey`:
+  ein Zeichen nur, wo ein Ton von Tonart und Takt abweicht). Blau ist der Ton, der als
+  Nächstes dran ist, im Tempo der laufende Schlag; ein richtig gesungener wird grün, einer
+  mit falschem Versuch rot und bleibt es (`SingTask.notated`).
+- **Bewertet** wird wie bei den Tonleitern: Ton für Ton (`judgeSequence`) oder mit Metronom
+  Schlag für Schlag (`judgeTimed`). Übergangen wird nur die Wiederholung des eben gesungenen
+  Tons (`repeats: 'previous'`): in einer Melodie kommt fast jeder Ton schon vorher vor, sonst
+  zählte kaum ein falscher Ton als falsch.
+- Melodisch Moll nimmt Sexte und Septime erhöht, wenn es danach aufwärts geht, sonst natürlich.
+
 ---
 
 ## Aufbau

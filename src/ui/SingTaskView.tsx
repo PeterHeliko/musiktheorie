@@ -38,7 +38,7 @@ import type { NoteSpec, ScoreSpec, SingTask } from '../content/schema';
 import { pitchKey } from '../generators/shared';
 import { staffSpace } from '../music/staff-space';
 import { midi, parsePitch, toGermanPitch, type Pitch } from '../music/theory';
-import type { SingAnswer } from '../scoring';
+import { sequenceGoalOf, type SingAnswer } from '../scoring';
 import { drawCurve, type CurveLine, type CurvePoint } from '../sing/curve';
 import { HoldDetector } from '../sing/hold';
 import {
@@ -80,6 +80,9 @@ const REFERENCE_TEMPO = 60;
 const REFERENCE_QUARTERS = 1;
 const REFERENCE_RELEASE = 0.25;
 
+/** Pause zwischen «Vor Beginn spielen» und dem Ausgangston, in Vierteln zu REFERENCE_TEMPO. */
+const PRELUDE_GAP = 0.5;
+
 /** So viele Schläge zählt das Metronom ein, bevor der erste Ton dran ist. */
 const COUNT_IN = 4;
 
@@ -100,6 +103,8 @@ const MIN_SEMITONES = 12;
 const MAX_SEMITONES = 24;
 
 type MicState = 'off' | 'opening' | 'on' | 'error';
+/** Das Urteil über eine Tonfolge; im Tempo mit den stummen Schlägen (`judgeTimed`). */
+type TimedVerdict = SequenceVerdict & { missing?: number[] };
 type Phase = 'waiting' | 'playing' | 'listening' | 'done';
 
 export function SingTaskView({ task }: { task: SingTask }) {
@@ -112,18 +117,17 @@ export function SingTaskView({ task }: { task: SingTask }) {
   );
   const sequence = useMemo(() => task.sequence?.map(parsePitch) ?? null, [task]);
   const sequenceGoal = useMemo<SequenceGoal | null>(
-    () =>
-      sequence && {
-        reference: midi(reference),
-        targets: sequence.map(midi),
-        tolerance: task.tolerance,
-        optionalLast: task.optionalLast,
-      },
+    () => (task.sequence ? sequenceGoalOf(task, task.sequence) : null),
     [task],
   );
-  /** Wie weit die Folge ist: richtig und falsch gesungene Töne. */
-  const [progress, setProgress] = useState<SequenceVerdict | null>(null);
-  const events = useMemo<AudioEvent[]>(() => [{ pitches: [reference], quarters: REFERENCE_QUARTERS }], [task]);
+  /** Wie weit die Folge ist: richtig und falsch gesungene Töne, im Tempo auch stumme Schläge. */
+  const [progress, setProgress] = useState<TimedVerdict | null>(null);
+  /** Was vor dem Ausgangston erklingt (`task.prelude`), dann er selbst. */
+  const events = useMemo<AudioEvent[]>(() => {
+    const prelude = (task.prelude ?? []).map((sound) => ({ pitches: sound.pitches.map(parsePitch), quarters: sound.quarters }));
+    const gap = prelude.length > 0 ? [{ pitches: [], quarters: PRELUDE_GAP }] : [];
+    return [...prelude, ...gap, { pitches: [reference], quarters: REFERENCE_QUARTERS }];
+  }, [task]);
   /**
    * Nach dem Urteil spielt «Abspielen» die ganze Lösung: die Töne einzeln,
    * wie sie zu singen waren, dann zusammen — wie in den Hörübungen.
@@ -267,7 +271,10 @@ export function SingTaskView({ task }: { task: SingTask }) {
       band: task.tolerance,
       label: (at) => nameInOctave(pitch, at),
     });
-    const targets = sequence ? sequence.slice(1) : [target];
+    // Jeder Zielton einmal: in einer Melodie kommen Töne mehrfach vor.
+    const targets = (sequence ? sequence.slice(1) : [target]).filter(
+      (pitch, index, all) => all.findIndex((other) => midi(other) === midi(pitch)) === index,
+    );
     const allLines = [referenceLine, ...targets.map(targetLine)];
     // Gewöhnlich erscheinen die Zieltöne erst mit dem Urteil — sonst stünde
     // die Antwort schon da. «Ohne Fehlerurteil» zeigt sie gleich, und das
@@ -349,13 +356,19 @@ export function SingTaskView({ task }: { task: SingTask }) {
       // Eine Antwort steht erst am Ende da: dann das Urteil, vorher der Stand.
       const beats = answer<SingAnswer>(task.id)?.beats;
       const verdict = beats ? judgeTimed(sequenceGoal, beats) : sung ? judgeSequence(sequenceGoal, sung) : null;
+      if (task.notated) {
+        // Blau, was als Nächstes dran ist: im Tempo der laufende Schlag.
+        const last = sequence.length - 1;
+        const current = tempo ? Math.max(0, Math.min(clock ?? 0, last)) : Math.min(progress?.reached ?? 0, last);
+        return notatedScore(task, verdict ?? progress, verdict ? null : current);
+      }
       if (verdict && task.melodic) return attemptScore(task, verdict);
       return verdict ? sequenceScore(task, sequence, verdict) : progressScore(task, progress);
     }
     if (!sung) return task.score;
     const verdict = judgeSung(goal, sung, { untilRight: task.untilRight });
     return verdict.note === null ? task.score : verdictScore(task, target, verdict);
-  }, [task, sung, progress]);
+  }, [task, sung, progress, clock]);
 
   /**
    * Eine Tonleiter mit Fehlern: die ganze Leiter grün in einem zweiten
@@ -363,7 +376,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
    * falschen zu setzen, machte acht Töne zu sechzehn.
    */
   const solutionBelow = useMemo<ScoreSpec | null>(() => {
-    if (!task.melodic || !sequence || !sequenceGoal) return null;
+    if (!task.melodic || task.notated || !sequence || !sequenceGoal) return null;
     const beats = answer<SingAnswer>(task.id)?.beats;
     const verdict = beats ? judgeTimed(sequenceGoal, beats) : sung ? judgeSequence(sequenceGoal, sung) : null;
     if (!verdict || verdict.correct) return null;
@@ -372,6 +385,8 @@ export function SingTaskView({ task }: { task: SingTask }) {
     return { ...task.score, measures: [{ ...measure, notes }] };
   }, [task, sung]);
 
+  // Bei einer Melodie heisst der erste Ton Anfangston.
+  const startName = task.notated ? 'Anfangston' : 'Ausgangston';
   const status =
     phase === 'playing'
       ? 'Hör zu …'
@@ -380,7 +395,7 @@ export function SingTaskView({ task }: { task: SingTask }) {
         : sequence && tempo
           ? tempoStatus(clock, sequence.length)
           : sequence && sequenceGoal
-            ? sequenceStatus(progress, requiredTones(sequenceGoal))
+            ? sequenceStatus(progress, requiredTones(sequenceGoal), startName)
           : heardReference
             ? 'Ausgangston erkannt.'
             : 'Jetzt singen.';
@@ -502,13 +517,13 @@ function tempoStatus(clock: number | null, length: number): string {
 }
 
 /** Die Zeile unter der Kurve während einer Tonfolge; `length` = so viele Töne sind verlangt. */
-function sequenceStatus(progress: SequenceVerdict | null, length: number): string {
+function sequenceStatus(progress: SequenceVerdict | null, length: number, startName: string): string {
   if (!progress) return 'Jetzt singen.';
   const after = progress.right.filter((entry) => entry.step > 0).length;
   const lastWrong = progress.roles[progress.roles.length - 1] === 'wrong';
   if (lastWrong) return `${after} von ${length - 1} Tönen gesungen. Der letzte war daneben, versuch ihn noch einmal.`;
   if (after > 0) return `${after} von ${length - 1} Tönen gesungen.`;
-  return progress.right.some((entry) => entry.step === 0) ? 'Ausgangston erkannt.' : 'Jetzt singen.';
+  return progress.right.some((entry) => entry.step === 0) ? `${startName} erkannt.` : 'Jetzt singen.';
 }
 
 /**
@@ -583,6 +598,25 @@ function attemptScore(task: SingTask, verdict: SequenceVerdict): ScoreSpec {
     space: { above: Math.max(before.above, needed.above), below: Math.max(before.below, needed.below) },
     measures: [{ ...measure, notes }],
   };
+}
+
+/**
+ * Eine Melodie vom Blatt (`task.notated`, Entscheid 2026-11-25): alle Töne
+ * stehen von Anfang an da. Grün, was auf Anhieb richtig gesungen ist; rot, wo
+ * ein falscher Versuch kam (im Tempo auch ein stummer Schlag), und das bleibt
+ * so, auch wenn der Ton danach stimmt. Blau der Ton, der als Nächstes dran
+ * ist (`current`), solange gesungen wird; ein roter bleibt dabei rot.
+ */
+function notatedScore(task: SingTask, verdict: TimedVerdict | null, current: number | null): ScoreSpec {
+  const wrong = new Set([...(verdict?.wrong.map((entry) => entry.expected) ?? []), ...(verdict?.missing ?? [])]);
+  const right = new Set(verdict?.right.map((entry) => entry.step) ?? []);
+  const [measure] = task.score.measures;
+  const notes = measure.notes.map((note, step): NoteSpec => {
+    if (wrong.has(step)) return { ...note, mark: 'wrong' };
+    if (right.has(step)) return { ...note, mark: 'correct' };
+    return step === current ? { ...note, highlight: true } : note;
+  });
+  return { ...task.score, measures: [{ ...measure, notes }] };
 }
 
 /**

@@ -19,7 +19,7 @@ import type {
   TextTableTask,
 } from '../content/schema';
 import { keyNames, whiteIndex } from '../music/piano';
-import { judgeSequence, judgeSung, judgeTimed } from '../sing/judge';
+import { judgeSequence, judgeSung, judgeTimed, type SequenceGoal } from '../sing/judge';
 import { describeChordRule, describeKeys, describeNotes, judgeChordKeys, judgeChordNotes } from './chord';
 import { nameFromMidi, pitchFromMidi } from '../sing/notes';
 import {
@@ -442,14 +442,24 @@ function describeSung(name: string, cents: number | null): string {
  * Eine gesungene Tonfolge: richtig ist sie, wenn alle Töne in der
  * Reihenfolge kamen und keiner falsch war (`judgeSequence`).
  */
-function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswer | undefined): Detail[] {
-  const targets = sequence.map(parsePitch);
-  const goal = {
+/**
+ * Die Regeln einer gesungenen Tonfolge (`judgeSequence`, `judgeTimed`) aus
+ * der Aufgabe. Ansicht und Bewertung nehmen beide diese, damit sie nicht
+ * auseinanderlaufen.
+ */
+export function sequenceGoalOf(task: SingTask, sequence: string[]): SequenceGoal {
+  return {
     reference: midi(parsePitch(task.reference)),
-    targets: targets.map(midi),
+    targets: sequence.map((key) => midi(parsePitch(key))),
     tolerance: task.tolerance,
     optionalLast: task.optionalLast,
+    ...(task.notated ? { repeats: 'previous' as const } : {}),
   };
+}
+
+function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswer | undefined): Detail[] {
+  const targets = sequence.map(parsePitch);
+  const goal = sequenceGoalOf(task, sequence);
   const timed = task.tempo !== undefined;
   const verdict = timed ? judgeTimed(goal, answer?.beats ?? []) : judgeSequence(goal, answer?.notes ?? []);
   // In der gesungenen Reihenfolge: richtige Töne heissen wie notiert, in der

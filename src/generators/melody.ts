@@ -47,6 +47,12 @@ export interface MelodyOptions {
   span: number;
   /** Grösster erlaubter Sprung in Tonleiterstufen (1 = nur Sekundschritte). */
   maxLeap: number;
+  /**
+   * Schritte, die nicht vorkommen dürfen, als Stufen ab dem Grundton (etwa
+   * ein Tritonus, der sich schwer singen lässt). Ohne: alle erlaubt — und
+   * derselbe Startwert ergibt dieselbe Melodie wie vorher.
+   */
+  forbid?: (from: number, to: number) => boolean;
 }
 
 /**
@@ -130,8 +136,12 @@ export function usableDurations(
  * `degree` zählt Stufen ab dem Grundton, 0 = Grundton, 7 = Oktave. Negative
  * Werte gehen unter den Grundton — erlaubt, solange der Umfang stimmt.
  */
-function walk(rng: Rng, count: number, options: MelodyOptions): number[] {
-  const { span, maxLeap } = options;
+export function walk(
+  rng: Rng,
+  count: number,
+  options: Pick<MelodyOptions, 'span' | 'maxLeap' | 'forbid'>,
+): number[] {
+  const { span, maxLeap, forbid } = options;
   const lowest = -Math.floor(span / 3);
   const highest = lowest + span;
 
@@ -192,14 +202,21 @@ function walk(rng: Rng, count: number, options: MelodyOptions): number[] {
     // der Grundton danach noch schrittweise erreichbar ist.
     const reachesEnd = (value: number) => Math.abs(nearestTonic(value) - value) <= after * maxLeap;
     const inRange = (value: number) => value >= lowest && value <= highest;
+    const allowed = (value: number) => !forbid?.(current, value);
 
     const candidates = [current + preferred * size, current - preferred * size, current];
-    let next = candidates.find((value) => inRange(value) && reachesEnd(value));
+    let next = candidates.find((value) => inRange(value) && reachesEnd(value) && allowed(value));
 
     if (next === undefined) {
-      // Nichts passt: geradewegs auf den Grundton zu, so weit wie erlaubt.
-      const step = Math.sign(target - current) * Math.min(maxLeap, Math.abs(target - current));
-      next = current + step;
+      // Nichts passt: geradewegs auf den Grundton zu, so weit wie erlaubt —
+      // mit `forbid` der weiteste Schritt, der nicht verboten ist und den
+      // Schluss noch erreicht. Ohne `forbid` immer der weiteste, wie bisher.
+      const direction = Math.sign(target - current);
+      const widest = Math.min(maxLeap, Math.abs(target - current));
+      const sizes = Array.from({ length: widest }, (_, index) => widest - index);
+      const fits = (size: number) => allowed(current + direction * size) && reachesEnd(current + direction * size);
+      const size = forbid ? (sizes.find(fits) ?? widest) : widest;
+      next = current + direction * size;
     }
 
     lastLeap = next - current;
@@ -211,7 +228,7 @@ function walk(rng: Rng, count: number, options: MelodyOptions): number[] {
 }
 
 /** Stufe → Tonhöhe in der gewählten Tonart. */
-function pitchForDegree(degree: number, options: MelodyOptions): Pitch {
+export function pitchForDegree(degree: number, options: Pick<MelodyOptions, 'tonic' | 'scale'>): Pitch {
   const pattern = SCALE_PATTERNS[options.scale];
   // Die Muster enthalten die Oktave als achten Eintrag; für die Rechnung
   // zählen die sieben Stufen.

@@ -77,6 +77,7 @@ const MODES = {
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
   'tonleitern-singen': 'Tonleitern singen',
   melodiediktat: 'Rhythmus- und Melodiediktat',
+  'generierte-melodie-singen': 'Generierte Melodie singen',
 };
 const MODE_IDS = Object.keys(MODES);
 
@@ -1924,6 +1925,83 @@ async function main() {
       `nach acht Schlägen: Falsch, die Leiter grün darunter (${solutionNotes} Töne)`,
     );
     await singPage.screenshot({ path: join(SHOTS, 'tonleitern-singen-metronom.png') });
+
+    // Generierte Melodie singen: feste Aufgabe G-Dur g a h e fis g d g, mit
+    // der Kadenz davor. Die ganze Melodie steht da, mit den Vorzeichen der
+    // Tonart (das fis ohne eigenes ♯); der nächste Ton ist blau. Nach dem
+    // gesungenen g ist es grün, das a blau.
+    console.log('\nGenerierte Melodie singen');
+    const melodyColours = () =>
+      singPage.locator('.sing-task .score svg .vf-stavenote').evaluateAll((notes) =>
+        notes.map((note) =>
+          note.outerHTML.includes('#00d903')
+            ? 'green'
+            : note.outerHTML.includes('#b3261e')
+              ? 'red'
+              : note.outerHTML.includes('#1d6fa5')
+                ? 'blue'
+                : 'black',
+        ),
+      );
+    await singPage.goto(`${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&aufgabe=a&v=1`, {
+      waitUntil: 'networkidle',
+    });
+    check((await singPage.locator('.sing-task .task-prompt').innerText()) === 'G-Dur', 'nennt die Tonart');
+    const before = await melodyColours();
+    check(
+      before.join(' ') === 'blue black black black black black black black',
+      `alle acht Töne stehen da, der erste blau (${before.join(', ')})`,
+    );
+    const sharps = await singPage
+      .locator('.sing-task .score svg')
+      .evaluate((svg) => [...(svg.textContent ?? '')].filter((glyph) => glyph === '').length);
+    check(sharps === 1, `nur das ♯ der Tonart, keins vor dem fis (${sharps})`);
+    await singPage.locator('.sing-mic button').click();
+    let melodyStart = '';
+    try {
+      await singPage.waitForFunction(
+        () => document.querySelector('.sing-status')?.textContent?.includes('Anfangston erkannt'),
+        null,
+        { timeout: 20_000 },
+      );
+      melodyStart = 'Anfangston erkannt.';
+    } catch {
+      melodyStart = await singPage.locator('.sing-status').innerText();
+    }
+    check(melodyStart === 'Anfangston erkannt.', `nach der Kadenz zählt das g als Anfangston («${melodyStart}»)`);
+    await eventually(singPage, () =>
+      [...document.querySelectorAll('.sing-task .score svg .vf-stavenote')][0]?.outerHTML.includes('#00d903'),
+    );
+    const sungFirst = await melodyColours();
+    check(
+      sungFirst.slice(0, 3).join(' ') === 'green blue black' && (await singPage.locator('.verdict').count()) === 0,
+      `das g grün, das a blau, kein Urteil (${sungFirst.join(', ')})`,
+    );
+    await singPage.screenshot({ path: join(SHOTS, 'melodie-singen-zaehlt.png') });
+
+    // Mit Metronom, vier Töne g a h g, ohne etwas davor: danach Falsch, a und
+    // h rot, und jeder Ton ist bewertet. Ob die beiden g grün werden, hängt
+    // davon ab, ob das künstliche Mikrofon auf dem Schlag gerade klingt: sein
+    // Dauerton setzt zwischendurch aus (gestrichelte Kurve).
+    await singPage.goto(
+      `${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&laenge=4&vorspiel=nichts&metronom=100&aufgabe=a&v=1`,
+      { waitUntil: 'networkidle' },
+    );
+    await singPage.locator('.sing-mic button').click();
+    await singPage.waitForSelector('.verdict', { timeout: 15_000 });
+    await eventually(singPage, () =>
+      [...document.querySelectorAll('.sing-task .score svg .vf-stavenote')].some((note) => note.outerHTML.includes('#b3261e')),
+    );
+    const timedMelody = await melodyColours();
+    check(
+      (await singPage.locator('.verdict-text').innerText()) === 'Falsch' &&
+        timedMelody.length === 4 &&
+        timedMelody[1] === 'red' &&
+        timedMelody[2] === 'red' &&
+        timedMelody.every((colour) => colour === 'green' || colour === 'red'),
+      `im Tempo: Falsch, a und h rot, jeder Ton bewertet (${timedMelody.join(', ')})`,
+    );
+    await singPage.screenshot({ path: join(SHOTS, 'melodie-singen-metronom.png') });
 
     // «Ohne Fehlerurteil»: das falsche g beendet die Aufgabe nicht.
     await singPage.goto(

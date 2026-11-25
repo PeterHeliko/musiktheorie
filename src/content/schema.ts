@@ -79,6 +79,12 @@ export interface ScoreSpec {
   hideClef?: boolean;
   /** VexFlow-Kürzel, z.B. «Eb». Weglassen = keine Vorzeichen. */
   keySignature?: string;
+  /**
+   * Vorzeichen vor den Noten wie im Notensatz üblich: nur, wo ein Ton von dem
+   * abweicht, was Tonart und Takt vorgeben (fis in G-Dur ohne ♯, f mit ♮).
+   * Ohne: vor jedem erhöhten oder erniedrigten Ton, wie bei der Eingabe.
+   */
+  accidentalsByKey?: boolean;
   timeSignature?: string;
   measures: MeasureSpec[];
   /** Breite in Pixeln; wird bei Bedarf responsiv skaliert. */
@@ -312,6 +318,21 @@ export interface SingTask extends TaskBase {
   optionalLast?: boolean;
   /** So lange muss ein Ton ruhig gehalten sein, bis er zählt (ms); ohne: HOLD_MS. */
   holdMs?: number;
+  /**
+   * Die ganze Folge steht von Anfang an im System, wie eine Melodie vom Blatt
+   * (Entscheid 2026-11-25): der Ton, der als Nächstes dran ist, steht blau,
+   * ein richtig gesungener wird grün, einer mit falschem Versuch rot und
+   * bleibt es. Übergangen wird dann nur die Wiederholung des eben gesungenen
+   * Tons (`SequenceGoal.repeats`), denn in einer Melodie kommt fast jeder
+   * Ton schon vorher vor.
+   */
+  notated?: boolean;
+  /**
+   * Was vor dem Ausgangston erklingt («Vor Beginn spielen»): Klänge mit
+   * Dauer in Vierteln zu 60 Schlägen (eine Viertel = eine Sekunde). Der
+   * Ausgangston folgt immer danach.
+   */
+  prelude?: { pitches: string[]; quarters: number }[];
   /**
    * «Ohne Fehlerurteil»: falsche Töne beenden die Aufgabe nicht, gesungen
    * wird bis zum richtigen (sing/judge.ts).
