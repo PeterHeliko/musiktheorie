@@ -11,7 +11,7 @@ import { scoreTask } from '../scoring';
 import { VOICE_RANGES } from '../sing/voice';
 import { withShown } from '../ui/FilterFields';
 import { generatorById } from './index';
-import { cadence, melodyPitches, spell } from './melodie-singen';
+import { cadence, melodyPitches, spell } from './melodie-shared';
 import { makeRng } from './rng';
 import type { FilterSpec, FilterValues } from './types';
 

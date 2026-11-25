@@ -17,6 +17,7 @@ import { expandAudioItem, tempoFor, type AudioEvent } from '../content/audio';
 import { gehoerDiktat, toAudioEvents } from './gehoer-diktat';
 import { gehoerIntervalle } from './gehoer-intervalle';
 import { gehoerTonleitern } from './gehoer-tonleitern';
+import { melodieDiktat } from './melodie-diktat';
 import { melodieSingen } from './melodie-singen';
 import {
   dreiklaengeBenennen,
@@ -123,6 +124,7 @@ export const GENERATORS: Generator<FilterValues>[] = [
   tonleiternKlaviatur,
   gehoerTonleitern,
   tonleiternSingen,
+  melodieDiktat,
   gehoerDiktat,
   melodieSingen,
 ];

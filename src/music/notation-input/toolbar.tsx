@@ -149,8 +149,10 @@ export function AccidentalPalette({
   label = 'Vorzeichen',
   bare = false,
   only,
+  byKey = false,
 }: {
-  value: number;
+  /** Die gewählte Versetzung; null (nur mit `byKey`): keine, es gilt die Tonart. */
+  value: number | null;
   onChange: (alter: number) => void;
   disabled?: boolean;
   label?: string;
@@ -158,6 +160,11 @@ export function AccidentalPalette({
   bare?: boolean;
   /** Nur diese Versetzungen anbieten — ♯ und ♭ beim Vorzeichensetzen. */
   only?: number[];
+  /**
+   * Die Tonart gilt beim Setzen (Generiertes Melodiediktat): ♮ ist dann ein
+   * Auflösungszeichen, und ohne gewähltes Zeichen ist keiner der Knöpfe an.
+   */
+  byKey?: boolean;
 }) {
   const choices = only ? ACCIDENTALS.filter((accidental) => only.includes(accidental.alter)) : ACCIDENTALS;
   return (
@@ -172,7 +179,7 @@ export function AccidentalPalette({
               type="button"
               class={`tool ${active ? 'is-active' : ''} ${bare ? 'tool-glyph' : ''}`}
               title={bare ? undefined : accidental.label}
-              aria-label={accidental.label}
+              aria-label={byKey && accidental.alter === 0 ? 'Auflösungszeichen' : accidental.label}
               aria-pressed={active}
               disabled={disabled}
               onClick={() => onChange(accidental.alter)}

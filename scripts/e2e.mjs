@@ -76,6 +76,7 @@ const MODES = {
   'tonleitern-klaviatur': 'Tonleitern auf Klaviatur markieren',
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
   'tonleitern-singen': 'Tonleitern singen',
+  'generiertes-melodiediktat': 'Generiertes Melodiediktat',
   melodiediktat: 'Rhythmus- und Melodiediktat',
   'generierte-melodie-singen': 'Generierte Melodie singen',
 };
@@ -1864,6 +1865,50 @@ async function main() {
       'ohne die Oktave am Ende: Richtig',
     );
     await page.screenshot({ path: join(SHOTS, 'tonleitern-notieren-plaetze.png') });
+
+    // ------------------------------------------------- Generiertes Melodiediktat
+    // D-Dur, der erste Ton a², dann g² fis² e² fis² …: die Tonart gilt beim
+    // Setzen. Auf der obersten Linie gesetzt, steht fis²; ein gewähltes ♮ gilt
+    // nur für einen Ton, ein zweiter Druck nimmt es wieder weg.
+    console.log('\nGeneriertes Melodiediktat');
+    await page.goto(exercise('generiertes-melodiediktat', '?tonleitern=dur&max-vorzeichen=2&aufgabe=2&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('.slot-button.is-active');
+    check((await page.locator('.question-notation .task-prompt').innerText()) === 'D-Dur', 'nennt die Tonart');
+    check((await page.locator('.slot-button').count()) === 7, 'ein leerer Platz je Ton nach dem ersten');
+    const dictation = await page.locator('.score-click-area svg .vf-stave').first().boundingBox();
+    const dictationHalf = dictation.height / 8;
+    const natural = page.locator('.notation-input .toolbar .tool[aria-label="Auflösungszeichen"]');
+    const dictationSummary = () => page.locator('.input-summary').innerText();
+    const placeAt = async (steps) => {
+      await page.mouse.click(dictation.x + 15, dictation.y - steps * dictationHalf);
+      await page.waitForTimeout(80);
+    };
+    await placeAt(1);
+    await placeAt(0);
+    check(/g2, fis2$/.test(await dictationSummary()), `auf der F-Linie steht in D-Dur fis («${await dictationSummary()}»)`);
+    await natural.click();
+    check((await natural.getAttribute('aria-pressed')) === 'true', '♮ gewählt für den nächsten Ton');
+    await placeAt(0);
+    check((await natural.getAttribute('aria-pressed')) === 'false', 'nach dem Setzen ist ♮ wieder ab');
+    await placeAt(0);
+    check(/g2, fis2, f2, fis2$/.test(await dictationSummary()), `♮ galt nur für einen Ton («${await dictationSummary()}»)`);
+    await page.locator('.slot-button', { hasText: '4' }).click();
+    check((await natural.getAttribute('aria-pressed')) === 'true', 'der Platz mit f zeigt sein ♮');
+    await natural.click();
+    check(/g2, fis2, fis2, fis2$/.test(await dictationSummary()), `ein zweiter Druck nimmt das ♮ weg («${await dictationSummary()}»)`);
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    const dictationColours = await eventually(page, () => {
+      const html = document.querySelector('.score-click-area svg')?.outerHTML ?? '';
+      return html.includes('#00d903') && html.includes('#b3261e');
+    });
+    check(
+      dictationColours && (await page.locator('.score-solution').count()) === 1,
+      'geprüft: richtige Töne grün, falsche rot, die Melodie grün darunter',
+    );
+    await page.screenshot({ path: join(SHOTS, 'melodiediktat-generiert.png') });
 
     // Vorzeichen setzen: das fis im untersten Zwischenraum ist richtig, aber
     // üblich steht es oben. Bernsteinfarben daneben, mit einer Zeile.

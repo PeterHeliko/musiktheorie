@@ -30,8 +30,10 @@ import {
   type RenderedScore,
 } from '../render';
 import {
+  accidentalsOfVexKey,
   diatonicIndex,
   keySignaturePitches,
+  keySignatureSteps,
   midi,
   naturalAt,
   nearestWithStep,
@@ -495,6 +497,18 @@ function solutionNote(
   return { keys: [nearest], duration: 'w', mark: 'correct' };
 }
 
+/**
+ * Steht das System nach der Tonart (`ScoreSpec.accidentalsByKey`), gilt sie
+ * auch beim Setzen (Generiertes Melodiediktat, Entscheid 2026-11-25): ein Ton
+ * auf der F-Linie ist in D-Dur fis. Je Stammton, was die Tonart vorzeichnet;
+ * null, wo sie beim Setzen nicht gilt.
+ */
+function keyAltersFor(score: ScoreSpec): Map<Step, number> | null {
+  if (!score.accidentalsByKey) return null;
+  const { steps, sign } = keySignatureSteps(accidentalsOfVexKey(score.keySignature ?? 'C'));
+  return new Map(steps.map((step) => [step, sign]));
+}
+
 /** Der aktive Platz: der gewählte, sonst der erste leere, sonst der erste. */
 function pickActive(slots: PitchSlotSolution[], placed: PitchAnswer, active: number | null): PitchSlotSolution {
   return (
@@ -524,7 +538,18 @@ function previousNote(task: NotationTask, slots: PitchSlotSolution[], placed: Pi
 function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as PitchAnswer | undefined) ?? {};
-  const [alter, setAlter] = useState(0);
+  const keyAlters = useMemo(() => keyAltersFor(task.score), [task.score]);
+  /**
+   * Das Vorzeichen für den nächsten Ton. Gilt die Tonart (`keyAlters`), heisst
+   * null: keines, der Ton bekommt, was die Tonart vorzeichnet. Ein gewähltes
+   * gilt dann nur für einen Ton; ein leerer Platz beginnt wieder ohne.
+   */
+  const [alter, setAlter] = useState<number | null>(keyAlters ? null : 0);
+  /** Die Versetzung eines Tons auf dieser Stufe: die gewählte, sonst die der Tonart. */
+  const alterAt = (diatonic: number) => alter ?? keyAlters?.get(diatonicToStep(diatonic).step) ?? 0;
+  /** Wie die Vorzeichenknöpfe einen Ton zeigen: wie die Tonart ihn vorzeichnet, als keines. */
+  const shownAlter = (step: Step, value: number): number | null =>
+    keyAlters && value === (keyAlters.get(step) ?? 0) ? null : value;
   const { rendered, onRendered, live } = useRenderedRef();
   const { hover, onMove, onLeave } = useHover(live, !readOnly);
   const area = useRef<HTMLDivElement>(null);
@@ -551,9 +576,11 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   // Die Vorzeichenknöpfe zeigen das Vorzeichen des Tons im aktuellen Platz
   // (siehe changeAlter). Holt Rückgängig oder Wiederholen einen Ton mit
   // anderem Vorzeichen zurück, oder wird ein anderer Platz gewählt, folgen sie ihm.
-  const currentAlter = current ? placed[String(current.slot)]?.[0]?.a : undefined;
+  const currentNote = current ? placed[String(current.slot)]?.[0] : undefined;
+  const currentAlter = currentNote ? shownAlter(currentNote.s, currentNote.a) : undefined;
   useEffect(() => {
     if (currentAlter !== undefined) setAlter(currentAlter);
+    else if (keyAlters) setAlter(null);
   }, [currentAlter, current?.slot]);
 
   /**
@@ -664,7 +691,7 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
       // wo zuletzt gesetzt wurde, und zeichnete sonst einen zweiten Kopf.
       const previewKey =
         !readOnly && hover && target?.slot === index
-          ? noteKey(noteFrom(hover.diatonic, alter, { duration: 'w', dotted: false }))
+          ? noteKey(noteFrom(hover.diatonic, alterAt(hover.diatonic), { duration: 'w', dotted: false }))
           : null;
 
       if (slot.chord) {
@@ -759,7 +786,7 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     const target = activeSlot ?? slotNear(hit.x);
     const key = String(target.slot);
     const own = placed[key] ?? [];
-    const incoming = noteFrom(hit.diatonic, alter, { duration: 'w', dotted: false });
+    const incoming = noteFrom(hit.diatonic, alterAt(hit.diatonic), { duration: 'w', dotted: false });
     if (activeSlot) {
       // Gesetzt in den aktiven Platz; dann weiter zum nächsten leeren.
       const next = { ...placed, [key]: [incoming] };
@@ -792,12 +819,19 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
    */
   const lone = !isChord && slots.length === 1 ? slots[0] : null;
 
+  /** Was die Vorzeichenknöpfe zeigen: das Vorzeichen des Tons im aktuellen Platz, sonst das gewählte. */
+  const shown = keyAlters && currentNote ? shownAlter(currentNote.s, currentNote.a) : alter;
+
   function changeAlter(next: number) {
-    setAlter(next);
+    // Gilt die Tonart, nimmt ein zweiter Druck das Vorzeichen wieder weg.
+    const value = keyAlters && next === shown ? null : next;
+    setAlter(value);
     if (!current || readOnly) return;
     const key = String(current.slot);
     const own = placed[key];
-    if (own?.length === 1 && own[0].a !== next) update({ ...placed, [key]: [{ ...own[0], a: next }] });
+    if (own?.length !== 1) return;
+    const a = value ?? keyAlters?.get(own[0].s) ?? 0;
+    if (own[0].a !== a) update({ ...placed, [key]: [{ ...own[0], a }] });
   }
 
   /**
@@ -858,7 +892,7 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     // Auch am Rand des Erlaubten sollen die Pfeile die Seite nicht verschieben.
     event.preventDefault();
     if (!withinReach(next)) return;
-    setAlter(next.alter);
+    setAlter(shownAlter(next.step, next.alter));
     update({ ...placed, [key]: [{ s: next.step, o: next.octave, a: next.alter, d: 'w' }] });
   }
 
@@ -881,10 +915,11 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
         {/* Ohne Vorzeichen bleibt `alter` bei 0: gesetzt werden nur Stammtöne. */}
         {!task.noAccidentals && (
           <AccidentalPalette
-            value={alter}
+            value={shown}
             onChange={changeAlter}
             disabled={readOnly}
-            label={lone ? 'Vorzeichen' : 'Vorzeichen für den nächsten Ton'}
+            label={keyAlters ? 'Vorzeichen, wo der Ton von der Tonart abweicht' : lone ? 'Vorzeichen' : 'Vorzeichen für den nächsten Ton'}
+            byKey={Boolean(keyAlters)}
             bare
           />
         )}
