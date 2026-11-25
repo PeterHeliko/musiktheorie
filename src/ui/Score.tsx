@@ -103,6 +103,8 @@ function fitToRoom(container: HTMLDivElement, { maxScale, minScale = 0 }: NonNul
 function reserved(column: Element): number {
   let difference = 0;
   for (const element of column.querySelectorAll<HTMLElement>('[data-fit-reserve]')) {
+    // Ausgeblendet (die Klaviatur quer nach dem Prüfen) braucht sie keinen Platz.
+    if (element.getClientRects().length === 0) continue;
     difference += Number(element.dataset.fitReserve) - element.getBoundingClientRect().height;
   }
   return difference;

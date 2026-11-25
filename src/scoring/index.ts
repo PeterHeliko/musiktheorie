@@ -587,7 +587,7 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
       const played = keys[index];
       const correct = played === key;
       return {
-        id: `${task.id}_t${index + 2}`,
+        id: `${task.id}_t${index + 1}`,
         label: task.prompt ?? 'Melodie',
         earned: correct ? perNote : 0,
         possible: perNote,

@@ -1957,11 +1957,51 @@ async function main() {
     const twoLineSummary = await twoLines.locator('.input-summary').innerText();
     check(/fis2, fis2$/.test(twoLineSummary), `in beiden Zeilen gilt die Zeile unter dem Finger («${twoLineSummary}»)`);
     await twoLines.screenshot({ path: join(SHOTS, 'melodiediktat-zwei-zeilen.png') });
+
+    // Ein Fingertipp auf die oberste Linie setzt fis², statt auf den nahen
+    // ♭-Knopf umgelenkt zu werden: das Notenbild ist für den Browser
+    // antippbar (onClick in usePointerPlacement). Ebenso landete ein tiefer
+    // Ton nicht auf der Nummer seines Platzes.
+    await twoLines.goto(exercise('generiertes-melodiediktat', '?tonleitern=dur&max-vorzeichen=4&aufgabe=5&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await twoLines.waitForSelector('.slot-button.is-active');
+    await twoLines.waitForTimeout(300);
+    const oneLine = await twoLines.locator('.score-click-area svg .vf-stave').first().boundingBox();
+    await twoLines.touchscreen.tap(oneLine.x + 15, oneLine.y);
+    await twoLines.waitForTimeout(150);
+    const flatPressed = await twoLines.locator('.toolbar .tool[aria-pressed="true"]').count();
+    const tapSummary = await twoLines.locator('.input-summary').innerText();
+    check(/fis2$/.test(tapSummary) && flatPressed === 0, `Fingertipp auf die oberste Linie: fis², kein ♭ («${tapSummary}»)`);
     await dictationPhone.close();
 
+    // Quer: Tonart, Werkzeugleiste und rechts der Abspielknopf in einer Zeile.
+    const dictationQuer = await browser.newPage({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true });
+    await dictationQuer.goto(exercise('generiertes-melodiediktat', '?tonleitern=dur&max-vorzeichen=2&aufgabe=2&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await dictationQuer.waitForSelector('.slot-button.is-active');
+    await dictationQuer.waitForTimeout(300);
+    const [dqPrompt, dqToolbar, dqPlayer, dqStaff] = await Promise.all(
+      ['.question-notation .task-prompt', '.notation-input .toolbar', '.question .audio-player', '.score-click-area svg'].map((selector) =>
+        dictationQuer.locator(selector).first().boundingBox(),
+      ),
+    );
+    const rowMiddle = (box) => box.y + box.height / 2;
+    check(
+      Math.abs(rowMiddle(dqPrompt) - rowMiddle(dqToolbar)) < 20 &&
+        Math.abs(rowMiddle(dqToolbar) - rowMiddle(dqPlayer)) < 20 &&
+        dqPlayer.x >= dqToolbar.x + dqToolbar.width - 1 &&
+        dqStaff.y >= dqPlayer.y + dqPlayer.height - 1,
+      'quer: Tonart, Werkzeugleiste und rechts der Abspielknopf in einer Zeile, darunter das System',
+    );
+    await dictationQuer.screenshot({ path: join(SHOTS, 'melodiediktat-quer.png') });
+    await dictationQuer.close();
+
     // ------------------------------------------ Gehörte Melodie auf Klaviatur
-    // Dieselbe Melodie auf der Klaviatur c¹ bis h², a² blau markiert. Jede
-    // Taste füllt den nächsten Platz; sind alle voll, klingt sie nur noch.
+    // Dieselbe Melodie auf der Klaviatur c¹ bis h², keine Taste markiert, der
+    // erste Ton a² grau im System. Jede Taste füllt den nächsten Platz, die
+    // erste ersetzt den grauen Ton; sind alle voll, klingt sie nur noch.
     console.log('\nGehörte Melodie auf Klaviatur spielen');
     await page.goto(exercise('gehoerte-melodie-klaviatur-spielen', '?tonleitern=dur&max-vorzeichen=2&aufgabe=2&v=1'), {
       waitUntil: 'networkidle',
@@ -1969,17 +2009,19 @@ async function main() {
     await page.waitForSelector('.keyboard-task .score svg');
     check((await page.locator('.keyboard-task .task-prompt').innerText()) === 'D-Dur', 'nennt die Tonart');
     check(
-      (await page.locator('.question .piano-key[data-state="given"]').getAttribute('data-key')) === '81' &&
+      (await page.locator('.question .piano-key[data-state="given"]').count()) === 0 &&
         (await page.locator('.question .piano-key').first().getAttribute('data-key')) === '60',
-      'Klaviatur ab c¹, die erste Taste a² blau',
+      'Klaviatur ab c¹, keine Taste markiert',
     );
     const playedNotes = () => page.locator('.keyboard-task > .score svg .vf-stavenote').count();
-    check((await playedNotes()) === 1, 'im System steht zuerst nur der erste Ton');
-    // Richtig: g² fis² e²; dann f² statt fis² (falsch), der Rest richtig.
-    for (const key of [79, 78, 76, 77, 71, 73, 74]) {
+    const greyFirst = await page.locator('.keyboard-task > .score svg').evaluate((svg) => svg.outerHTML.includes('#b0b7c3'));
+    check((await playedNotes()) === 1 && greyFirst, 'im System steht zuerst nur der erste Ton, grau');
+    // Richtig: a² g² fis² e²; dann f² statt fis² (falsch), der Rest richtig.
+    for (const key of [81, 79, 78, 76, 77, 71, 73, 74]) {
       await page.locator(`.question .piano-key[data-key="${key}"]`).click();
     }
-    check((await playedNotes()) === 8, `jede Taste füllt einen Platz (${await playedNotes()} Noten)`);
+    const stillGrey = await page.locator('.keyboard-task > .score svg').evaluate((svg) => svg.outerHTML.includes('#b0b7c3'));
+    check((await playedNotes()) === 8 && !stillGrey, `jede Taste füllt einen Platz, die erste den grauen (${await playedNotes()} Noten)`);
     await page.locator('.question .piano-key[data-key="60"]').click();
     check((await playedNotes()) === 8, 'alle Plätze voll: eine weitere Taste kommt nicht dazu');
     await checkButton.click();
@@ -1989,8 +2031,8 @@ async function main() {
       return html.includes('#00d903') && html.includes('#b3261e');
     });
     check(
-      keyboardColours && (await page.locator('.keyboard-task .score-solution').count()) === 1,
-      'geprüft: richtige Töne grün, der falsche rot, die Melodie grün darunter',
+      keyboardColours && (await page.locator('.keyboard-task > .score svg .vf-stave').count()) === 2,
+      'geprüft: richtige Töne grün, der falsche rot, die Melodie grün in einer zweiten Zeile darunter',
     );
     check(
       (await page.locator('.question .piano-key[data-state="right"], .question .piano-key[data-state="wrong"]').count()) === 0,
@@ -2012,15 +2054,30 @@ async function main() {
       ),
     );
     const middle = (box) => box.y + box.height / 2;
+    const quButton = await melodyQuer.locator('.question .play-button').boundingBox();
     check(
       Math.abs(middle(quPromptBox) - middle(quPlayerBox)) < 20 &&
+        quButton.x + quButton.width > quPlayerBox.x + quPlayerBox.width - 2 &&
         quStaffBox.height >= 60 &&
         quPianoBox.x >= 0 &&
         quPianoBox.x + quPianoBox.width <= 844 &&
         quPianoBox.y + quPianoBox.height <= quBarBox.y + 1,
-      `quer: Tonart neben dem Abspielknopf, System ${Math.round(quStaffBox.height)} px hoch, Klaviatur ganz im Bild`,
+      `quer: Tonart und rechts der Abspielknopf in einer Zeile, System ${Math.round(quStaffBox.height)} px hoch, Klaviatur ganz im Bild`,
     );
     await melodyQuer.screenshot({ path: join(SHOTS, 'melodie-klaviatur-quer.png') });
+    // Nach dem Prüfen (ein Ton falsch) macht die Klaviatur den beiden Systemen Platz.
+    for (const key of [81, 79, 78, 76, 77, 71, 73, 74]) await melodyQuer.locator(`.question .piano-key[data-key="${key}"]`).tap();
+    await melodyQuer.locator('.session-bar button:has-text("Prüfen")').tap();
+    await melodyQuer.waitForSelector('.verdict');
+    await melodyQuer.waitForTimeout(300);
+    const quLines = await melodyQuer
+      .locator('.keyboard-task > .score svg .vf-stave')
+      .evaluateAll((staves) => staves.map((stave) => Math.round(stave.getBoundingClientRect().height)));
+    check(
+      !(await melodyQuer.locator('.question .piano').isVisible()) && quLines.length === 2 && quLines.every((height) => height >= 30),
+      `quer, geprüft: ohne Klaviatur, gespielt und richtig je eine Zeile, Linien ${quLines.join(' und ')} px hoch`,
+    );
+    await melodyQuer.screenshot({ path: join(SHOTS, 'melodie-klaviatur-quer-geprueft.png') });
     await melodyQuer.close();
 
     // Vorzeichen setzen: das fis im untersten Zwischenraum ist richtig, aber

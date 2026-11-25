@@ -374,6 +374,14 @@ function usePointerPlacement(
     onPointerLeave: (event: PointerEvent) => {
       if (active.current === null && event.pointerType === 'mouse') hover.onLeave();
     },
+    /**
+     * Tut nichts, aber macht den Rahmen für den Browser antippbar. Sonst
+     * lenken Telefone einen Fingertipp auf einen nahen Knopf um, weil das
+     * Notenbild «nichts zum Antippen» ist (Entscheid 2026-11-26): ein Ton
+     * knapp unter dem System landete auf der Nummer des Platzes darunter und
+     * wurde nie gesetzt, einer knapp über dem System wählte ♭.
+     */
+    onClick: () => {},
   };
 
   return { pressed, handlers };

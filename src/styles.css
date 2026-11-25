@@ -1859,8 +1859,62 @@
     text-align: left;
   }
 
+  /* Der Knopf rechts, wie beim Melodiediktat. */
   .question:has(> .audio-player + .keyboard-task) > .audio-player {
     grid-column: 2;
+    grid-row: var(--melody-row);
+    margin: 0;
+    justify-content: flex-end;
+  }
+
+  /* Nach dem Prüfen lässt sich nichts mehr spielen: die Klaviatur macht den
+     beiden Systemen Platz (Entscheid 2026-11-26). */
+  .keyboard-task.is-melody-checked .piano {
+    display: none;
+  }
+}
+
+/*
+ * Generiertes Melodiediktat, quer auf dem Telefon (Entscheid 2026-11-26):
+ * Tonart, Werkzeugleiste und Abspielknopf in einer Zeile, der Knopf rechts,
+ * damit das System die Höhe bekommt. Hochkant bleibt der Knopf über der
+ * Aufgabe. Die Hüllen werden dafür zu Rasterzellen, wie bei der Klaviatur.
+ */
+@media (orientation: landscape) and (max-height: 520px) {
+  .question:has(> .audio-player + .question-notation .toolbar-bare) {
+    --melody-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+    column-gap: 16px;
+    align-items: center;
+  }
+
+  .question:has(> .explanation):has(> .audio-player + .question-notation .toolbar-bare) {
+    --melody-row: 2;
+  }
+
+  .question:has(> .audio-player + .question-notation .toolbar-bare) > *,
+  .question:has(> .audio-player + .question-notation .toolbar-bare) > .question-notation > *,
+  .question:has(> .audio-player + .question-notation .toolbar-bare) .notation-input > * {
+    grid-column: 1 / -1;
+  }
+
+  .question:has(> .audio-player + .question-notation .toolbar-bare) > .question-notation {
+    display: contents;
+  }
+
+  .question:has(> .audio-player + .question-notation .toolbar-bare) > .question-notation > .task-prompt {
+    grid-column: 1;
+    grid-row: var(--melody-row);
+  }
+
+  .question:has(> .audio-player + .question-notation .toolbar-bare) .notation-input > .toolbar {
+    grid-column: 2;
+    grid-row: var(--melody-row);
+  }
+
+  .question:has(> .audio-player + .question-notation .toolbar-bare) > .audio-player {
+    grid-column: 3;
     grid-row: var(--melody-row);
     margin: 0;
   }

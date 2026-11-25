@@ -22,8 +22,8 @@ function questions(overrides: FilterValues = {}, count = 80): Question[] {
 
 const task = (question: Question) => question.task as KeyboardTask;
 
-/** Die ganze Melodie als Tasten: die markierte und die verlangten. */
-const keysOf = (question: Question) => [...(task(question).keyboard.marked ?? []), ...task(question).accept];
+/** Die ganze Melodie als Tasten, auch die erste. */
+const keysOf = (question: Question) => task(question).accept;
 
 const name = (spelling: { step: Pitch['step']; alter: number }) => toGermanPitch({ ...spelling, octave: 4 }).replace(/1$/, '');
 
@@ -40,7 +40,7 @@ describe('Gehörte Melodie auf Klaviatur spielen', () => {
     expect(withShown(generator.filters, { ...generator.defaults, span: 'klaviatur', scales: ['chromatisch'] }).span).toBe('klaviatur');
   });
 
-  it('zeigt die zwei Oktaven des Schlüssels, die erste Taste markiert, die Melodie darauf', () => {
+  it('zeigt die zwei Oktaven des Schlüssels ohne markierte Taste, den ersten Ton grau im System', () => {
     for (const clef of ['treble', 'bass'] as const) {
       const settings: FilterValues[] = [{}, { span: 'klaviatur', length: 12 }, { scales: ['chromatisch'], span: 'klaviatur' }];
       for (const overrides of settings) {
@@ -48,17 +48,19 @@ describe('Gehörte Melodie auf Klaviatur spielen', () => {
           const { keyboard, score, accept, melody, points } = task(question);
           expect(keyboard.low).toBe(CLEF_WINDOWS[clef].low);
           expect(keyboard.high).toBe(CLEF_WINDOWS[clef].high);
-          expect(keyboard.marked).toHaveLength(1);
+          expect(keyboard.marked ?? []).toHaveLength(0);
           for (const key of keysOf(question)) {
             expect(key).toBeGreaterThanOrEqual(keyboard.low);
             expect(key).toBeLessThanOrEqual(keyboard.high);
           }
           expect(score!.clef).toBe(clef);
-          // Der erste Ton steht im System auf der markierten Taste, die übrigen sind leer.
+          // Der erste Ton grau im System, die übrigen Plätze leer; gespielt
+          // und gezählt werden alle.
           const notes = score!.measures[0].notes;
-          expect(midi(parsePitch(notes[0].keys![0]))).toBe(keyboard.marked![0]);
+          expect(midi(parsePitch(notes[0].keys![0]))).toBe(accept[0]);
+          expect(notes[0].muted).toBe(true);
           expect(notes.slice(1).every((note) => note.placeholder)).toBe(true);
-          expect(notes).toHaveLength(accept.length + 1);
+          expect(notes).toHaveLength(accept.length);
           expect(melody!.written.map((key) => midi(parsePitch(key)))).toEqual(accept);
           expect(points).toBe(accept.length);
         }
@@ -95,6 +97,9 @@ describe('Gehörte Melodie auf Klaviatur spielen', () => {
       expect(scoreTask(task(question), { keys: accept }).earned).toBeCloseTo(points);
       const oneWrong = accept.map((key, index) => (index === 1 ? key + 1 : key));
       expect(scoreTask(task(question), { keys: oneWrong }).earned).toBeCloseTo(points - 1);
+      // Auch der erste Ton zählt.
+      const firstWrong = accept.map((key, index) => (index === 0 ? key + 1 : key));
+      expect(scoreTask(task(question), { keys: firstWrong }).earned).toBeCloseTo(points - 1);
       expect(scoreTask(task(question), { keys: accept.slice(0, -1) }).earned).toBeCloseTo(points - 1);
       // Ein Ton zu früh verschiebt alles danach: die Plätze zählen, nicht die Töne.
       expect(scoreTask(task(question), { keys: accept.slice(1) }).earned).toBeLessThan(points - 1);

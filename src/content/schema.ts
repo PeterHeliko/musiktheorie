@@ -400,11 +400,11 @@ export interface KeyboardTask extends TaskBase {
   /** Angetippte Tasten erklingen. */
   sound?: boolean;
   /**
-   * Eine gehörte Melodie spielen (Entscheid 2026-11-25): jede angetippte
+   * Eine gehörte Melodie spielen (Entscheide 2026-11-25/26): jede angetippte
    * Taste klingt und füllt den nächsten leeren Platz im System (`score`),
    * bis alle gefüllt sind; danach klingt sie nur noch. Zurücknehmen gibt es
-   * nicht. `accept` sind die Tasten ab dem zweiten Ton, in ihrer
-   * Reihenfolge; der erste ist `keyboard.marked`.
+   * nicht. `accept` sind alle Tasten der Melodie in ihrer Reihenfolge, auch
+   * die erste: sie steht grau im System, markiert ist keine.
    */
   melody?: MelodyKeys;
   /**
@@ -425,9 +425,8 @@ export interface KeyboardTask extends TaskBase {
 /** Wie gespielte Tasten einer Melodie im System stehen (`KeyboardTask.melody`). */
 export interface MelodyKeys {
   /**
-   * Die Melodie ab dem zweiten Ton, wie notiert («fis5»). Eine richtig
-   * gespielte Taste steht genau so da; nach einem Fehler steht sie so grün
-   * im System darunter.
+   * Die Melodie, wie notiert («fis5»). Eine richtig gespielte Taste steht
+   * genau so da; nach einem Fehler steht sie so grün im System darunter.
    */
   written: string[];
   /**

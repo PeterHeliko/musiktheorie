@@ -4,18 +4,19 @@
  * Wie das Generierte Melodiediktat, nur wird auf der Klaviatur gespielt statt
  * notiert: dieselbe Melodie (`melodie-shared.ts`), dieselben Einstellungen,
  * dasselbe Vorspiel. Die Klaviatur umfasst die zwei Oktaven des Schlüssels
- * (`CLEF_WINDOWS`), c¹ bis h² oder C bis h; die erste Taste der Melodie ist
- * blau markiert.
+ * (`CLEF_WINDOWS`), c¹ bis h² oder C bis h; markiert ist keine Taste
+ * (Entscheid 2026-11-26): auch der erste Ton wird gespielt.
  *
- * Darüber steht das System mit einem leeren Platz je Ton, der erste Ton schon
- * darin. Jede angetippte Taste klingt und füllt den nächsten leeren Platz,
- * geschrieben, wie die Tonart sie schreibt (`keySpelling`: fis in D-Dur, b in
- * F-Dur; chromatisch mit ♯); sind alle voll, klingt sie nur noch.
- * Zurücknehmen gibt es nicht.
+ * Darüber steht das System mit einem Platz je Ton, der erste Ton grau darin:
+ * er sagt, wo es losgeht. Jede angetippte Taste klingt und füllt den nächsten
+ * Platz, die erste ersetzt den grauen Ton; geschrieben wird sie, wie die
+ * Tonart sie schreibt (`keySpelling`: fis in D-Dur, b in F-Dur; chromatisch
+ * mit ♯). Sind alle voll, klingt eine Taste nur noch. Zurücknehmen gibt es
+ * nicht.
  *
- * Jeder Ton gibt einen Punkt, der vorgegebene erste keinen; ein leerer Platz
- * ist falsch. Nach dem Prüfen ist jeder gespielte Ton grün oder rot, und war
- * etwas falsch, steht die Melodie grün in einem zweiten System darunter.
+ * Jeder Ton gibt einen Punkt, auch der erste; ein leerer Platz ist falsch.
+ * Nach dem Prüfen ist jeder gespielte Ton grün oder rot, und war etwas
+ * falsch, steht die Melodie grün in einer zweiten Zeile darunter.
  */
 
 import type { KeyboardTask, SelectOption } from '../content/schema';
@@ -47,7 +48,7 @@ import { multi, range, toggle, type FilterValues, type Generator, type Question 
 /** Der grösste Tonumfang: die ganze Klaviatur. */
 const WHOLE_KEYBOARD: SelectOption = { value: 'klaviatur', label: 'Gesamte Klaviatur' };
 
-const PLAY_TEXT = 'Spiele sie auf der Klaviatur nach; der erste Ton ist blau markiert und steht schon im System.';
+const PLAY_TEXT = 'Spiele sie auf der Klaviatur nach, vom ersten Ton an; er steht grau im System.';
 
 const HINT =
   'Jede angetippte Taste klingt und kommt in den nächsten leeren Platz. Zurücknehmen geht nicht; sind alle Plätze voll, klingen die Tasten nur noch.';
@@ -106,22 +107,25 @@ export const melodieKlaviatur: Generator<Filters> = {
     const { pitches: melody, prompt, signature, prelude, sounds } = rollMelody(values, rng, scale, window, WHOLE_KEYBOARD);
     const tempo = Math.round(range(values, 'tempo', DEFAULT_LISTENING_TEMPO));
     const limitPlays = toggle(values, 'limitPlays', false);
-    const keys = melody.map(midi);
     const id = taskId('gmk', rng);
+    // Nur zum Ansehen: es darf klein werden, die Klaviatur geht vor. Der
+    // erste Ton grau, als Hinweis, wo es losgeht.
+    const places = melodyPlaces(melody, { clef, signature, window, fit: { maxScale: 2 } });
+    const [measure] = places.measures;
+    const score = { ...places, measures: [{ ...measure, notes: [{ ...measure.notes[0], muted: true }, ...measure.notes.slice(1)] }] };
 
     const task: KeyboardTask = {
       id,
       kind: 'keyboard',
       prompt,
-      keyboard: { low: window.low, high: window.high, marked: [keys[0]] },
-      // Nur zum Ansehen: es darf klein werden, die Klaviatur geht vor.
-      score: melodyPlaces(melody, { clef, signature, window, fit: { maxScale: 2 } }),
-      accept: keys.slice(1),
+      keyboard: { low: window.low, high: window.high },
+      score,
+      accept: melody.map(midi),
       sound: true,
-      melody: { written: melody.slice(1).map(pitchKey), spelling: keySpelling(melody, signature) },
+      melody: { written: melody.map(pitchKey), spelling: keySpelling(melody, signature) },
       describe: { by: 'melody' },
-      // Ein Punkt je Ton; der vorgegebene erste zählt nicht.
-      points: melody.length - 1,
+      // Ein Punkt je Ton, auch der erste.
+      points: melody.length,
     };
 
     const instruction = `${preludeText(prelude, 'die Melodie')} ${PLAY_TEXT}`;

@@ -118,9 +118,9 @@ export function chordExamples(
 
 /**
  * Die Note einer gespielten Taste in einer Melodie (`KeyboardTask.melody`):
- * an Platz `index` (ab dem zweiten Ton, 0-basiert) die Taste der Melodie so,
- * wie sie notiert ist; jede andere nach `spelling`. Die Oktave folgt aus dem
- * Stammton: his liegt eine Oktave unter dem c, das klingt.
+ * an Platz `index` (0-basiert) die Taste der Melodie so, wie sie notiert
+ * ist; jede andere nach `spelling`. Die Oktave folgt aus dem Stammton: his
+ * liegt eine Oktave unter dem c, das klingt.
  */
 export function spellPlayedKey(melody: MelodyKeys, accept: readonly number[], index: number, key: number): Pitch {
   if (accept[index] === key) return parsePitch(melody.written[index]);

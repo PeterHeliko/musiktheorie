@@ -21,12 +21,14 @@
  * blaue Grundton lässt sich nicht antippen. Nach dem Prüfen ist jede getippte
  * Taste grün oder rot, jede fehlende grün umrandet.
  *
- * Eine gehörte Melodie (`task.melody`, Entscheid 2026-11-25): jede angetippte
- * Taste klingt und füllt den nächsten leeren Platz im System darüber; sind
- * alle voll, klingt sie nur noch. Zurücknehmen gibt es nicht. Nach dem Prüfen
- * ist jeder gespielte Ton grün oder rot, und war etwas falsch, steht die
- * Melodie grün in einem zweiten System darunter, wie beim Melodiediktat. Die
- * Tasten selbst bleiben dabei ohne Farbe: was stimmt, zeigt das System.
+ * Eine gehörte Melodie (`task.melody`, Entscheide 2026-11-25/26): der erste
+ * Ton steht grau im System, keine Taste ist markiert. Jede angetippte Taste
+ * klingt und füllt den nächsten Platz, der erste ersetzt den grauen Ton;
+ * sind alle voll, klingt sie nur noch. Zurücknehmen gibt es nicht. Nach dem
+ * Prüfen ist jeder gespielte Ton grün oder rot, und war etwas falsch, steht
+ * die Melodie grün in einer zweiten Zeile darunter, ähnlich wie beim
+ * Melodiediktat. Die Tasten selbst bleiben dabei ohne Farbe: was stimmt,
+ * zeigt das System. Quer verschwindet die Klaviatur dann (styles.css).
  */
 
 import { useEffect } from 'preact/hooks';
@@ -124,15 +126,10 @@ export function KeyboardTaskView({
   };
 
   return (
-    <div class="keyboard-task">
+    <div class={`keyboard-task ${revealed && task.melody ? 'is-melody-checked' : ''}`}>
       {task.prompt && <p class="task-prompt task-prompt-strong">{task.prompt}</p>}
       {context && <p class="task-context">{context}</p>}
       {task.score && <Score spec={task.melody ? playedScore(task, chosen, revealed) : task.score} />}
-      {revealed && task.melody && task.score && !task.accept.every((key, index) => chosen[index] === key) && (
-        <div class="score-solution" role="img" aria-label={`Lösung: ${task.melody.written.join(', ')}`}>
-          <Score spec={melodySolution(task)} />
-        </div>
-      )}
       <PianoKeyboard
         low={task.keyboard.low}
         high={task.keyboard.high}
@@ -152,31 +149,29 @@ export function KeyboardTaskView({
 
 /**
  * Das System einer Melodie mit den gespielten Tasten in ihren Plätzen; nach
- * dem Prüfen jeder Ton grün oder rot. Leere Plätze bleiben leer.
+ * dem Prüfen jeder Ton grün oder rot. Was noch nicht gespielt ist, bleibt,
+ * wie es war: der graue erste Ton, sonst ein leerer Platz.
+ *
+ * War etwas falsch, steht die Melodie grün in einer zweiten Zeile desselben
+ * Bilds darunter (MeasureSpec.newLine), gleich gebaut: jeder Ton unter
+ * seinem Platz, beide Zeilen gleich gross, auch wenn quer die Klaviatur
+ * ihnen Platz macht (Entscheid 2026-11-26).
  */
 function playedScore(task: KeyboardTask, chosen: readonly number[], revealed: boolean): ScoreSpec {
   const score = task.score!;
   const melody = task.melody!;
   const [measure] = score.measures;
   const notes = measure.notes.map((note, index): NoteSpec => {
-    const played = index > 0 ? chosen[index - 1] : undefined;
+    const played = chosen[index];
     if (played === undefined) return note;
-    const pitch = spellPlayedKey(melody, task.accept, index - 1, played);
-    const right = played === task.accept[index - 1];
+    const pitch = spellPlayedKey(melody, task.accept, index, played);
+    const right = played === task.accept[index];
     return { keys: [pitchKey(pitch)], duration: note.duration, ...(revealed ? { mark: right ? 'correct' : 'wrong' } : {}) };
   });
-  return { ...score, measures: [{ ...measure, notes }] };
-}
-
-/** Die ganze Melodie grün, gleich gebaut wie das System darüber: jeder Ton unter seinem Platz. */
-function melodySolution(task: KeyboardTask): ScoreSpec {
-  const score = task.score!;
-  const melody = task.melody!;
-  const [measure] = score.measures;
-  const notes = measure.notes.map((note, index): NoteSpec =>
-    index === 0 ? note : { keys: [melody.written[index - 1]], duration: note.duration, mark: 'correct' },
-  );
-  return { ...score, measures: [{ ...measure, notes }] };
+  const allRight = task.accept.every((key, index) => chosen[index] === key);
+  if (!revealed || allRight) return { ...score, measures: [{ ...measure, notes }] };
+  const solution = measure.notes.map((note, index): NoteSpec => ({ keys: [melody.written[index]], duration: note.duration, mark: 'correct' }));
+  return { ...score, measures: [{ ...measure, notes }, { notes: solution, newLine: true }] };
 }
 
 /**
