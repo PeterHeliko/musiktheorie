@@ -26,13 +26,24 @@
 
 import type { AudioEvent } from '../content/audio';
 import { OPTION_SETS } from '../content/options';
-import type { SelectOption } from '../content/schema';
+import type { NoteSpec, ScoreSpec, SelectOption } from '../content/schema';
 import { MAJOR_MINOR, isMinorScale, scaleName, scaleSignature, scaleTonics, type ScaleType } from '../music/scales';
-import { midi, parseIntervalLabel, parsePitch, transposeByInterval, type Pitch, type Step } from '../music/theory';
+import { staffSpace } from '../music/staff-space';
+import {
+  accidentalsOfVexKey,
+  keySignatureSteps,
+  midi,
+  parseIntervalLabel,
+  parsePitch,
+  transposeByInterval,
+  vexKeySignature,
+  type Pitch,
+  type Step,
+} from '../music/theory';
 import { placeInVoice } from './dreiklaenge-shared';
 import { pitchForDegree, walk } from './melody';
 import type { Rng } from './rng';
-import { insist, pitchKey, type Window } from './shared';
+import { candidatePitches, insist, pitchKey, type Window } from './shared';
 import { multi, range, single, type FilterSpec, type FilterValues } from './types';
 
 export const CHROMATIC = 'chromatisch';
@@ -557,6 +568,79 @@ export const LIMIT_PLAYS_FILTER: FilterSpec = {
   key: 'limitPlays',
   label: `Wiedergaben begrenzen (${LIMITED_PLAYS}×)`,
 };
+
+/**
+ * Zeichenbreite je Ganze, mit Platz für ein Vorzeichen davor, wie beim
+ * Tonleiter notieren; dazu Schlüssel und Rand (render.ts).
+ */
+const NOTE_ROOM = 36;
+const CLEF_ROOM = 34;
+const MARGIN = 20;
+
+/** So breit wie render.ts die Tonart zeichnet: ein Zeichen Luft mehr, als sie hat. */
+function signatureRoom(keySignature: string | undefined): number {
+  if (!keySignature || keySignature === 'C') return 0;
+  return 10 + (Math.abs(accidentalsOfVexKey(keySignature)) + 1) * 11;
+}
+
+/**
+ * Das System, in das die Melodie kommt: der erste Ton steht da, für jeden
+ * weiteren ein leerer Platz. In Dur und Moll mit der Tonart, nach ihr
+ * gezeichnet (`accidentalsByKey`); chromatisch ohne. Platz über und unter dem
+ * System so viel, wie das Fenster braucht, für alle Aufgaben in diesem
+ * Schlüssel gleich. `fit` wie die Übung es braucht: in ein System, in das
+ * gesetzt wird, muss man noch treffen.
+ */
+export function melodyPlaces(
+  melody: readonly Pitch[],
+  { clef, signature, window, fit }: {
+    clef: 'treble' | 'bass';
+    signature: number | null;
+    window: Window;
+    fit: NonNullable<ScoreSpec['fit']>;
+  },
+): ScoreSpec {
+  const keySignature = signature !== null ? vexKeySignature(signature) : undefined;
+  const notes: NoteSpec[] = melody.map((pitch, index) =>
+    index === 0 ? { keys: [pitchKey(pitch)], duration: 'w' } : { duration: 'w', placeholder: true },
+  );
+  return {
+    clef,
+    ...(keySignature ? { keySignature, accidentalsByKey: true } : {}),
+    width: CLEF_ROOM + signatureRoom(keySignature) + MARGIN + NOTE_ROOM * melody.length,
+    scale: 2,
+    fit,
+    space: staffSpace(clef, candidatePitches({ low: window.low - 1, high: window.high + 1 }, [-1, 0, 1])),
+    endBar: true,
+    measures: [{ notes }],
+  };
+}
+
+/** Halbtonlage der Stammtöne c d e f g a h. */
+const STEP_CLASSES: Record<Step, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+
+/**
+ * Wie eine gespielte Taste im System steht, je Halbton ab c
+ * (`MelodyKeys.spelling`): nach der Tonart (fis in D-Dur, b in F-Dur), mit
+ * den Tönen der Melodie (die erhöhte Septime in Moll). Was die Tonart nicht
+ * kennt, mit ♯, in B-Tonarten mit ♭; chromatisch immer mit ♯.
+ */
+export function keySpelling(melody: readonly Pitch[], signature: number | null): { step: Step; alter: number }[] {
+  const flat = signature !== null && signature < 0;
+  const spelling = Array.from({ length: 12 }, (_, pitchClass) => {
+    const natural = NATURAL[pitchClass];
+    if (natural) return { step: natural, alter: 0 };
+    return flat ? { step: NATURAL[pitchClass + 1]!, alter: -1 } : { step: NATURAL[pitchClass - 1]!, alter: 1 };
+  });
+  if (signature === null) return spelling;
+  const classOf = (step: Step, alter: number) => (((STEP_CLASSES[step] + alter) % 12) + 12) % 12;
+  const { steps, sign } = keySignatureSteps(signature);
+  for (const step of steps) spelling[classOf(step, sign)] = { step, alter: sign };
+  for (const pitch of melody) spelling[classOf(pitch.step, pitch.alter)] = { step: pitch.step, alter: pitch.alter };
+  // Nachgerechnet: jede Schreibweise klingt auf ihrer Taste.
+  spelling.forEach(({ step, alter }, pitchClass) => insist(classOf(step, alter) === pitchClass, `${step}${alter} ist nicht Halbton ${pitchClass}`));
+  return spelling;
+}
 
 /** Pause zwischen dem, was vor Beginn erklingt, und der Melodie (Viertel zu 60 Schlägen). */
 const PRELUDE_GAP = 1;

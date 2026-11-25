@@ -20,12 +20,20 @@
  * Eine Tonleiter (`task.scale`) geht gleich: antippen nimmt dazu oder weg, der
  * blaue Grundton lässt sich nicht antippen. Nach dem Prüfen ist jede getippte
  * Taste grün oder rot, jede fehlende grün umrandet.
+ *
+ * Eine gehörte Melodie (`task.melody`, Entscheid 2026-11-25): jede angetippte
+ * Taste klingt und füllt den nächsten leeren Platz im System darüber; sind
+ * alle voll, klingt sie nur noch. Zurücknehmen gibt es nicht. Nach dem Prüfen
+ * ist jeder gespielte Ton grün oder rot, und war etwas falsch, steht die
+ * Melodie grün in einem zweiten System darunter, wie beim Melodiediktat. Die
+ * Tasten selbst bleiben dabei ohne Farbe: was stimmt, zeigt das System.
  */
 
 import { useEffect } from 'preact/hooks';
 import { player, samplesFor } from '../audio/player';
-import type { KeyboardTask } from '../content/schema';
-import { chordExamples, isWhiteKey, keysBetween } from '../music/piano';
+import type { KeyboardTask, NoteSpec, ScoreSpec } from '../content/schema';
+import { pitchKey } from '../generators/shared';
+import { chordExamples, isWhiteKey, keysBetween, spellPlayedKey } from '../music/piano';
 import { midi, parsePitch } from '../music/theory';
 import { judgeChordKeys, scaleKeysCorrect, type KeyboardAnswer } from '../scoring';
 import { pitchFromMidi } from '../sing/notes';
@@ -69,7 +77,9 @@ export function KeyboardTaskView({
   }, [task]);
 
   const states: Record<number, KeyState> = {};
-  if (revealed && task.scale) {
+  if (task.melody) {
+    // Keine Farben auf den Tasten: was gespielt ist, steht im System.
+  } else if (revealed && task.scale) {
     // Eine Tonleiter: jede getippte Taste grün oder rot, jede fehlende grün
     // umrandet — die freie Oktave nur, wenn sonst etwas nicht stimmte.
     const right = scaleKeysCorrect(task, chosen);
@@ -92,6 +102,13 @@ export function KeyboardTaskView({
 
   const press = (key: number) => {
     if (readOnly) return;
+    if (task.melody) {
+      // Jede Taste klingt; sie füllt den nächsten leeren Platz, solange es
+      // einen gibt.
+      if (task.sound) player.strike(pitchFromMidi(key), { seconds: KEY_SECONDS, release: KEY_RELEASE });
+      if (chosen.length < task.accept.length) setAnswer(task.id, { keys: [...chosen, key] });
+      return;
+    }
     if (task.chord || task.scale) {
       // Antippen nimmt die Taste dazu oder wieder weg. Nur was dazukommt,
       // klingt.
@@ -110,7 +127,12 @@ export function KeyboardTaskView({
     <div class="keyboard-task">
       {task.prompt && <p class="task-prompt task-prompt-strong">{task.prompt}</p>}
       {context && <p class="task-context">{context}</p>}
-      {task.score && <Score spec={task.score} />}
+      {task.score && <Score spec={task.melody ? playedScore(task, chosen, revealed) : task.score} />}
+      {revealed && task.melody && task.score && !task.accept.every((key, index) => chosen[index] === key) && (
+        <div class="score-solution" role="img" aria-label={`Lösung: ${task.melody.written.join(', ')}`}>
+          <Score spec={melodySolution(task)} />
+        </div>
+      )}
       <PianoKeyboard
         low={task.keyboard.low}
         high={task.keyboard.high}
@@ -126,6 +148,35 @@ export function KeyboardTaskView({
       />
     </div>
   );
+}
+
+/**
+ * Das System einer Melodie mit den gespielten Tasten in ihren Plätzen; nach
+ * dem Prüfen jeder Ton grün oder rot. Leere Plätze bleiben leer.
+ */
+function playedScore(task: KeyboardTask, chosen: readonly number[], revealed: boolean): ScoreSpec {
+  const score = task.score!;
+  const melody = task.melody!;
+  const [measure] = score.measures;
+  const notes = measure.notes.map((note, index): NoteSpec => {
+    const played = index > 0 ? chosen[index - 1] : undefined;
+    if (played === undefined) return note;
+    const pitch = spellPlayedKey(melody, task.accept, index - 1, played);
+    const right = played === task.accept[index - 1];
+    return { keys: [pitchKey(pitch)], duration: note.duration, ...(revealed ? { mark: right ? 'correct' : 'wrong' } : {}) };
+  });
+  return { ...score, measures: [{ ...measure, notes }] };
+}
+
+/** Die ganze Melodie grün, gleich gebaut wie das System darüber: jeder Ton unter seinem Platz. */
+function melodySolution(task: KeyboardTask): ScoreSpec {
+  const score = task.score!;
+  const melody = task.melody!;
+  const [measure] = score.measures;
+  const notes = measure.notes.map((note, index): NoteSpec =>
+    index === 0 ? note : { keys: [melody.written[index - 1]], duration: note.duration, mark: 'correct' },
+  );
+  return { ...score, measures: [{ ...measure, notes }] };
 }
 
 /**

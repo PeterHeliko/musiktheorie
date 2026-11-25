@@ -18,7 +18,7 @@ import type {
   Task,
   TextTableTask,
 } from '../content/schema';
-import { keyNames, whiteIndex } from '../music/piano';
+import { keyNames, spellPlayedKey, whiteIndex } from '../music/piano';
 import { judgeSequence, judgeSung, judgeTimed, type SequenceGoal } from '../sing/judge';
 import { describeChordRule, describeKeys, describeNotes, judgeChordKeys, judgeChordNotes } from './chord';
 import { nameFromMidi, pitchFromMidi } from '../sing/notes';
@@ -578,6 +578,26 @@ export function scaleKeysCorrect(task: KeyboardTask, keys: readonly number[]): b
 
 function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): Detail[] {
   const keys = answer?.keys ?? [];
+  if (task.melody) {
+    // Eine Melodie: jeder Ton an seinem Platz zählt einzeln, wie beim
+    // Melodiediktat; ein leerer Platz ist falsch.
+    const melody = task.melody;
+    const perNote = task.points / Math.max(1, task.accept.length);
+    return task.accept.map((key, index) => {
+      const played = keys[index];
+      const correct = played === key;
+      return {
+        id: `${task.id}_t${index + 2}`,
+        label: task.prompt ?? 'Melodie',
+        earned: correct ? perNote : 0,
+        possible: perNote,
+        studentResponse: played === undefined ? '—' : toGermanPitch(spellPlayedKey(melody, task.accept, index, played)),
+        correctResponse: toGermanPitch(parsePitch(melody.written[index])),
+        correct,
+        interactionType: 'performance' as const,
+      };
+    });
+  }
   if (task.chord) {
     const correct = judgeChordKeys(task.chord, keys).correct;
     return [
@@ -624,8 +644,8 @@ function scoreKeyboard(task: KeyboardTask, answer: KeyboardAnswer | undefined): 
       },
     ];
   }
-  if (task.describe.by === 'chord' || task.describe.by === 'scale') {
-    throw new Error(`${task.id}: Beschreibung «${task.describe.by}» ohne Akkord bzw. Tonleiter`);
+  if (task.describe.by === 'chord' || task.describe.by === 'scale' || task.describe.by === 'melody') {
+    throw new Error(`${task.id}: Beschreibung «${task.describe.by}» ohne Akkord, Tonleiter bzw. Melodie`);
   }
   const { from, by } = task.describe;
   // Sind beide Richtungen richtig, nennt die Lösung nur das Intervall.

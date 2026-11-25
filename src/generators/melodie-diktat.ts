@@ -24,10 +24,8 @@
  * etwas falsch, steht die Melodie grün in einem zweiten System darunter.
  */
 
-import type { NotationTask, NoteSpec, SelectOption } from '../content/schema';
+import type { NotationTask, SelectOption } from '../content/schema';
 import { MAJOR_MINOR } from '../music/scales';
-import { staffSpace } from '../music/staff-space';
-import { accidentalsOfVexKey, vexKeySignature } from '../music/theory';
 import { CLEF_FILTER } from './dreiklaenge-shared';
 import {
   CLEF_WINDOWS,
@@ -39,6 +37,7 @@ import {
   blackKeySpellings,
   intervalFilters,
   listeningEvents,
+  melodyPlaces,
   onlyChromatic,
   pickScale,
   preludeFilter,
@@ -46,7 +45,7 @@ import {
   rollMelody,
 } from './melodie-shared';
 import type { Rng } from './rng';
-import { candidatePitches, pitchKey, taskId } from './shared';
+import { pitchKey, taskId } from './shared';
 import { MAX_ACCIDENTALS_FILTER } from './tonleitern';
 import { multi, range, toggle, type FilterValues, type Generator, type Question } from './types';
 
@@ -63,14 +62,6 @@ const CHROMATIC_HINT =
   'Wähle ♭, ♮ oder ♯ für den nächsten Ton und ziehe ihn auf seine Tonhöhe, gern auch neben der Note. ' +
   'Gesetzt wird beim Loslassen in den blauen Platz; die Nummern wählen einen anderen. Ohne Tonart zählen beide Schreibweisen, cis wie des.';
 
-/**
- * Zeichenbreite je Ganze, mit Platz für ein Vorzeichen davor, wie beim
- * Tonleiter notieren; dazu Schlüssel, Tonart und Rand (render.ts).
- */
-const NOTE_ROOM = 36;
-const CLEF_ROOM = 34;
-const MARGIN = 20;
-
 interface Filters extends FilterValues {
   scales: string[];
   maxAccidentals: number;
@@ -81,12 +72,6 @@ interface Filters extends FilterValues {
   prelude: string;
   tempo: number;
   limitPlays: boolean;
-}
-
-/** So breit wie render.ts die Tonart zeichnet: ein Zeichen Luft mehr, als sie hat. */
-function signatureRoom(keySignature: string | undefined): number {
-  if (!keySignature || keySignature === 'C') return 0;
-  return 10 + (Math.abs(accidentalsOfVexKey(keySignature)) + 1) * 11;
 }
 
 export const melodieDiktat: Generator<Filters> = {
@@ -132,15 +117,6 @@ export const melodieDiktat: Generator<Filters> = {
     const tempo = Math.round(range(values, 'tempo', DEFAULT_LISTENING_TEMPO));
     const limitPlays = toggle(values, 'limitPlays', false);
     const keyed = signature !== null;
-    const keySignature = keyed ? vexKeySignature(signature) : undefined;
-
-    // Der erste Ton steht da, die übrigen sind leere Plätze.
-    const notes: NoteSpec[] = melody.map((pitch, index) =>
-      index === 0 ? { keys: [pitchKey(pitch)], duration: 'w' } : { duration: 'w', placeholder: true },
-    );
-    // Platz über und unter dem System: so viel, wie die zwei Oktaven
-    // brauchen, für alle Aufgaben in diesem Schlüssel gleich.
-    const space = staffSpace(clef, candidatePitches({ low: window.low - 1, high: window.high + 1 }, [-1, 0, 1]));
     const id = taskId('gmd', rng);
 
     const task: NotationTask = {
@@ -150,18 +126,8 @@ export const melodieDiktat: Generator<Filters> = {
       prompt,
       // Ein Punkt je Ton; der vorgegebene erste zählt nicht.
       points: melody.length - 1,
-      score: {
-        clef,
-        // Nach der Tonart gezeichnet, und beim Setzen gilt sie auch
-        // (NotationInput, `accidentalsByKey`).
-        ...(keyed ? { keySignature, accidentalsByKey: true } : {}),
-        width: CLEF_ROOM + signatureRoom(keySignature) + MARGIN + NOTE_ROOM * melody.length,
-        scale: 2,
-        fit: { maxScale: 2, minScale: 1 },
-        space,
-        endBar: true,
-        measures: [{ notes }],
-      },
+      // In ein System, in das gesetzt wird, muss man noch treffen.
+      score: melodyPlaces(melody, { clef, signature, window, fit: { maxScale: 2, minScale: 1 } }),
       solution: {
         type: 'pitch',
         // Die eigene Schreibweise zuerst: sie steht nach einem Fehler im

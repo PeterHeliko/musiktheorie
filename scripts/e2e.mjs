@@ -76,6 +76,7 @@ const MODES = {
   'tonleitern-klaviatur': 'Tonleitern auf Klaviatur markieren',
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
   'tonleitern-singen': 'Tonleitern singen',
+  'gehoerte-melodie-klaviatur-spielen': 'Gehörte Melodie auf Klaviatur spielen',
   'generiertes-melodiediktat': 'Generiertes Melodiediktat',
   melodiediktat: 'Rhythmus- und Melodiediktat',
   'generierte-melodie-singen': 'Generierte Melodie singen',
@@ -1909,6 +1910,45 @@ async function main() {
       'geprüft: richtige Töne grün, falsche rot, die Melodie grün darunter',
     );
     await page.screenshot({ path: join(SHOTS, 'melodiediktat-generiert.png') });
+
+    // ------------------------------------------ Gehörte Melodie auf Klaviatur
+    // Dieselbe Melodie auf der Klaviatur c¹ bis h², a² blau markiert. Jede
+    // Taste füllt den nächsten Platz; sind alle voll, klingt sie nur noch.
+    console.log('\nGehörte Melodie auf Klaviatur spielen');
+    await page.goto(exercise('gehoerte-melodie-klaviatur-spielen', '?tonleitern=dur&max-vorzeichen=2&aufgabe=2&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('.keyboard-task .score svg');
+    check((await page.locator('.keyboard-task .task-prompt').innerText()) === 'D-Dur', 'nennt die Tonart');
+    check(
+      (await page.locator('.question .piano-key[data-state="given"]').getAttribute('data-key')) === '81' &&
+        (await page.locator('.question .piano-key').first().getAttribute('data-key')) === '60',
+      'Klaviatur ab c¹, die erste Taste a² blau',
+    );
+    const playedNotes = () => page.locator('.keyboard-task > .score svg .vf-stavenote').count();
+    check((await playedNotes()) === 1, 'im System steht zuerst nur der erste Ton');
+    // Richtig: g² fis² e²; dann f² statt fis² (falsch), der Rest richtig.
+    for (const key of [79, 78, 76, 77, 71, 73, 74]) {
+      await page.locator(`.question .piano-key[data-key="${key}"]`).click();
+    }
+    check((await playedNotes()) === 8, `jede Taste füllt einen Platz (${await playedNotes()} Noten)`);
+    await page.locator('.question .piano-key[data-key="60"]').click();
+    check((await playedNotes()) === 8, 'alle Plätze voll: eine weitere Taste kommt nicht dazu');
+    await checkButton.click();
+    await page.waitForSelector('.verdict');
+    const keyboardColours = await eventually(page, () => {
+      const html = document.querySelector('.keyboard-task > .score svg')?.outerHTML ?? '';
+      return html.includes('#00d903') && html.includes('#b3261e');
+    });
+    check(
+      keyboardColours && (await page.locator('.keyboard-task .score-solution').count()) === 1,
+      'geprüft: richtige Töne grün, der falsche rot, die Melodie grün darunter',
+    );
+    check(
+      (await page.locator('.question .piano-key[data-state="right"], .question .piano-key[data-state="wrong"]').count()) === 0,
+      'die Tasten bleiben ohne Farbe',
+    );
+    await page.screenshot({ path: join(SHOTS, 'melodie-klaviatur.png') });
 
     // Vorzeichen setzen: das fis im untersten Zwischenraum ist richtig, aber
     // üblich steht es oben. Bernsteinfarben daneben, mit einer Zeile.

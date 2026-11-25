@@ -13,7 +13,7 @@
  * eigene Formen.
  */
 
-import type { Duration } from '../music/theory';
+import type { Duration, Step } from '../music/theory';
 
 // ---------------------------------------------------------------------------
 // Notenbild
@@ -395,13 +395,42 @@ export interface KeyboardTask extends TaskBase {
   /** Angetippte Tasten erklingen. */
   sound?: boolean;
   /**
+   * Eine gehörte Melodie spielen (Entscheid 2026-11-25): jede angetippte
+   * Taste klingt und füllt den nächsten leeren Platz im System (`score`),
+   * bis alle gefüllt sind; danach klingt sie nur noch. Zurücknehmen gibt es
+   * nicht. `accept` sind die Tasten ab dem zweiten Ton, in ihrer
+   * Reihenfolge; der erste ist `keyboard.marked`.
+   */
+  melody?: MelodyKeys;
+  /**
    * Wie die Rückmeldung eine Taste nennt: als Intervall von der Taste `from`
    * aus — in Halbtönen gezählt («kleine Terz aufwärts», Feinbestimmung) oder
    * in weissen Tasten («Terz aufwärts», Grobbestimmung) — oder mit ihrem
    * Tonnamen («fis/ges»).
    */
-  describe: { from: number; by: 'semitones' | 'steps' } | { by: 'name' } | { by: 'chord' } | { by: 'scale' };
+  describe:
+    | { from: number; by: 'semitones' | 'steps' }
+    | { by: 'name' }
+    | { by: 'chord' }
+    | { by: 'scale' }
+    | { by: 'melody' };
   points: number;
+}
+
+/** Wie gespielte Tasten einer Melodie im System stehen (`KeyboardTask.melody`). */
+export interface MelodyKeys {
+  /**
+   * Die Melodie ab dem zweiten Ton, wie notiert («fis5»). Eine richtig
+   * gespielte Taste steht genau so da; nach einem Fehler steht sie so grün
+   * im System darunter.
+   */
+  written: string[];
+  /**
+   * Wie jede andere Taste dasteht, je Halbton ab c (12 Einträge): nach der
+   * Tonart, mit den Tönen der Melodie (die erhöhte Septime in Moll); sonst
+   * mit ♯ in Kreuz- und ohne Tonart, mit ♭ in B-Tonarten.
+   */
+  spelling: { step: Step; alter: number }[];
 }
 
 export type Task = SelectTask | NotationTask | TextTableTask | SingTask | KeyboardTask;

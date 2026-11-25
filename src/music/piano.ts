@@ -6,7 +6,8 @@
  * Gezeichnet wird sie von `ui/PianoKeyboard.tsx`.
  */
 
-import { STEPS, germanNoteName, midi } from './theory';
+import type { MelodyKeys } from '../content/schema';
+import { STEPS, germanNoteName, midi, parsePitch, type Pitch } from './theory';
 
 /** Die Klaviatur der Intervallübungen: zwei Oktaven, c bis h¹. */
 export const INTERVAL_KEYBOARD = { low: 48, high: 71 } as const;
@@ -113,4 +114,16 @@ export function chordExamples(
       while (bass >= low && bass % 12 !== classes[lowest]) bass--;
       return bass >= low ? [[bass, ...stack]] : [];
     });
+}
+
+/**
+ * Die Note einer gespielten Taste in einer Melodie (`KeyboardTask.melody`):
+ * an Platz `index` (ab dem zweiten Ton, 0-basiert) die Taste der Melodie so,
+ * wie sie notiert ist; jede andere nach `spelling`. Die Oktave folgt aus dem
+ * Stammton: his liegt eine Oktave unter dem c, das klingt.
+ */
+export function spellPlayedKey(melody: MelodyKeys, accept: readonly number[], index: number, key: number): Pitch {
+  if (accept[index] === key) return parsePitch(melody.written[index]);
+  const { step, alter } = melody.spelling[pitchClass(key)];
+  return { step, alter, octave: Math.floor((key - alter) / 12) - 1 };
 }
