@@ -46,6 +46,25 @@ import {
  */
 Font.HOST_URL = './';
 
+/**
+ * Erfüllt, sobald die Notenschriften bereit sind. Der 'bravura'-Build meldet
+ * sie beim Import an, geladen sind sie aber erst einen Augenblick später.
+ * Vorher misst VexFlow mit einer Ersatzschrift: Notenköpfe und Hilfslinien
+ * stünden falsch, und dieselbe Aufgabe sähe nicht überall gleich aus. Die
+ * Übungsansicht wartet deshalb darauf (App.tsx). Höchstens 3 s: eine
+ * fehlende Schrift darf die Übung nicht blockieren.
+ */
+export const scoreFontsReady: Promise<void> =
+  typeof document !== 'undefined' && document.fonts
+    ? Promise.race([
+        Promise.all([document.fonts.load('1em Bravura'), document.fonts.load('1em Academico')]).then(
+          () => undefined,
+          () => undefined,
+        ),
+        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+      ])
+    : Promise.resolve();
+
 /** Diatonischer Index der obersten Notenlinie je Schlüssel. */
 const TOP_LINE_DIATONIC: Record<'treble' | 'bass', number> = {
   // Violinschlüssel: oberste Linie ist f2 (F5).

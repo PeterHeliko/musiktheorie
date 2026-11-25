@@ -1132,6 +1132,28 @@ async function main() {
         (await keyAt(page, 60).getAttribute('data-state')) === 'solution',
       'falsch: beide c grün umrandet',
     );
+    // Die nächste Aufgabe steht gleich ganz da: kein Bild, in dem die
+    // Klaviatur ohne Notenbild oben stünde und dann nach unten spränge.
+    const keyboardTop = (await page.locator('.question .piano').boundingBox()).y;
+    await page.evaluate(() => {
+      window.__frames = [];
+      const tick = () => {
+        const piano = document.querySelector('.question .piano');
+        window.__frames.push({
+          staff: Boolean(document.querySelector('.question .keyboard-task .score svg')),
+          top: piano ? piano.getBoundingClientRect().top : null,
+        });
+        if (window.__frames.length < 40) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.locator('.session-bar button:has-text("Weiter")').click();
+    await page.waitForFunction(() => window.__frames.length >= 40);
+    const nextFrames = await page.evaluate(() => window.__frames);
+    check(
+      nextFrames.every((frame) => frame.staff && Math.abs(frame.top - keyboardTop) < 1),
+      `neue Aufgabe: in jedem Bild Notenbild darüber, die Klaviatur springt nicht (${nextFrames.filter((frame) => !frame.staff).length} Bilder ohne)`,
+    );
 
     const pianoPhone = await browser.newContext({ ...devices['iPhone 13'] });
     const pianoPhonePage = await pianoPhone.newPage();
@@ -1181,6 +1203,36 @@ async function main() {
       await pianoLandscapePage.screenshot({ path: join(SHOTS, 'telefon-quer-noten-klaviatur-spielen.png') });
     }
     await pianoLandscape.close();
+
+    // Drehen auf dem iPhone: Safari schickt das resize-Ereignis, solange seine
+    // Leiste noch Platz nimmt, und keines mehr, wenn sie danach einfährt.
+    const rotating = await browser.newContext({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true });
+    await rotating.addInitScript(() =>
+      window.addEventListener(
+        'resize',
+        (event) => {
+          if (window.__blockResize) event.stopImmediatePropagation();
+        },
+        true,
+      ),
+    );
+    const rotatingPage = await rotating.newPage();
+    await rotatingPage.goto(exercise('noten-klaviatur-spielen'), { waitUntil: 'networkidle' });
+    await rotatingPage.waitForSelector('.question .keyboard-task .score svg');
+    await rotatingPage.setViewportSize({ width: 750, height: 280 });
+    await rotatingPage.waitForTimeout(300);
+    await rotatingPage.evaluate(() => (window.__blockResize = true));
+    await rotatingPage.setViewportSize({ width: 750, height: 340 });
+    await rotatingPage.waitForTimeout(300);
+    const rotatedGap = await rotatingPage.evaluate(() => {
+      const column = document.querySelector('.session-body').firstElementChild.getBoundingClientRect();
+      return document.querySelector('.session-bar').getBoundingClientRect().top - column.bottom;
+    });
+    check(
+      rotatedGap >= 0 && rotatedGap <= 16,
+      `gedreht, danach fährt Safaris Leiste ein: Notenbild und Klaviatur füllen den Platz (${Math.round(rotatedGap)} px bis zur Leiste)`,
+    );
+    await rotating.close();
 
     // ------------------------------------------------- Erklärung
     console.log('\nErklärung nur hinter ⓘ');
@@ -1377,12 +1429,20 @@ async function main() {
         (await slider('Höchster Ton').locator('output').innerText()) === 'h¹',
       'Tiefster und höchster Ton: Vorgabe c bis h¹',
     );
-    await slider('Tiefster Ton')
+    // Der Regler behält den Fokus, auch wenn sich dabei ein anderer
+    // mitbewegt: sonst endet das Ziehen auf dem iPhone nach einem Schritt.
+    // Beim Öffnen bekommt ihn zuerst «Fertig».
+    await page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Fertig');
+    const keepsFocus = await slider('Tiefster Ton')
       .locator('input[type="range"]')
-      .evaluate((input) => {
+      .evaluate(async (input) => {
+        input.focus();
         input.value = '22';
         input.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return document.activeElement === input;
       });
+    check(keepsFocus, 'der gezogene Regler behält den Fokus');
     check(
       (await slider('Tiefster Ton').locator('output').innerText()) === 'd²' &&
         (await slider('Höchster Ton').locator('output').innerText()) === 'd²',

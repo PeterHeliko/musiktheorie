@@ -35,7 +35,7 @@
  * einfach die Übung.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import {
   courseTitle,
   decodeCourse,
@@ -68,8 +68,11 @@ import { closeMicrophone } from '../sing/microphone';
 import { AnswerStore } from '../state';
 import { CloseIcon, GearIcon, InfoIcon } from './icons';
 import { QuestionView } from './QuestionView';
+import { REFIT_EVENT } from './refit';
 import { RoundSummary, isPerfect, type RoundEntry } from './RoundSummary';
 import { SettingsSheet } from './SettingsSheet';
+
+export { scoreFontsReady } from '../music/render';
 
 /** Aktuelle Aufgabe samt allem, was zu ihr gehört. */
 interface Current {
@@ -234,6 +237,27 @@ export function ExercisePage({
     },
     [],
   );
+
+  // Hat die Übungsansicht eine andere Grösse bekommen, passen sich Notenbild
+  // und Klaviatur neu ein. Das resize-Ereignis des Fensters genügt nicht:
+  // Safari schickt es beim Drehen, solange seine Leiste noch Platz nimmt, und
+  // keines mehr, wenn sie danach einfährt. Bild und Klaviatur blieben dann für
+  // die kleinere Höhe eingepasst, mit einer Lücke über der Leiste unten. Die
+  // Ansicht selbst füllt immer das Fenster (position: fixed); wächst nur die
+  // Leiste unten nach dem Prüfen, ändert sie sich nicht.
+  const sessionBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = sessionBox.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    let size = '';
+    const observer = new ResizeObserver(() => {
+      const next = `${element.clientWidth}×${element.clientHeight}`;
+      if (size && next !== size) globalThis.dispatchEvent(new Event(REFIT_EVENT));
+      size = next;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   // ---------------------------------------------------------------- Ablauf
   /** Neue Runde bzw. neue endlose Folge mit diesen Einstellungen. */
@@ -421,7 +445,7 @@ export function ExercisePage({
   }
 
   return (
-    <div class="session">
+    <div class="session" ref={sessionBox}>
       <header class="session-top">
         <div class="session-column session-top-inner">
           <a class="session-icon" href={backHref} aria-label={inCourse ? 'Zurück zum Kurs' : 'Übung schliessen'}>

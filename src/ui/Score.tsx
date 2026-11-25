@@ -8,7 +8,7 @@
  * Beschreibung tatsächlich geändert hat.
  */
 
-import { useEffect, useRef } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { ScoreSpec } from '../content/schema';
 import { renderScore, type RenderedScore } from '../music/render';
 import { REFIT_EVENT, SCORE_FITTED_EVENT } from './refit';
@@ -28,7 +28,10 @@ export function Score({
   const container = useRef<HTMLDivElement>(null);
   const signature = JSON.stringify(spec);
 
-  useEffect(() => {
+  // Gezeichnet und eingepasst wird vor dem ersten Bild, nicht danach: sonst
+  // stünde bei jeder neuen Aufgabe einen Augenblick lang alles ohne Notenbild
+  // da, und was darunter steht (die Klaviatur), spränge danach nach unten.
+  useLayoutEffect(() => {
     const element = container.current;
     if (!element) return;
     const rendered = renderScore(element, spec);

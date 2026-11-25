@@ -65,8 +65,14 @@ export function SettingsSheet({
         : null,
     );
 
+  // Den Fokus nur beim Öffnen auf «Fertig» setzen, nicht nach jeder
+  // Änderung: sonst verlöre ein Schieberegler mitten im Ziehen den Fokus, und
+  // das Ziehen endete nach einem Schritt (iPhone).
   useEffect(() => {
     done.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };

@@ -20,7 +20,7 @@
  * der Finger sie trifft.
  */
 
-import { useEffect, useRef } from 'preact/hooks';
+import { useLayoutEffect, useRef } from 'preact/hooks';
 import { nameFromMidi } from '../sing/notes';
 import { isWhiteKey, keysBetween, whiteIndex } from '../music/piano';
 import { REFIT_EVENT, SCORE_FITTED_EVENT } from './refit';
@@ -111,7 +111,9 @@ export function PianoKeyboard({
 
   // Gemessen wird beim Zeichnen, wenn sich das Fenster ändert und wenn die
   // Übung es meldet — nicht, wenn die Leiste unten nach dem Prüfen wächst.
-  useEffect(() => {
+  // Beim Zeichnen schon vor dem ersten Bild, wie beim Notenbild: sonst stünde
+  // die Klaviatur einen Augenblick lang in voller Grösse da.
+  useLayoutEffect(() => {
     const element = box.current;
     if (!fit || !element) return;
     const refit = () => fitToRoom(element, ratio);

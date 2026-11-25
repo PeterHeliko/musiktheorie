@@ -19,8 +19,16 @@ import { PitchTool } from './PitchTool';
  * Die Übungsansicht wird erst geladen, wenn eine Übung offen ist. Mit ihr
  * kommt der Notensatz (VexFlow samt eingebetteter Notenschrift) — rund drei
  * Viertel des ganzen Codes. Übersicht und Tonhöhe brauchen ihn nicht.
+ *
+ * Bereit ist sie erst mit geladenen Notenschriften: Notenbilder werden vor
+ * dem ersten Bild gezeichnet und gemessen (Score.tsx), und das geht nur mit
+ * der richtigen Schrift.
  */
-const loadExercisePage = () => import('./ExercisePage');
+const loadExercisePage = () =>
+  import('./ExercisePage').then(async (module) => {
+    await module.scoreFontsReady;
+    return module;
+  });
 type ExerciseModule = Awaited<ReturnType<typeof loadExercisePage>>;
 let exerciseModule: ExerciseModule | null = null;
 
