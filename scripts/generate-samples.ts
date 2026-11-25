@@ -1,7 +1,7 @@
 /**
  * Erzeugt die Klaviersamples der Übungsseite.
  *
- *   je eine Tonhöhe → MusicXML → MuseScore (Stapelmodus) → MP3 → ffmpeg → MP3
+ *   je eine Tonhöhe → MusicXML → MuseScore (Stapelmodus) → WAV → ffmpeg → MP3
  *
  * Die Aufgaben entstehen zur Laufzeit, es gibt also kein festes Hörbeispiel,
  * das sich vorrendern liesse. Deshalb rendern wir den kleinsten gemeinsamen
@@ -40,14 +40,29 @@ const HIGHEST_MIDI = 84;
 const DIVISIONS = 8;
 
 /**
- * Bei diesem Tempo klingt eine Ganze rund 3,4 Sekunden — lang genug, dass ein
- * Ton auch als Schlusston einer Melodie natürlich ausklingt, und kurz genug,
- * dass 49 Dateien zusammen im Megabyte-Bereich bleiben.
+ * Bei diesem Tempo dauert eine Ganze 2,5 Sekunden. Danach lässt MuseScore die
+ * Taste los, und der Ton endet mit dem Nachklang des Klaviers selbst, wie unter
+ * dem Dämpfer. Das klingt natürlicher als jedes nachträgliche Ausblenden.
+ *
+ * 2,5 Sekunden tragen einen Akkord, der im Grundtempo (84) drei Schläge lang
+ * gehalten wird; kürzer liesse ihn MuseScore vor seinem Ende los. Länger macht
+ * nur die Dateien grösser: wie lange ein Ton klingt, entscheidet ohnehin
+ * `src/audio/player.ts`.
  */
-const RENDER_TEMPO = 70;
+const RENDER_TEMPO = 96;
 
-/** Ab welchem Pegel gilt etwas als Stille? */
-const SILENCE_THRESHOLD = '-55dB';
+/**
+ * Ab welchem Pegel gilt etwas als Stille? Gemessen wird VOR dem Anheben, also
+ * am Rohklang von MuseScore, und der ist leise: Spitzen um -22 dBFS.
+ *
+ * Am Anfang genügt eine grobe Schwelle, der Anschlag steigt steil an.
+ *
+ * Am Ende muss sie tief liegen. Hohe Töne klingen schon im Rohklang um -60 dB
+ * weiter; bei -55 dB galt das als Stille, und ab e1 aufwärts blieb von jedem
+ * Ton nur die erste Sekunde übrig.
+ */
+const START_SILENCE_THRESHOLD = '-55dB';
+const END_SILENCE_THRESHOLD = '-80dB';
 
 /**
  * Ein- und Ausblenden in Sekunden.
@@ -72,13 +87,16 @@ const FADE_OUT = 0.02;
  * Ein einziger Faktor für alle Dateien hebt den Pegel an, ohne irgendetwas am
  * Verhältnis der Töne zueinander zu ändern.
  *
- * Der Abstand zur Vollaussteuerung ist bewusst grosszügig: MP3 ist verlustbehaftet
- * und rekonstruiert scharfe Einschwingvorgänge — den Holzblock des Einzählers
- * vor allem — ein bis zwei Dezibel ÜBER dem gemessenen Pegel. Ohne diesen
- * Sicherheitsabstand übersteuert ausgerechnet das schärfste Geräusch und
- * knackt.
+ * Der Abstand zur Vollaussteuerung ist klein, aber nicht null: MP3
+ * rekonstruiert scharfe Einschwingvorgänge, den Holzblock des Einzählers vor
+ * allem, bis zu zwei Dezibel ÜBER dem gemessenen Pegel. Was danach noch über
+ * 0 dBFS gerät, fängt der Begrenzer in `src/audio/player.ts` ab.
+ *
+ * Solange die Samples mono waren, stand hier -4. Beim Zusammenlegen der Kanäle
+ * rechnete ffmpeg links und rechts mit je 0,707 zusammen, das machte die
+ * Dateien rund 2 dB lauter. -2 hält in Stereo die Lautstärke von damals.
  */
-const TARGET_PEAK_DB = -4;
+const TARGET_PEAK_DB = -2;
 
 // ---------------------------------------------------------------------------
 // Werkzeuge finden
@@ -212,10 +230,10 @@ function run(command: string, args: string[], label: string): void {
  * ausgeblendet werden soll. So braucht es die Gesamtdauer nicht zu kennen.
  */
 const TRIM_AND_FADE = [
-  `silenceremove=start_periods=1:start_threshold=${SILENCE_THRESHOLD}:start_silence=0`,
+  `silenceremove=start_periods=1:start_threshold=${START_SILENCE_THRESHOLD}:start_silence=0`,
   `afade=t=in:st=0:d=${FADE_IN}`,
   'areverse',
-  `silenceremove=start_periods=1:start_threshold=${SILENCE_THRESHOLD}:start_silence=0.05`,
+  `silenceremove=start_periods=1:start_threshold=${END_SILENCE_THRESHOLD}:start_silence=0.05`,
   `afade=t=in:st=0:d=${FADE_OUT}`,
   'areverse',
 ].join(',');
@@ -274,45 +292,51 @@ function main(): void {
   for (const sample of todo) {
     const xmlPath = join(WORK_DIR, `${sample.name}.musicxml`);
     writeFileSync(xmlPath, sample.xml, 'utf8');
-    job.push({ in: xmlPath, out: join(WORK_DIR, `${sample.name}.mp3`) });
+    // WAV, nicht MP3: so bleibt es bis zum einzigen MP3-Schritt am Ende
+    // verlustfrei. Die Klänge der Soundfont sind schon gepackt genug.
+    job.push({ in: xmlPath, out: join(WORK_DIR, `${sample.name}.wav`) });
   }
 
   // Ein einziger MuseScore-Start für alle Dateien: der Programmstart dauert
   // länger als das Rendern selbst.
   const jobPath = join(WORK_DIR, 'job.json');
   writeFileSync(jobPath, JSON.stringify(job), 'utf8');
-  run(museScore, ['-j', jobPath, '-b', '320'], 'MuseScore-Stapelverarbeitung');
+  run(museScore, ['-j', jobPath], 'MuseScore-Stapelverarbeitung');
 
   for (const sample of todo) {
-    if (!existsSync(join(WORK_DIR, `${sample.name}.mp3`))) {
-      throw new Error(`MuseScore hat ${sample.name}.mp3 nicht erzeugt`);
+    if (!existsSync(join(WORK_DIR, `${sample.name}.wav`))) {
+      throw new Error(`MuseScore hat ${sample.name}.wav nicht erzeugt`);
     }
   }
 
   // Erst messen, dann anheben: der Faktor gilt für alle Dateien gemeinsam,
   // damit das Lautstärkegefälle des Klaviers erhalten bleibt.
   console.log('Messe Spitzenpegel …');
-  const peaks = todo.map((sample) => peakOf(join(WORK_DIR, `${sample.name}.mp3`)));
+  const peaks = todo.map((sample) => peakOf(join(WORK_DIR, `${sample.name}.wav`)));
   const loudest = Math.max(...peaks);
   const gain = TARGET_PEAK_DB - loudest;
   console.log(`  lautester Ton bei ${loudest.toFixed(1)} dB → alle um ${gain.toFixed(1)} dB anheben`);
 
   for (const sample of todo) {
-    const rendered = join(WORK_DIR, `${sample.name}.mp3`);
+    const rendered = join(WORK_DIR, `${sample.name}.wav`);
 
-    // Mono, zugeschnitten, ein- und ausgeblendet, gemeinsam angehoben.
+    // Stereo, zugeschnitten, ein- und ausgeblendet, gemeinsam angehoben.
     // Der natürliche Ausklang bleibt stehen; ihn kürzt der Abspieler bei
     // Bedarf mit seiner eigenen Hüllkurve.
+    //
+    // Stereo, weil MuseScore das Klavier breit abbildet: links und rechts
+    // unterscheiden sich deutlich, in Mono zusammengelegt ginge davon etwas
+    // verloren. Im Kopfhörer hört man das.
     run(
       'ffmpeg',
       [
         '-y', '-v', 'error',
         '-i', rendered,
         '-af', `${TRIM_AND_FADE},volume=${gain.toFixed(2)}dB`,
-        '-ac', '1',
+        '-ac', '2',
         '-ar', '44100',
         '-codec:a', 'libmp3lame',
-        '-b:a', '96k',
+        '-b:a', '128k',
         join(OUT_DIR, `${sample.name}.mp3`),
       ],
       `ffmpeg für ${sample.name}`,

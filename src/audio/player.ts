@@ -38,9 +38,9 @@ const ATTACK = 0.004;
  * Tonleiter abgehackt und wie mit der Schere geschnitten.
  *
  * Ganz stehen lassen geht aber auch nicht: die Samples sind ganze Noten von
- * rund drei Sekunden, und bei einer Melodie läge am Schluss alles gleichzeitig
- * übereinander. Deshalb richtet sich der Nachklang nach der Notendauer —
- * kurze Noten klingen kurz nach, lange lange.
+ * rund zweieinhalb Sekunden, und bei einer Melodie läge am Schluss alles
+ * gleichzeitig übereinander. Deshalb richtet sich der Nachklang nach der
+ * Notendauer — kurze Noten klingen kurz nach, lange lange.
  */
 const RELEASE_RATIO = 0.9;
 const MIN_RELEASE = 0.3;
@@ -58,6 +58,24 @@ const MAX_OVERHANG = 0.2;
 
 /** Vorlauf, damit die Planung nie in der Vergangenheit beginnt. */
 const SCHEDULE_LEAD = 0.06;
+
+/**
+ * Begrenzer vor dem Lautsprecher.
+ *
+ * Jeder Ton für sich bleibt unter -4 dBFS, aber gleichzeitige Töne addieren
+ * sich: ein Dreiklang mit Bass erreicht über +2 dBFS, und klingen die
+ * gebrochenen Töne davor noch nach, kommt das obendrauf. Über 0 dBFS schneidet
+ * der Browser hart ab, und das knackt beim Anschlag.
+ *
+ * Unterhalb der Schwelle greift der Begrenzer nicht ein, ein einzelner Ton
+ * klingt also unverändert. Web Audio hebt dabei alles um gut 1 dB an (das
+ * gehört zum Verfahren); auch ein Zusammenklang von +6 dBFS kommt so noch
+ * unter 0 dBFS heraus, in Chromium nachgemessen.
+ */
+const LIMIT_THRESHOLD = -2;
+const LIMIT_RATIO = 20;
+const LIMIT_ATTACK = 0.002;
+const LIMIT_RELEASE = 0.15;
 
 function releaseFor(length: number): number {
   return Math.min(MAX_RELEASE, Math.max(MIN_RELEASE, length * RELEASE_RATIO));
@@ -98,6 +116,8 @@ export function samplesFor(events: AudioEvent[]): string[] {
 
 export class SamplePlayer {
   private context: AudioContext | null = null;
+  /** Gemeinsamer Ausgang aller Töne, siehe LIMIT_THRESHOLD. */
+  private output: AudioNode | null = null;
   private readonly buffers = new Map<string, AudioBuffer>();
   private readonly loading = new Map<string, Promise<AudioBuffer | null>>();
   /** Was gerade läuft — damit «Nächste» die Wiedergabe abbrechen kann. */
@@ -118,6 +138,22 @@ export class SamplePlayer {
       this.context = new Ctor();
     }
     return this.context;
+  }
+
+  /** Alle Töne laufen durch denselben Begrenzer, sonst addierten sie sich daran vorbei. */
+  private out(): AudioNode {
+    if (!this.output) {
+      const context = this.ctx();
+      const limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = LIMIT_THRESHOLD;
+      limiter.knee.value = 0;
+      limiter.ratio.value = LIMIT_RATIO;
+      limiter.attack.value = LIMIT_ATTACK;
+      limiter.release.value = LIMIT_RELEASE;
+      limiter.connect(context.destination);
+      this.output = limiter;
+    }
+    return this.output;
   }
 
   private load(name: string): Promise<AudioBuffer | null> {
@@ -340,7 +376,7 @@ export class SamplePlayer {
     // aber nie auf 0 laufen — deshalb der winzige Restwert.
     gain.gain.exponentialRampToValueAtTime(0.0001, dampenAt + release);
 
-    source.connect(gain).connect(context.destination);
+    source.connect(gain).connect(this.out());
     source.start(at);
     source.stop(dampenAt + release);
     sources.push(source);
