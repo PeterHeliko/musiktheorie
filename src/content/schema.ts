@@ -71,6 +71,11 @@ export interface MeasureSpec {
   notes: NoteSpec[];
   /** Untersystem, nur bei clef === 'grand'. */
   bass?: NoteSpec[];
+  /**
+   * Beginnt eine neue Zeile unter der vorigen, wieder mit Schlüssel und
+   * Tonart (render.ts). Nicht beim Klaviersystem.
+   */
+  newLine?: boolean;
 }
 
 export interface ScoreSpec {

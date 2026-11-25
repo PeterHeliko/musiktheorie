@@ -330,6 +330,12 @@ const SPACE_BELOW = 46;
 const GRAND_GAP = 62;
 /** Breite pro Zeichen bei `tightSpacing` — so eng wie ein echtes Vorzeichen. */
 const TIGHT_GLYPH_WIDTH = 13;
+/**
+ * Abstand zwischen zwei Zeilen (`MeasureSpec.newLine`), unter dem Platz für
+ * Hilfslinien: Raum für die Nummern der Plätze unter der oberen Zeile
+ * (NotationInput).
+ */
+export const LINE_GAP = 38;
 
 interface LayoutMetrics {
   prefix: number;
@@ -337,9 +343,32 @@ interface LayoutMetrics {
   staveTop: number;
   /** y-Wert, den das untere System bekommt (nur beim Klaviersystem). */
   bassTop: number;
+  /** Höhe des ganzen Bilds, alle Zeilen. */
   height: number;
+  /** Höhe einer Zeile; die nächste beginnt LINE_GAP darunter. */
+  lineHeight: number;
   /** Linker Rand — beim Klaviersystem muss die Klammer hineinpassen. */
   left: number;
+}
+
+/** Die Takte nach Zeilen: ein Takt mit `newLine` beginnt eine neue (nicht beim Klaviersystem). */
+function linesOf(spec: ScoreSpec): MeasureSpec[][] {
+  if (spec.clef === 'grand') return [spec.measures];
+  const lines: MeasureSpec[][] = [];
+  spec.measures.forEach((measure, index) => {
+    if (index === 0 || measure.newLine) lines.push([]);
+    lines[lines.length - 1].push(measure);
+  });
+  return lines;
+}
+
+/**
+ * Was vor den Noten einer Zeile liegt, in Zeicheneinheiten: Rand, Schlüssel,
+ * Tonart, Taktart, und rechts der Rand. Der Rest der Breite gehört den Noten.
+ */
+export function scorePrefixWidth(spec: ScoreSpec): number {
+  const layout = computeLayout({ ...spec, measures: spec.measures.slice(0, 1) }, spec.width ?? 600);
+  return layout.prefix + layout.left + 8;
 }
 
 function computeLayout(spec: ScoreSpec, width: number): LayoutMetrics {
@@ -354,7 +383,9 @@ function computeLayout(spec: ScoreSpec, width: number): LayoutMetrics {
   const left = spec.clef === 'grand' ? 18 : 6;
 
   const usable = Math.max(60, width - prefix - left - 8);
-  const measureWidth = usable / Math.max(1, spec.measures.length);
+  // Mehrere Zeilen: die Takte einer Zeile teilen sich ihre Breite.
+  const lines = linesOf(spec);
+  const measureWidth = usable / Math.max(1, ...lines.map((line) => line.length));
 
   const offset = staveLineOffset();
   const space = spec.space ?? { above: offset, below: SPACE_BELOW };
@@ -369,9 +400,10 @@ function computeLayout(spec: ScoreSpec, width: number): LayoutMetrics {
   const bassTop = staveTop + STAFF_HEIGHT + GRAND_GAP;
 
   const lowestLine = (spec.clef === 'grand' ? bassTop : staveTop) + offset + STAFF_HEIGHT;
-  const height = lowestLine + space.below;
+  const lineHeight = lowestLine + space.below;
+  const height = lines.length * lineHeight + (lines.length - 1) * LINE_GAP;
 
-  return { prefix, measureWidth, staveTop, bassTop, height, left };
+  return { prefix, measureWidth, staveTop, bassTop, height, lineHeight, left };
 }
 
 function drawSystem(
@@ -382,6 +414,8 @@ function drawSystem(
   pick: (m: MeasureSpec) => NoteSpec[],
   layout: LayoutMetrics,
   top: number,
+  /** Die letzte Zeile: nur sie bekommt den Schlussstrich. */
+  last = true,
 ): { staves: StaveGeometry[]; notes: DrawnNote[][] } {
   const staves: StaveGeometry[] = [];
   const notes: DrawnNote[][] = [];
@@ -398,7 +432,7 @@ function drawSystem(
       if (spec.timeSignature) stave.addTimeSignature(spec.timeSignature);
     }
 
-    if (spec.endBar && index === measures.length - 1) stave.setEndBarType(Barline.type.END);
+    if (spec.endBar && last && index === measures.length - 1) stave.setEndBarType(Barline.type.END);
 
     stave.setContext(context).draw();
     staves.push({ stave, clef });
@@ -464,11 +498,18 @@ export function renderScore(container: HTMLDivElement, spec: ScoreSpec): Rendere
     bassStaves = lower.staves;
     notes = upper.notes;
   } else {
-    const drawn = drawSystem(
-      context, spec, spec.measures, spec.clef, (m) => m.notes, layout, layout.staveTop,
-    );
-    staves = drawn.staves;
-    notes = drawn.notes;
+    // Je Zeile ein System, wieder mit Schlüssel und Tonart; die Geometrie
+    // aller Takte in ihrer Reihenfolge, über die Zeilen hinweg.
+    const lines = linesOf(spec);
+    const clef = spec.clef;
+    staves = [];
+    notes = [];
+    lines.forEach((measures, line) => {
+      const top = layout.staveTop + line * (layout.lineHeight + LINE_GAP);
+      const drawn = drawSystem(context, spec, measures, clef, (m) => m.notes, layout, top, line === lines.length - 1);
+      staves.push(...drawn.staves);
+      notes.push(...drawn.notes);
+    });
   }
 
   const svg = container.querySelector('svg') as SVGSVGElement;

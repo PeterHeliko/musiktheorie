@@ -16,7 +16,7 @@
  * Sieben Modi, siehe NotationTask['mode'].
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { RefObject } from 'preact';
 import type { MeasureSpec, NotationTask, NoteSpec, PitchSlotSolution, ScoreSpec } from '../../content/schema';
 import { useExam } from '../../state';
@@ -26,6 +26,7 @@ import {
   diatonicForY,
   diatonicToStep,
   noteHeadCentre,
+  scorePrefixWidth,
   toScoreCoordinates,
   type RenderedScore,
 } from '../render';
@@ -232,9 +233,17 @@ function locate(rendered: RenderedScore | null, event: MouseEvent): Location | n
   if (!point) return null;
   const { x, y } = point;
 
-  let measure = 0;
+  // Mehrere Zeilen (MeasureSpec.newLine): erst die Zeile, deren Mittellinie
+  // dem Zeiger am nächsten liegt, dann darin der Takt nach x. In einer Zeile
+  // gibt es nur die eine.
+  const middle = (index: number) => rendered.staves[index].stave.getYForLine(2);
+  let row = middle(0);
+  for (let i = 1; i < rendered.staves.length; i++) {
+    if (Math.abs(y - middle(i)) < Math.abs(y - row)) row = middle(i);
+  }
+  let measure = rendered.staves.findIndex((_, index) => middle(index) === row);
   for (let i = 0; i < rendered.staves.length; i++) {
-    if (x >= rendered.staves[i].stave.getNoteStartX() - 10) measure = i;
+    if (middle(i) === row && x >= rendered.staves[i].stave.getNoteStartX() - 10) measure = i;
   }
 
   const geometry = rendered.staves[measure];
@@ -535,6 +544,36 @@ function previousNote(task: NotationTask, slots: PitchSlotSolution[], placed: Pi
   return null;
 }
 
+/**
+ * Lange Melodien auf schmalem Bildschirm in zwei Zeilen (Generiertes
+ * Melodiediktat, Entscheid 2026-11-25): ab TWO_LINES_FROM Tönen, sobald in
+ * einer Zeile je Ton weniger als MIN_PLACE_WIDTH px blieben. Sonst lägen die
+ * Nummern der Plätze übereinander, und das System würde zu klein, um eine
+ * Linie zu treffen. Quer reicht meist eine Zeile.
+ */
+const TWO_LINES_FROM = 9;
+const MIN_PLACE_WIDTH = 40;
+
+/**
+ * Ein System mit einem Takt in zwei Zeilen, die obere so lang wie die untere
+ * oder einen Ton länger. Die Breite gilt je Zeile: Schlüssel und Tonart
+ * stehen vor beiden, die Noten teilen sich den Rest wie vorher.
+ */
+function inTwoLines(score: ScoreSpec): ScoreSpec {
+  const [measure] = score.measures;
+  const first = Math.ceil(measure.notes.length / 2);
+  const prefix = scorePrefixWidth(score);
+  const width = Math.round(prefix + ((score.width ?? 600) - prefix) * (first / measure.notes.length));
+  return {
+    ...score,
+    width,
+    measures: [
+      { ...measure, notes: measure.notes.slice(0, first) },
+      { ...measure, notes: measure.notes.slice(first), newLine: true },
+    ],
+  };
+}
+
 function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const solution = task.solution;
   const placed = (answer.n as PitchAnswer | undefined) ?? {};
@@ -565,6 +604,14 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const sequential = solution.type === 'pitch' && solution.slots.length > 1 && !solution.slots.some((s) => s.chord);
   const [active, setActive] = useState<number | null>(null);
   const activeSlot = sequential && solution.type === 'pitch' ? pickActive(solution.slots, placed, active) : null;
+
+  /** Zwei Zeilen (`inTwoLines`): gemessen an der Breite des Rahmens, die nicht vom Bild abhängt. */
+  const [areaWidth, setAreaWidth] = useState(0);
+  const noteCount = task.score.measures.length === 1 ? task.score.measures[0].notes.length : 0;
+  const twoLines = sequential && noteCount >= TWO_LINES_FROM && areaWidth > 0 && areaWidth / noteCount < MIN_PLACE_WIDTH;
+  useLayoutEffect(() => {
+    if (sequential && area.current) setAreaWidth(area.current.clientWidth);
+  }, [sequential]);
 
   /**
    * Der Platz, dem Vorzeichen und Tastatur gelten: der einzige (Intervall
@@ -618,7 +665,12 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
 
   // Die Nummern unter dem System stehen unter ihren Plätzen: aus der
   // gezeichneten Lage gemessen, wie die Knöpfe beim Halbtonschritte-Markieren.
+  // In zwei Zeilen stehen die Nummern der oberen in der Lücke zwischen den
+  // Zeilen (render.ts, LINE_GAP): von der Reihe unter dem Bild aus so weit
+  // nach oben, wie die Zeile über deren Oberkante endet.
   const [slotXs, setSlotXs] = useState<number[]>([]);
+  const [slotTops, setSlotTops] = useState<number[]>([]);
+  const slotRow = useRef<HTMLDivElement>(null);
   const measureSlots = useCallback(() => {
     const result = live();
     const box = area.current;
@@ -627,11 +679,22 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     const boxRect = box.getBoundingClientRect();
     if (svgRect.width === 0) return;
     const scale = svgRect.width / result.width;
-    const xs = (result.notes[0] ?? []).map((note) => svgRect.left - boxRect.left + noteHeadCentre(note) * scale);
-    setSlotXs((previous) =>
-      previous.length === xs.length && previous.every((x, i) => Math.abs(x - xs[i]) < 0.5) ? previous : xs,
-    );
-  }, [live]);
+    const below = task.score.space?.below ?? 0;
+    const rowTop = slotRow.current?.getBoundingClientRect().top ?? svgRect.bottom;
+    const xs: number[] = [];
+    const tops: number[] = [];
+    result.notes.forEach((notes, measure) => {
+      const bottom = result.staves[measure].stave.getYForLine(4) + below;
+      for (const note of notes) {
+        xs.push(svgRect.left - boxRect.left + noteHeadCentre(note) * scale);
+        tops.push(Math.min(0, svgRect.top + bottom * scale - rowTop));
+      }
+    });
+    const same = (previous: number[], next: number[]) =>
+      previous.length === next.length && previous.every((x, i) => Math.abs(x - next[i]) < 0.5);
+    setSlotXs((previous) => (same(previous, xs) ? previous : xs));
+    setSlotTops((previous) => (same(previous, tops) ? previous : tops));
+  }, [live, task.score]);
   const onScoreRendered = useCallback(
     (result: RenderedScore, element: HTMLDivElement) => {
       onRendered(result, element);
@@ -641,7 +704,10 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   );
   useEffect(() => {
     if (!sequential || typeof ResizeObserver === 'undefined' || !area.current) return;
-    const observer = new ResizeObserver(() => measureSlots());
+    const observer = new ResizeObserver(() => {
+      setAreaWidth(area.current?.clientWidth ?? 0);
+      measureSlots();
+    });
     observer.observe(area.current);
     return () => observer.disconnect();
   }, [sequential, measureSlots]);
@@ -670,8 +736,8 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   /** Welcher Eingabeplatz liegt diesem x-Wert am nächsten? */
   const slotNear = (x: number) =>
     slots.reduce((best, slot) => {
-      const drawn = rendered.current?.notes[0]?.[slot.slot];
-      const bestDrawn = rendered.current?.notes[0]?.[best.slot];
+      const drawn = rendered.current?.notes.flat()[slot.slot];
+      const bestDrawn = rendered.current?.notes.flat()[best.slot];
       if (!drawn) return best;
       const distance = Math.abs(noteHeadCentre(drawn) - x);
       const bestDistance = bestDrawn ? Math.abs(noteHeadCentre(bestDrawn) - x) : Infinity;
@@ -938,17 +1004,21 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
       </div>
 
       <div class="score-click-area score-click-area-bare" ref={area} {...pointer.handlers}>
-        <Score spec={spec} onRendered={onScoreRendered} />
+        <Score spec={twoLines ? inTwoLines(spec) : spec} onRendered={onScoreRendered} />
       </div>
 
       {activeSlot && !readOnly && (
-        <div class="slot-row" role="group" aria-label="Platz wählen">
+        <div class="slot-row" role="group" aria-label="Platz wählen" ref={slotRow}>
           {slots.map((slot) => (
             <button
               key={slot.slot}
               type="button"
               class={`slot-button ${slot.slot === activeSlot.slot ? 'is-active' : ''}`}
-              style={{ left: `${slotXs[slot.slot] ?? 0}px`, visibility: slotXs.length ? 'visible' : 'hidden' }}
+              style={{
+                left: `${slotXs[slot.slot] ?? 0}px`,
+                ...(twoLines ? { top: `${slotTops[slot.slot] ?? 0}px` } : {}),
+                visibility: slotXs.length ? 'visible' : 'hidden',
+              }}
               aria-pressed={slot.slot === activeSlot.slot}
               aria-label={`Ton ${slot.slot + 1}`}
               onClick={() => setActive(slot.slot)}
@@ -961,7 +1031,7 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
 
       {solutionBelow && (
         <div class="score-solution" role="img" aria-label={`Lösung: ${slots.map((slot) => toGermanPitch(parsePitch(slot.accept[0]))).join(', ')}`}>
-          <Score spec={solutionBelow} />
+          <Score spec={twoLines ? inTwoLines(solutionBelow) : solutionBelow} />
         </div>
       )}
 

@@ -1911,6 +1911,45 @@ async function main() {
     );
     await page.screenshot({ path: join(SHOTS, 'melodiediktat-generiert.png') });
 
+    // Hochkant auf dem Telefon, zwölf Töne: zwei Zeilen, die Nummern der
+    // oberen zwischen den Zeilen, keine übereinander. Auf der obersten Linie
+    // jeder Zeile gesetzt, steht fis²: es zählt die Zeile unter dem Finger.
+    const dictationPhone = await browser.newContext({ ...devices['iPhone 13'] });
+    const twoLines = await dictationPhone.newPage();
+    await twoLines.goto(exercise('generiertes-melodiediktat', '?laenge=12&tonleitern=dur&max-vorzeichen=4&aufgabe=5&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await twoLines.waitForSelector('.slot-button.is-active');
+    await twoLines.waitForTimeout(300);
+    const lineBoxes = await twoLines
+      .locator('.score-click-area svg .vf-stave')
+      .evaluateAll((staves) => staves.map((stave) => stave.getBoundingClientRect().toJSON()));
+    const slotBoxes = await twoLines
+      .locator('.slot-button')
+      .evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().toJSON()));
+    const [upperSlots, lowerSlots] = [slotBoxes.slice(0, 5), slotBoxes.slice(5)];
+    const apart = (boxes) => boxes.slice(1).every((box, index) => box.left >= boxes[index].right - 0.5);
+    check(
+      lineBoxes.length === 2 &&
+        slotBoxes.length === 11 &&
+        upperSlots.every((box) => box.top > lineBoxes[0].bottom && box.bottom < lineBoxes[1].top) &&
+        lowerSlots.every((box) => box.top > lineBoxes[1].bottom) &&
+        apart(upperSlots) &&
+        apart(lowerSlots),
+      'hochkant, zwölf Töne: zwei Zeilen, die Nummern unter ihrer Zeile, keine übereinander',
+    );
+    await twoLines.mouse.click(lineBoxes[0].x + 15, lineBoxes[0].y);
+    await twoLines.waitForTimeout(80);
+    await twoLines.locator('.slot-button', { hasText: '8' }).click();
+    // Der Knopf wird dafür ins Bild gescrollt: die Zeilen neu messen.
+    const lowerLine = await twoLines.locator('.score-click-area svg .vf-stave').nth(1).boundingBox();
+    await twoLines.mouse.click(lowerLine.x + 15, lowerLine.y);
+    await twoLines.waitForTimeout(80);
+    const twoLineSummary = await twoLines.locator('.input-summary').innerText();
+    check(/fis2, fis2$/.test(twoLineSummary), `in beiden Zeilen gilt die Zeile unter dem Finger («${twoLineSummary}»)`);
+    await twoLines.screenshot({ path: join(SHOTS, 'melodiediktat-zwei-zeilen.png') });
+    await dictationPhone.close();
+
     // ------------------------------------------ Gehörte Melodie auf Klaviatur
     // Dieselbe Melodie auf der Klaviatur c¹ bis h², a² blau markiert. Jede
     // Taste füllt den nächsten Platz; sind alle voll, klingt sie nur noch.
