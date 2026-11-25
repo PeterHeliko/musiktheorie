@@ -27,7 +27,14 @@ import {
   pitchKey,
   taskId,
 } from './shared';
-import { DIRECTION_FILTER, SCALE_FILTER, pickScale, placeTonic, scalePrompt } from './tonleitern';
+import {
+  DIRECTION_FILTER,
+  MAX_ACCIDENTALS_FILTER,
+  SCALE_FILTER,
+  pickScale,
+  placeTonic,
+  scalePrompt,
+} from './tonleitern';
 import { multi, range, type FilterValues, type Generator, type Question } from './types';
 
 const SIGN_OPTIONS: SelectOption[] = [
@@ -72,7 +79,7 @@ export const tonartenVorzeichen: Generator<SignatureFilters> = {
   hint: 'Wähle zuerst ♯ oder ♭ und setze dann die Vorzeichen auf ihre Positionen.',
 
   filters: [
-    { kind: 'range', key: 'maxAccidentals', label: 'Höchstens', min: 0, max: 7, unit: 'Vorzeichen' },
+    MAX_ACCIDENTALS_FILTER,
     { kind: 'multi', key: 'signs', label: 'Art', options: SIGN_OPTIONS },
     { kind: 'multi', key: 'genders', label: 'Tongeschlecht', options: GENDER_OPTIONS },
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
@@ -145,7 +152,7 @@ export const tonartenZuordnen: Generator<MatchFilters> = {
   instruction: 'Wähle die zu den Vorzeichen passenden Tonarten.',
 
   filters: [
-    { kind: 'range', key: 'maxAccidentals', label: 'Höchstens', min: 0, max: 7, unit: 'Vorzeichen' },
+    MAX_ACCIDENTALS_FILTER,
     { kind: 'multi', key: 'signs', label: 'Art', options: SIGN_OPTIONS },
     { kind: 'multi', key: 'ask', label: 'Gefragt ist', options: ASK_OPTIONS },
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
@@ -227,7 +234,7 @@ export const tonartenHalbtonschritte: Generator<SemitoneFilters> = {
 
   filters: [
     SCALE_FILTER,
-    { kind: 'range', key: 'maxAccidentals', label: 'Höchstens', min: 0, max: 5, unit: 'Vorzeichen' },
+    { ...MAX_ACCIDENTALS_FILTER, max: 5 },
     DIRECTION_FILTER,
     { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
   ],

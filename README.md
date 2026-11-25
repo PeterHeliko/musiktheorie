@@ -57,7 +57,7 @@ das; unter ⚙ → «Teilen» stehen die beiden üblichen Fälle zum Kopieren be
 /ueben/intervalle-hoeren/                                  Übung mit Vorgaben
 /ueben/intervalle-hoeren/?intervalle=k3,g3&richtung=ab     eigene Einstellungen, neue Aufgaben
 /ueben/intervalle-hoeren/?intervalle=k3,g3&aufgabe=9ix&v=2 genau diese Aufgabe
-/ueben/stufen-bestimmen/?runde=10&aufgabe=2k9f&v=1         genau diese Runde
+/ueben/intervalle-hoeren/?runde=10&aufgabe=2k9f&v=2        genau diese Runde
 ```
 
 Regeln, damit geteilte Links lange halten (Einzelheiten in `src/links.ts`):
@@ -306,7 +306,7 @@ Die Tonleitern stehen in `src/music/scales.ts`, alle Übungen nehmen sie von dor
   Die Kirchentonarten sind überall zuschaltbar, aber aus.
 - **Melodisch Moll abwärts ist natürlich** — im Notenbild wie im Klang. Beim Hören abwärts
   zählen deshalb beide Antworten.
-- **«Höchstens n Vorzeichen»** meint die Tonart: bei Moll die der natürlichen Form, bei den
+- **«Maximale Anzahl Vorzeichen»** meint die Tonart: bei Moll die der natürlichen Form, bei den
   Kirchentonarten die der Durtonart, aus der sie stammen (G-dorisch: ein ♭). Grundtöne, deren
   Leiter ein Doppelvorzeichen bräuchte, fallen weg (gis-Moll harmonisch).
 - Aufgaben heissen «Es-Dur aufwärts», «c-Moll harmonisch abwärts», «D-dorisch aufwärts».

@@ -326,8 +326,8 @@ Rules (decided 2026-11-24):
 | ------------------------------------- | ---------- | --- |
 | Vorzeichen setzen                     | Notieren   | ✓   |
 | Tonart den Vorzeichen zuordnen        | Erkennen   | ✓   |
-| Halbtonschritte markieren             | Erkennen   | ✓   |
-| Stufen bestimmen                      | Erkennen   | ✓   |
+| Halbtonschritte markieren             | Erkennen   | ⏸   |
+| Stufen bestimmen                      | Erkennen   | ⏸   |
 | Tonleitern notieren                   | Notieren   | ✓   |
 | Tonleitern auf Klaviatur markieren    | Klaviatur  | ✓   |
 | Tonleitern hörend erkennen            | Hören      | ✓   |
@@ -336,6 +336,9 @@ Rules (decided 2026-11-24):
 
 Stufen bestimmen moved here from Dreiklänge (2026-11-24): Stufen need the keys.
 
+⏸ Halbtonschritte markieren and Stufen bestimmen are shelved for now (2026-11-25): built and
+tested, but not offered (`SHELVED_GENERATORS` in `src/generators/index.ts`).
+
 Rules (decided 2026-11-24):
 
 - **Nine scale types:** Dur, Moll natürlich, harmonisch, melodisch, and the Kirchentonarten
@@ -343,7 +346,7 @@ Rules (decided 2026-11-24):
   natürlich). The Kirchentonarten can be switched on everywhere, off by default.
 - **Melodisch Moll descends natural,** in sound and in notation; hearing it downward accepts
   both answers.
-- **«Höchstens n Vorzeichen»** means the key: for Moll the natural form's, for a
+- **«Maximale Anzahl Vorzeichen»** means the key: for Moll the natural form's, for a
   Kirchentonart its parent major key's. Scales needing a double accidental are skipped.
 - **Tonart zuordnen:** a Tonnamen-Raster per asked key (Dur, Moll or both), tonic only.
 - **Vorzeichen setzen** uses the new note editor; after checking, each accidental is green or

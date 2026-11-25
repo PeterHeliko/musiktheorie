@@ -16,12 +16,12 @@ import {
 } from '../music/scales';
 import { CIRCLE_OF_FIFTHS, germanNoteName, keySignaturePitches, midi, parsePitch, toGermanPitch } from '../music/theory';
 import { judgeKeySignature, scoreTask } from '../scoring';
-import { generatorById } from './index';
+import { SHELVED_GENERATORS, generatorById } from './index';
 import { makeRng } from './rng';
 import type { FilterValues, Question } from './types';
 
 function generate(id: string, overrides: FilterValues = {}, count = 40): Question[] {
-  const generator = generatorById(id);
+  const generator = generatorById(id) ?? SHELVED_GENERATORS.find((entry) => entry.id === id);
   if (!generator) throw new Error(`Unbekannte Übung ${id}`);
   return Array.from({ length: count }, (_, seed) =>
     generator.generate({ ...generator.defaults, ...overrides }, makeRng(seed + 1)),

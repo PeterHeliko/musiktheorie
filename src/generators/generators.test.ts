@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { GENERATORS, generatorById, topicSections, topicsWithGenerators } from './index';
+import { GENERATORS, SHELVED_GENERATORS, generatorById, topicSections, topicsWithGenerators } from './index';
 import { deriveSeeds, makeRng } from './rng';
 import { freshSeed, questionKey, roundSeeds } from './fresh';
 import { TOPIC_GROUPS, fullTitle, type FilterValues, type Question } from './types';
@@ -52,7 +52,8 @@ const RUNS = 200;
 
 /** Erzeugt `count` Aufgaben mit den gegebenen Filtern. */
 function generate(id: string, filters: FilterValues = {}, count = RUNS): Question[] {
-  const generator = generatorById(id);
+  // Auch die zurückgestellten: sie sollen bereitliegen, wenn sie wiederkommen.
+  const generator = generatorById(id) ?? SHELVED_GENERATORS.find((entry) => entry.id === id);
   if (!generator) throw new Error(`Unbekannter Generator: ${id}`);
   const merged = { ...generator.defaults, ...filters };
   return Array.from({ length: count }, (_, i) => generator.generate(merged, makeRng(i * 2654435761)));
@@ -992,8 +993,13 @@ describe('Dreiklänge', () => {
     expect(TOPIC_GROUPS.dreiklaenge!.map((group) => group.title)).toEqual(['Grundstellung', 'Umkehrungen & Lagen']);
   });
 
-  it('führt «Stufen bestimmen» unter den Tonarten', () => {
-    expect(generatorById('stufen-bestimmen')!.topic).toBe('tonleitern');
+  it('stellt «Stufen bestimmen» und «Halbtonschritte markieren» vorerst zurück', () => {
+    expect(generatorById('stufen-bestimmen')).toBeUndefined();
+    expect(generatorById('halbtonschritte-markieren')).toBeUndefined();
+    expect(SHELVED_GENERATORS.map((entry) => [entry.id, entry.topic])).toEqual([
+      ['halbtonschritte-markieren', 'tonleitern'],
+      ['stufen-bestimmen', 'tonleitern'],
+    ]);
   });
 
   it('zeigt in Grundstellung drei Töne eng über dem Grundton, im gefragten Geschlecht', () => {

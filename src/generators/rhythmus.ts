@@ -50,7 +50,7 @@ export const rhythmusNotenwerte: Generator<ValueFilters> = {
   instruction: 'Ordne dem Zeichen den richtigen Namen zu.',
 
   filters: [
-    { kind: 'multi', key: 'durations', label: 'Welche Werte?', options: DURATION_OPTIONS, min: 2 },
+    { kind: 'multi', key: 'durations', label: 'Mögliche Werte', options: DURATION_OPTIONS, min: 2 },
     { kind: 'multi', key: 'kinds', label: 'Was wird gefragt?', options: KIND_OPTIONS },
     {
       kind: 'single',
@@ -193,16 +193,16 @@ export const rhythmusPausen: Generator<RestFilters> = {
     {
       kind: 'multi',
       key: 'durations',
-      label: 'Welche Notenwerte kommen vor?',
+      label: 'Mögliche Notenwerte',
       options: DURATION_OPTIONS,
       min: 2,
     },
     {
       kind: 'multi',
       key: 'gaps',
-      label: 'Welche Pausenwerte werden gesucht?',
+      label: 'Mögliche Pausenwerte',
       options: DURATION_OPTIONS,
-      hint: 'Muss eine Teilmenge der vorkommenden Notenwerte sein — sonst wird die Lücke aus den übrigen gewählt.',
+      hint: 'Muss eine Teilmenge der möglichen Notenwerte sein, sonst wird die Lücke aus den übrigen gewählt.',
     },
   ],
 

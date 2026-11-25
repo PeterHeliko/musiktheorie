@@ -226,11 +226,20 @@ describe('Beschreibung eines Schritts', () => {
   });
 
   it('beantwortet Fragen ohne Doppelpunkt', () => {
-    const entry = generator('pausen-ergaenzen');
-    const gaps = entry.filters.find((filter) => filter.key === 'gaps')!;
-    expect(gaps.label.endsWith('?')).toBe(true);
-    const parts = describeSettings(entry, { ...entry.defaults, gaps: ['w'] });
-    expect(parts).toEqual([`${gaps.label} Ganze`]);
+    const entry = generator('notenwerte-zuordnen');
+    const kinds = entry.filters.find((filter) => filter.key === 'kinds')!;
+    expect(kinds.label.endsWith('?')).toBe(true);
+    const parts = describeSettings(entry, { ...entry.defaults, kinds: ['rest'] });
+    expect(parts).toEqual([`${kinds.label} Pausenzeichen`]);
+  });
+
+  it('nennt Zahlen mit Einheit dahinter, ohne Einheit nach einem Doppelpunkt', () => {
+    const dictation = generator('melodiediktat');
+    expect(describeSettings(dictation, { ...dictation.defaults, bars: 6 })).toEqual(['Länge 6 Takte']);
+    const scales = generator('tonleitern-notieren');
+    expect(describeSettings(scales, { ...scales.defaults, maxAccidentals: 2 })).toEqual([
+      'Maximale Anzahl Vorzeichen: 2',
+    ]);
   });
 
   it('beschreibt jeden Zustand jeder Übung mit lesbarem Text', () => {

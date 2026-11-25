@@ -211,7 +211,7 @@ export function placeSuffix(place: CoursePlace): string {
  * Mit der Beschriftung des Filters davor: die Optionen allein sagen oft zu
  * wenig («Keine», «Grundton», «b»), und bei «Pausen ergänzen» stehen dieselben
  * Notenwerte in zwei Filtern. Ist die Beschriftung eine Frage, folgt die
- * Antwort ohne Doppelpunkt («Welche Pausenwerte werden gesucht? Ganze»).
+ * Antwort ohne Doppelpunkt («Was wird gefragt? Pausenzeichen»).
  */
 export function describeSettings(generator: Generator<FilterValues>, filters: FilterValues): string[] {
   const parts: string[] = [];
@@ -237,7 +237,9 @@ export function describeSettings(generator: Generator<FilterValues>, filters: Fi
         parts.push(value ? filter.label : `${filter.label}: nein`);
         break;
       case 'range':
-        parts.push([filter.label, String(value), filter.unit].filter(Boolean).join(' '));
+        // «Länge 4 Takte», «Tempo 96 bpm»; ohne Einheit wie die übrigen:
+        // «Maximale Anzahl Vorzeichen: 3».
+        parts.push(filter.unit ? `${filter.label} ${value} ${filter.unit}` : labelled(filter.label, String(value)));
         break;
     }
   }

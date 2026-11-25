@@ -7,7 +7,7 @@
  *   /ueben/intervalle-hoeren/
  *   /ueben/intervalle-hoeren/?intervalle=k3,g3&richtung=ab
  *   /ueben/intervalle-hoeren/?intervalle=k3,g3&richtung=ab&aufgabe=1kx9q2&v=2
- *   /ueben/stufen-bestimmen/?runde=10&aufgabe=8f3k2&v=1
+ *   /ueben/intervalle-bestimmen/?runde=10&aufgabe=8f3k2&v=1
  *
  * Drei Regeln, damit Links lange halten:
  *

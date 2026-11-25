@@ -38,7 +38,7 @@ describe('Seiten', () => {
       'Intervalle notieren (Grobbestimmung)',
     );
     expect(metaFor({ page: 'uebung', id: 'intervalle-notieren' }).title).toBe('Intervalle notieren (Feinbestimmung)');
-    expect(metaFor({ page: 'uebung', id: 'stufen-bestimmen' }).title).toBe('Stufen bestimmen');
+    expect(metaFor({ page: 'uebung', id: 'tonleitern-notieren' }).title).toBe('Tonleitern notieren');
   });
 
   it('nennt in der Themenbeschreibung jeden Übungstitel einmal', () => {

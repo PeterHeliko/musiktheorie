@@ -580,7 +580,7 @@ export const SING_FILTERS: FilterSpec[] = [
       { value: '80', label: '80' },
       { value: '100', label: '100' },
     ],
-    hint: 'Schläge pro Minute. Mit Metronom wird nach dem ersten Ton eingezählt, dann singst du auf jeden Schlag einen Ton. Die Zeit wartet nicht: ein falscher Ton bleibt falsch, und es geht weiter.',
+    hint: 'Mit aktivem Metronom wird eingezählt und auf jedem Schlag muss ein Ton gesungen werden.',
   },
 ];
 

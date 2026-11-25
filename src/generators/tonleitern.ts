@@ -44,13 +44,12 @@ import {
   type Question,
 } from './types';
 
-/** Die Einstellung «Welche Tonleitern?», mit den Kirchentonarten. */
+/** Die Einstellung «Mögliche Tonleitern», mit den Kirchentonarten. */
 export const SCALE_FILTER: FilterSpec = {
   kind: 'multi',
   key: 'scales',
-  label: 'Welche Tonleitern?',
+  label: 'Mögliche Tonleitern',
   options: OPTION_SETS.scaleType,
-  hint: 'Dorisch, phrygisch, lydisch, mixolydisch und lokrisch sind die Kirchentonarten; ionisch und äolisch sind Dur und Moll natürlich.',
 };
 
 export const DIRECTION_FILTER: FilterSpec = {
@@ -61,7 +60,6 @@ export const DIRECTION_FILTER: FilterSpec = {
     { value: 'up', label: 'aufwärts' },
     { value: 'down', label: 'abwärts' },
   ],
-  hint: 'Abwärts beginnt die Tonleiter auf dem oberen Grundton. Melodisch Moll steht abwärts in der natürlichen Form.',
 };
 
 export const DEFAULT_SCALES: string[] = MAJOR_MINOR;
@@ -130,14 +128,16 @@ const SCALE_SPACE = {
   bass: staffSpace('bass', candidatePitches({ low: 37, high: 58 }, [-1, 0, 1])),
 };
 
-const MAX_ACCIDENTALS_FILTER: FilterSpec = {
+/**
+ * Gemeint sind die Vorzeichen der Tonart: bei Moll die der natürlichen Form,
+ * bei den Kirchentonarten die der Durtonart, aus der sie stammen (scaleTonics).
+ */
+export const MAX_ACCIDENTALS_FILTER: Extract<FilterSpec, { kind: 'range' }> = {
   kind: 'range',
   key: 'maxAccidentals',
-  label: 'Höchstens',
+  label: 'Maximale Anzahl Vorzeichen',
   min: 0,
   max: 7,
-  unit: 'Vorzeichen',
-  hint: 'Gemeint sind die Vorzeichen der Tonart, bei den Kirchentonarten die der Durtonart, aus der sie stammen.',
 };
 
 // ---------------------------------------------------------------------------

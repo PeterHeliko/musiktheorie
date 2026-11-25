@@ -120,14 +120,19 @@ export const GENERATORS: Generator<FilterValues>[] = [
   septUmkehrungenSingen,
   tonartenZuordnen,
   tonartenVorzeichen,
-  tonartenHalbtonschritte,
-  dreiklaengeStufen,
   tonleiternNotieren,
   tonleiternKlaviatur,
   gehoerTonleitern,
   tonleiternSingen,
   gehoerDiktat,
 ];
+
+/**
+ * Vorerst zurückgestellt (Entscheid 2026-11-25): fertig und getestet, aber
+ * ohne Seite, Link und Platz auf der Themenseite. Wieder anbieten heisst:
+ * zurück nach GENERATORS.
+ */
+export const SHELVED_GENERATORS: Generator<FilterValues>[] = [tonartenHalbtonschritte, dreiklaengeStufen];
 
 /**
  * Themen in ihrer Reihenfolge, mit ihren Übungen. Themen ohne Übung fallen

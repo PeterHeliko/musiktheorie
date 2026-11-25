@@ -74,8 +74,6 @@ const MODES = {
   'septakkorde-umkehrungen-singen': 'Umkehrungen & Lagen singen (Septakkorde)',
   'tonarten-zuordnen': 'Tonarten den Vorzeichen zuordnen',
   'vorzeichen-setzen': 'Vorzeichen setzen',
-  'halbtonschritte-markieren': 'Halbtonschritte markieren',
-  'stufen-bestimmen': 'Stufen bestimmen',
   'tonleitern-notieren': 'Tonleitern notieren',
   'tonleitern-klaviatur': 'Tonleitern auf Klaviatur markieren',
   'tonleitern-hoeren': 'Tonleitern hörend erkennen',
@@ -1447,29 +1445,32 @@ async function main() {
     await other.close();
 
     // Eine Runde aus einem Link: zweimal geöffnet, dieselben Aufgaben.
-    const roundLink = exercise('stufen-bestimmen', '?runde=10&aufgabe=2k9f&v=1');
-    const roundPrompts = [];
+    const roundLink = exercise('intervalle-bestimmen', '?runde=10&aufgabe=2k9f&v=2');
+    const roundTasks = [];
     for (let attempt = 0; attempt < 2; attempt++) {
       const ctx = await browser.newContext();
       const p = await ctx.newPage();
       await p.goto(roundLink, { waitUntil: 'networkidle' });
-      const prompts = [];
+      const tasks = [];
       for (let i = 0; i < 3; i++) {
-        await p.waitForSelector('.question select');
-        prompts.push(await p.locator('.question .task-prompt').innerText());
-        for (const select of await p.locator('.question select').all()) await select.selectOption({ index: 1 });
-        await p.locator('button:has-text("Prüfen")').click();
+        // Freie Knöpfe heisst: die nächste Aufgabe steht da, nicht mehr die beantwortete.
+        await p.waitForSelector('.question .choice:not([disabled])');
+        tasks.push(await scoreFingerprint(p));
+        await p.locator('.question .choice:not([disabled])').first().click();
         await p.waitForSelector('.verdict');
         await p.locator('.session-bar .primary').click();
       }
-      roundPrompts.push(prompts.join(' | '));
+      roundTasks.push(tasks.join(' | '));
       await ctx.close();
     }
-    check(roundPrompts[0] === roundPrompts[1], `ein Rundenlink stellt dieselben Aufgaben («${roundPrompts[0]}»)`);
+    check(
+      roundTasks[0] === roundTasks[1] && new Set(roundTasks[0].split(' | ')).size > 1,
+      'ein Rundenlink stellt dieselben Aufgaben',
+    );
 
     // -------------------------------------------------------------------- Runde
     console.log('\nRunde');
-    await page.goto(exercise('stufen-bestimmen'), { waitUntil: 'networkidle' });
+    await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });
     await openSettings();
     await page.locator('.sheet .filter-chip', { hasText: 'Übung à 10' }).click();
     await closeSettings();
@@ -1484,9 +1485,7 @@ async function main() {
     }
     check(roundInUrl, `die Runde steht in der Adresszeile (${new URL(page.url()).search})`);
     for (let i = 0; i < 10; i++) {
-      await page.waitForSelector('.question select');
-      for (const select of await page.locator('.question select').all()) await select.selectOption({ index: 1 });
-      await page.locator('button:has-text("Prüfen")').click();
+      await page.locator('.question .choice:not([disabled])').first().click();
       await page.waitForSelector('.verdict');
       await page.locator('.session-bar .primary').click();
       await page.waitForTimeout(100);

@@ -67,7 +67,7 @@ export const gehoerTonleitern: Generator<Filters> = {
     {
       kind: 'multi',
       key: 'scaleTypes',
-      label: 'Welche Tonleiterarten?',
+      label: 'Mögliche Tonleitern',
       options: OPTION_SETS.scaleType,
     },
     {
@@ -88,7 +88,6 @@ export const gehoerTonleitern: Generator<Filters> = {
         { value: 'up', label: 'aufwärts' },
         { value: 'down', label: 'abwärts' },
       ],
-      hint: 'Abwärts ist deutlich schwerer. Die melodische Molltonleiter klingt hier wie die natürliche, weil ihre erhöhten Stufen nur aufwärts gelten. Beide Antworten zählen dann.',
     },
     {
       kind: 'range',
