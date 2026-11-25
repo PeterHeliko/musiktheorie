@@ -77,8 +77,33 @@ const LIMIT_RATIO = 20;
 const LIMIT_ATTACK = 0.002;
 const LIMIT_RELEASE = 0.15;
 
+/**
+ * Ab diesem Pegel gilt ein Sample als verklungen: -50 dBFS.
+ *
+ * Die Dateien enden erst tief unten (siehe scripts/generate-samples.ts), damit
+ * nichts hörbar abbricht. Auf diesen leisen Rest muss «Läuft …» aber nicht
+ * warten. Er klingt weiter, nur gilt die Wiedergabe schon als fertig.
+ */
+const SILENT_BELOW = Math.pow(10, -50 / 20);
+
 function releaseFor(length: number): number {
   return Math.min(MAX_RELEASE, Math.max(MIN_RELEASE, length * RELEASE_RATIO));
+}
+
+/** Wie lange ein Sample zu hören ist: bis zum letzten Wert über SILENT_BELOW, in Sekunden. */
+export function audibleSeconds(buffer: Pick<AudioBuffer, 'numberOfChannels' | 'sampleRate' | 'getChannelData'>): number {
+  let last = -1;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const data = buffer.getChannelData(channel);
+    // Von hinten: so wird nur der leise Ausklang durchsucht, nicht der ganze Ton.
+    for (let i = data.length - 1; i > last; i--) {
+      if (Math.abs(data[i]) > SILENT_BELOW) {
+        last = i;
+        break;
+      }
+    }
+  }
+  return (last + 1) / buffer.sampleRate;
 }
 
 function sampleUrl(name: string): string {
@@ -119,6 +144,8 @@ export class SamplePlayer {
   /** Gemeinsamer Ausgang aller Töne, siehe LIMIT_THRESHOLD. */
   private output: AudioNode | null = null;
   private readonly buffers = new Map<string, AudioBuffer>();
+  /** Je Sample: wie lange es zu hören ist (audibleSeconds), einmal beim Laden gemessen. */
+  private readonly audible = new Map<string, number>();
   private readonly loading = new Map<string, Promise<AudioBuffer | null>>();
   /** Was gerade läuft — damit «Nächste» die Wiedergabe abbrechen kann. */
   private playing: { sources: AudioBufferSourceNode[]; done: () => void } | null = null;
@@ -165,6 +192,7 @@ export class SamplePlayer {
         const response = await fetch(sampleUrl(name));
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const buffer = await this.ctx().decodeAudioData(await response.arrayBuffer());
+        this.audible.set(name, audibleSeconds(buffer));
         this.buffers.set(name, buffer);
         return buffer;
       } catch (error) {
@@ -239,8 +267,8 @@ export class SamplePlayer {
   }
 
   /**
-   * Spielt die Ereignisfolge ab und löst auf, wenn der letzte Ton verklungen
-   * ist. Ein laufendes Beispiel wird vorher abgebrochen.
+   * Spielt die Ereignisfolge ab und löst auf, sobald die Musik vorbei und
+   * nichts mehr zu hören ist. Ein laufendes Beispiel wird vorher abgebrochen.
    *
    * `finalRelease`: so lange klingt der Schlusston aus (s). Vorgabe ist das
    * lange Ausklingen; beim Singen soll er bald schweigen, denn erst danach
@@ -278,6 +306,12 @@ export class SamplePlayer {
     onStart?.(performance.now() + (start - context.currentTime + latency) * 1000);
 
     let offset = 0;
+    /** Bis wann irgendein Ton noch zu hören ist, in der Zeit des Kontexts. */
+    let heardUntil = start;
+    const sound = (name: string, rate: number, at: number, length: number, ringOut: number | null) => {
+      const scheduled = this.schedule(name, rate, at, length, ringOut, sources);
+      if (scheduled) heardUntil = Math.max(heardUntil, scheduled.heardUntil);
+    };
     events.forEach((event, index) => {
       const at = start + offset * secondsPerQuarter;
       const length = event.quarters * secondsPerQuarter;
@@ -285,25 +319,26 @@ export class SamplePlayer {
       offset += event.quarters;
 
       if (event.click) {
-        this.schedule(CLICK, 1, at, length, null, sources);
+        sound(CLICK, 1, at, length, null);
         return;
       }
       for (const pitch of event.pitches) {
         const { name, rate } = sampleFor(pitch);
-        this.schedule(name, rate, at, length, isLast ? finalRelease : null, sources);
+        sound(name, rate, at, length, isLast ? finalRelease : null);
       }
     });
 
-    // Fertig ist, wenn der Schlusston verklungen ist: Notendauer, Überhang, Ausklingen.
-    const last = events[events.length - 1];
-    const overhang = last ? Math.min(MAX_OVERHANG, last.quarters * secondsPerQuarter * OVERHANG_RATIO) : 0;
-    const total = offset * secondsPerQuarter + overhang + finalRelease;
+    // Fertig ist, wenn die Musik vorbei ist UND nichts mehr zu hören ist. Nie
+    // vor dem notierten Ende: das Metronom beim Singen im Tempo zählt bis zum
+    // letzten Schlag. Aber auch nicht später, als der Schlusston wirklich
+    // klingt; die volle Ausklingzeit war sonst zum grossen Teil Stille.
+    const finished = Math.max(start + offset * secondsPerQuarter, heardUntil);
 
     return new Promise<void>((resolve) => {
       const timer = globalThis.setTimeout(() => {
         if (this.playing?.sources === sources) this.playing = null;
         resolve();
-      }, (SCHEDULE_LEAD + total) * 1000);
+      }, (finished - context.currentTime) * 1000);
 
       this.playing = {
         sources,
@@ -333,8 +368,9 @@ export class SamplePlayer {
     if (context.state !== 'running') void context.resume();
     const { name, rate } = sampleFor(pitch);
     const sound = () => {
-      const source = this.schedule(name, rate, context.currentTime, seconds, release, []);
-      if (!source) return;
+      const scheduled = this.schedule(name, rate, context.currentTime, seconds, release, []);
+      if (!scheduled) return;
+      const { source } = scheduled;
       this.struck.add(source);
       source.onended = () => this.struck.delete(source);
     };
@@ -345,6 +381,9 @@ export class SamplePlayer {
   /**
    * Ein Ton: Sample → Hüllkurve → Ausgang. Die Hüllkurve dämpft am notierten
    * Ende; ohne sie klängen alle Töne bis zum Ende des Samples weiter.
+   *
+   * `heardUntil`: bis dahin ist der Ton zu hören. Je nachdem, was früher
+   * kommt: das Ende der Hüllkurve oder das Verklingen des Samples selbst.
    */
   private schedule(
     name: string,
@@ -354,7 +393,7 @@ export class SamplePlayer {
     /** Ausklingzeit des Schlusstons; null = gewöhnlicher Ton. */
     ringOut: number | null,
     sources: AudioBufferSourceNode[],
-  ): AudioBufferSourceNode | null {
+  ): { source: AudioBufferSourceNode; heardUntil: number } | null {
     const buffer = this.buffers.get(name);
     if (!buffer) return null;
 
@@ -380,7 +419,8 @@ export class SamplePlayer {
     source.start(at);
     source.stop(dampenAt + release);
     sources.push(source);
-    return source;
+    const audible = this.audible.get(name) ?? buffer.duration;
+    return { source, heardUntil: Math.min(dampenAt + release, at + audible / rate) };
   }
 
   /** Bricht ab, was gerade läuft oder geplant ist, auch angeschlagene Töne. */
