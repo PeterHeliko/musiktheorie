@@ -117,6 +117,15 @@ export function diatonicForY(geometry: StaveGeometry, y: number): number {
   return TOP_LINE_DIATONIC[geometry.clef] - Math.round(halfLines);
 }
 
+/**
+ * Wie diatonicForY, aber ungerundet: wie weit der Pixel von jeder Stufe
+ * entfernt liegt, in Stufen. Für die Hysterese beim Ziehen.
+ */
+export function exactDiatonicForY(geometry: StaveGeometry, y: number): number {
+  const spacing = geometry.stave.getSpacingBetweenLines();
+  return TOP_LINE_DIATONIC[geometry.clef] - (y - geometry.stave.getYForLine(0)) / (spacing / 2);
+}
+
 /** Diatonischen Index in Stammton und Oktave zerlegen. */
 export function diatonicToStep(diatonic: number): { step: Step; octave: number } {
   return {

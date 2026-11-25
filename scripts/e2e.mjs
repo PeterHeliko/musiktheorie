@@ -649,6 +649,63 @@ async function main() {
     check(!/Gesetzt:/.test(midDrag), 'während des Ziehens ist noch nichts gesetzt');
     check(/Gesetzt:/.test(await touchPage.locator('.input-summary').innerText()), 'beim Loslassen steht die Note');
     check(scrollAfter === scrollBefore, `Ziehen verschiebt die Seite nicht (${scrollBefore} → ${scrollAfter})`);
+
+    // Abheben verschiebt die Note nicht (Entscheid 2026-11-26): gesetzt wird,
+    // was die Vorschau kurz vor dem Loslassen zeigte. 20 px sind mehrere Stufen.
+    const placedAfter = async (holdY, liftY) => {
+      await finger('touchStart', tx, touchArea.y + touchArea.height * 0.3);
+      await finger('touchMove', tx, holdY);
+      await touchPage.waitForTimeout(250);
+      if (liftY !== holdY) await finger('touchMove', tx, liftY);
+      await finger('touchEnd', tx, liftY);
+      await touchPage.waitForTimeout(150);
+      return touchPage.locator('.input-summary').innerText();
+    };
+    const holdY = Math.round(touchArea.y + touchArea.height * 0.5);
+    const held = await placedAfter(holdY, holdY);
+    const lower = await placedAfter(holdY + 20, holdY + 20);
+    const drifted = await placedAfter(holdY, holdY + 20);
+    check(
+      lower !== held && drifted === held,
+      `beim Abheben verrutscht die Note nicht («${held}»; 20 px tiefer gehalten «${lower}», nur beim Abheben «${drifted}»)`,
+    );
+
+    // Hysterese: zurück wechselt die Vorschau erst ein Stück weiter oben, als
+    // sie auf dem Hinweg gewechselt hat. Gemessen am blauen Notenkopf.
+    const previewTop = () =>
+      touchPage.evaluate(() => {
+        // Gemessen ab dem Bild, falls die Seite sich unterdessen verschiebt.
+        const blue = document.querySelector('.score-click-area svg [fill="#5aa9dd"] .vf-notehead');
+        const svg = document.querySelector('.score-click-area svg');
+        return blue && svg ? Math.round(blue.getBoundingClientRect().top - svg.getBoundingClientRect().top) : null;
+      });
+    // Chromium reicht Fingerbewegungen erst mit dem nächsten Bild weiter.
+    const moveTo = async (y) => {
+      await finger('touchMove', tx, y);
+      await touchPage.waitForTimeout(50);
+    };
+    /** Pixel für Pixel weiter, bis der Kopf woanders steht als `from`; der Abstand zum Start. */
+    const untilMoved = async (start, direction, from) => {
+      for (let offset = 1; offset <= 40; offset++) {
+        await moveTo(start + direction * offset);
+        if ((await previewTop()) !== from) return offset;
+      }
+      return null;
+    };
+    await finger('touchStart', tx, holdY);
+    await touchPage.waitForTimeout(50);
+    const startTop = await previewTop();
+    const firstSwitch = await untilMoved(holdY, 1, startTop);
+    const nextTop = await previewTop();
+    const secondSwitch = await untilMoved(holdY + firstSwitch, 1, nextTop);
+    const step = secondSwitch;
+    await moveTo(holdY + firstSwitch);
+    const back = await untilMoved(holdY + firstSwitch, -1, nextTop);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    check(
+      startTop !== null && firstSwitch && step && back >= Math.max(2, step * 0.4),
+      `die Vorschau flackert nicht an der Grenze zweier Stufen (Stufe ${step} px, hin nach ${firstSwitch} px, zurück erst nach ${back} px)`,
+    );
     await touch.close();
 
     // ------------------------------------------------- Tastatur

@@ -25,10 +25,12 @@ import {
   SCORE_SCALE,
   diatonicForY,
   diatonicToStep,
+  exactDiatonicForY,
   noteHeadCentre,
   scorePrefixWidth,
   toScoreCoordinates,
   type RenderedScore,
+  type StaveGeometry,
 } from '../render';
 import {
   accidentalsOfVexKey,
@@ -68,6 +70,28 @@ const LEDGER_STEPS = 6;
 
 /** Klickabstand in Pixeln, ab dem eine bestehende Note als getroffen gilt. */
 const HIT_TOLERANCE = 18;
+
+/**
+ * Wie lange vor dem Loslassen der Finger nicht mehr zählt, in Millisekunden
+ * (Entscheid 2026-11-26). Beim Abheben rollt die Fingerkuppe ab, und der
+ * gemeldete Punkt wandert in diesen letzten Augenblicken ein paar Pixel —
+ * bei rund 7 px je Stufe oft eine ganze. Gesetzt wird deshalb, was die
+ * Vorschau so lange vor dem Loslassen zeigte.
+ */
+const SETTLE_MS = 100;
+
+/**
+ * Hysterese beim Ziehen mit dem Finger, in Stufen (Entscheid 2026-11-26): so
+ * weit über die Mitte zwischen zwei Stufen hinaus muss er, bevor die Vorschau
+ * wechselt. Sonst flackert sie, wo der Finger auf der Grenze ruht.
+ */
+const HYSTERESIS = 0.3;
+
+/** Ein Zeigerpunkt in Bildschirmkoordinaten, wie im PointerEvent. */
+interface Point {
+  clientX: number;
+  clientY: number;
+}
 
 /** Rückgängig und wiederholen, über alle Änderungen der Antwort. */
 interface AnswerHistory {
@@ -227,9 +251,26 @@ interface Location {
   x: number;
 }
 
-function locate(rendered: RenderedScore | null, event: MouseEvent): Location | null {
+function sameLocation(a: Location, b: Location): boolean {
+  return a.measure === b.measure && a.diatonic === b.diatonic;
+}
+
+/**
+ * Die Stufe an dieser Höhe, auf einen sinnvollen Bereich rund um das System
+ * begrenzt: so weit, wie Hilfslinien noch lesbar sind, aber nicht beliebig
+ * weit nach oben/unten. `previous`: die Stufe, auf der der Finger eben noch
+ * war. Sie bleibt, bis er HYSTERESIS über die Mitte zur nächsten hinaus ist.
+ */
+function stepAt(geometry: StaveGeometry, y: number, previous?: number): number {
+  const highest = diatonicForY(geometry, geometry.stave.getYForLine(0)) + LEDGER_STEPS;
+  const lowest = diatonicForY(geometry, geometry.stave.getYForLine(4)) - LEDGER_STEPS;
+  const held = previous !== undefined && Math.abs(exactDiatonicForY(geometry, y) - previous) < 0.5 + HYSTERESIS;
+  return Math.min(highest, Math.max(lowest, held ? previous : diatonicForY(geometry, y)));
+}
+
+function locate(rendered: RenderedScore | null, at: Point, previous: Location | null = null): Location | null {
   if (!rendered) return null;
-  const point = toScoreCoordinates(rendered.svg, event);
+  const point = toScoreCoordinates(rendered.svg, at);
   if (!point) return null;
   const { x, y } = point;
 
@@ -248,35 +289,8 @@ function locate(rendered: RenderedScore | null, event: MouseEvent): Location | n
 
   const geometry = rendered.staves[measure];
   if (!geometry) return null;
-
-  // Auf einen sinnvollen Bereich rund um das System begrenzen: so weit, wie
-  // Hilfslinien noch lesbar sind, aber nicht beliebig weit nach oben/unten.
-  const highest = diatonicForY(geometry, geometry.stave.getYForLine(0)) + LEDGER_STEPS;
-  const lowest = diatonicForY(geometry, geometry.stave.getYForLine(4)) - LEDGER_STEPS;
-  const diatonic = Math.min(highest, Math.max(lowest, diatonicForY(geometry, y)));
-
+  const diatonic = stepAt(geometry, y, previous?.measure === measure ? previous.diatonic : undefined);
   return { measure, diatonic, x };
-}
-
-/** Merkt sich die Zeigerposition, aber nur wenn sie auf ein neues Feld zeigt. */
-function useHover(live: () => RenderedScore | null, enabled: boolean) {
-  const [hover, setHover] = useState<Location | null>(null);
-
-  const onMove = useCallback(
-    (event: MouseEvent) => {
-      if (!enabled) return;
-      const next = locate(live(), event);
-      setHover((previous) =>
-        previous && next && previous.measure === next.measure && previous.diatonic === next.diatonic
-          ? previous
-          : next,
-      );
-    },
-    [enabled, live],
-  );
-
-  const onLeave = useCallback(() => setHover(null), []);
-  return { hover, onMove, onLeave, clearHover: onLeave };
 }
 
 /**
@@ -307,30 +321,47 @@ function useHover(live: () => RenderedScore | null, enabled: boolean) {
  *   Das SVG nimmt deshalb keine Zeigerereignisse an (CSS pointer-events:
  *   none), getroffen wird immer der beständige Rahmen darum.
  *
+ * Mit dem Finger (und dem Stift) zusätzlich, Entscheid 2026-11-26:
+ * - Die Vorschau wechselt erst HYSTERESIS über der Mitte zur nächsten Stufe.
+ * - Gesetzt wird, was die Vorschau SETTLE_MS vor dem Loslassen zeigte, nicht
+ *   wo der Finger abhebt; bei einem kurzen Tippen, wo er aufsetzte. Die
+ *   Stellen werden dafür samt Zeit mitgeschrieben, die Hysterese gleich
+ *   eingerechnet. So landet die Note immer auf einer Stelle, die die Vorschau
+ *   gezeigt hat.
+ *
+ * `locate`: wo im Notenbild der Punkt liegt; `previous` ist die Stelle davor,
+ * für die Hysterese (bei der Maus immer null). `same`: gleiche Stelle, die
+ * Vorschau bleibt. `preview`: ob die Vorschau gezeigt wird; gesetzt werden
+ * kann auch ohne (Bearbeiten im Diktat), solange `enabled`.
+ *
  * `pressed`: ob gerade gedrückt gezogen wird (Finger auf dem Glas, Maustaste
  * unten). Wo die neue Note die gesetzte ersetzt, verschwindet diese dann
  * sofort (PitchInput).
  */
-function usePointerPlacement(
-  hover: { onMove: (event: MouseEvent) => void; onLeave: () => void },
-  enabled: boolean,
-  commit: (event: PointerEvent) => void,
-  area: RefObject<HTMLElement>,
-) {
+function usePointerPlacement<L>(options: {
+  locate: (point: Point, previous: L | null) => L | null;
+  same: (a: L, b: L) => boolean;
+  preview: boolean;
+  enabled: boolean;
+  commit: (at: L) => void;
+  area: RefObject<HTMLElement>;
+}) {
+  const { enabled, area } = options;
+  const [hover, setHover] = useState<L | null>(null);
   const active = useRef<number | null>(null);
   const [pressed, setPressed] = useState(false);
-  // Immer die aktuelle Fassung: `commit` ist bei jedem Rendern eine neue Funktion.
-  const commitRef = useRef(commit);
-  commitRef.current = commit;
-  const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
+  /** Wo der Zeiger seit dem Drücken war, mit Zeit. Nur so weit zurück, wie SETTLE_MS es braucht. */
+  const trail = useRef<{ time: number; at: L | null }[]>([]);
+  // Immer die aktuelle Fassung: die Funktionen sind bei jedem Rendern neu.
+  const latest = useRef(options);
+  latest.current = options;
 
   useEffect(() => {
     const element = area.current;
     if (!element) return;
     // Nach dem Prüfen (gesperrt) darf über dem Notenbild wieder gescrollt werden.
     const block = (event: TouchEvent) => {
-      if (enabledRef.current) event.preventDefault();
+      if (latest.current.enabled) event.preventDefault();
     };
     element.addEventListener('touchstart', block, { passive: false });
     element.addEventListener('touchmove', block, { passive: false });
@@ -340,20 +371,43 @@ function usePointerPlacement(
     };
   }, [area]);
 
+  const show = (at: L | null) => {
+    if (!latest.current.preview) return;
+    setHover((previous) => (previous && at && latest.current.same(previous, at) ? previous : at));
+  };
+  const clearHover = useCallback(() => setHover(null), []);
+
+  /** Mit der Maus ohne Hysterese: der Zeiger zittert nicht. */
+  const where = (event: PointerEvent, previous: L | null) =>
+    latest.current.locate(event, event.pointerType === 'mouse' ? null : previous);
+
+  /** Wo der Zeiger SETTLE_MS vor `time` war; bei einem kurzen Tippen, wo er aufsetzte. */
+  const settledAt = (time: number): L | null => {
+    const points = trail.current;
+    for (let index = points.length - 1; index >= 0; index--) {
+      if (points[index].time <= time - SETTLE_MS) return points[index].at;
+    }
+    return points[0]?.at ?? null;
+  };
+
   const finish = (event: PointerEvent, apply: boolean) => {
     if (active.current !== event.pointerId) return;
     active.current = null;
     setPressed(false);
-    const area = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const inside =
-      event.clientX >= area.left &&
-      event.clientX <= area.right &&
-      event.clientY >= area.top &&
-      event.clientY <= area.bottom;
-    if (apply && inside) commitRef.current(event);
+      event.clientX >= box.left &&
+      event.clientX <= box.right &&
+      event.clientY >= box.top &&
+      event.clientY <= box.bottom;
+    if (apply && inside) {
+      const at = event.pointerType === 'mouse' ? where(event, null) : settledAt(event.timeStamp);
+      if (at) latest.current.commit(at);
+    }
+    trail.current = [];
     // Ohne Maus gibt es kein «Darüberfahren»: nach dem Loslassen verschwindet
     // die Vorschau.
-    if (event.pointerType !== 'mouse' || !inside) hover.onLeave();
+    if (event.pointerType !== 'mouse' || !inside) clearHover();
   };
 
   const handlers = {
@@ -364,15 +418,27 @@ function usePointerPlacement(
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
       // Kein Markieren von Text, kein Fokuswechsel beim Ziehen.
       event.preventDefault();
-      hover.onMove(event);
+      const at = where(event, null);
+      trail.current = [{ time: event.timeStamp, at }];
+      show(at);
     },
     onPointerMove: (event: PointerEvent) => {
-      if (active.current === event.pointerId || event.pointerType === 'mouse') hover.onMove(event);
+      if (active.current === event.pointerId) {
+        const points = trail.current;
+        const at = where(event, points[points.length - 1]?.at ?? null);
+        points.push({ time: event.timeStamp, at });
+        // Ältere Stellen braucht settledAt nie mehr: es gibt eine jüngere, die
+        // auch schon SETTLE_MS zurückliegt.
+        while (points.length > 1 && points[1].time <= event.timeStamp - SETTLE_MS) points.shift();
+        show(at);
+      } else if (event.pointerType === 'mouse') {
+        show(where(event, null));
+      }
     },
     onPointerUp: (event: PointerEvent) => finish(event, true),
     onPointerCancel: (event: PointerEvent) => finish(event, false),
     onPointerLeave: (event: PointerEvent) => {
-      if (active.current === null && event.pointerType === 'mouse') hover.onLeave();
+      if (active.current === null && event.pointerType === 'mouse') clearHover();
     },
     /**
      * Tut nichts, aber macht den Rahmen für den Browser antippbar. Sonst
@@ -384,7 +450,7 @@ function usePointerPlacement(
     onClick: () => {},
   };
 
-  return { pressed, handlers };
+  return { hover, clearHover, pressed, handlers };
 }
 
 /** Ton auf der mittleren Notenlinie: h¹ im Violin-, d im Bassschlüssel. */
@@ -598,9 +664,16 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
   const shownAlter = (step: Step, value: number): number | null =>
     keyAlters && value === (keyAlters.get(step) ?? 0) ? null : value;
   const { rendered, onRendered, live } = useRenderedRef();
-  const { hover, onMove, onLeave } = useHover(live, !readOnly);
   const area = useRef<HTMLDivElement>(null);
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
+  const pointer = usePointerPlacement<Location>({
+    locate: (point, previous) => locate(live(), point, previous),
+    same: sameLocation,
+    preview: !readOnly,
+    enabled: !readOnly,
+    commit: handleClick,
+    area,
+  });
+  const { hover } = pointer;
 
   /**
    * Mehrere Plätze für je einen Ton (Tonleiter notieren, Entscheid
@@ -849,14 +922,10 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     return { ...task.score, measures: [{ ...measure, notes }] };
   }, [task.score, JSON.stringify(placed), JSON.stringify(slots), readOnly]);
 
-  function handleClick(event: PointerEvent) {
-    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
-    // die Vorschau zuletzt stand.
-    if (event.button !== 0) return;
+  function handleClick(hit: Location) {
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, die die
+    // Vorschau zuletzt zeigte.
     if (readOnly) return;
-    const hit = locate(live(), event);
-    if (!hit) return;
-
     const target = activeSlot ?? slotNear(hit.x);
     const key = String(target.slot);
     const own = placed[key] ?? [];
@@ -1075,19 +1144,17 @@ interface ChordLocation {
  * Grenze liegt mitten zwischen der untersten Linie oben und der obersten
  * unten. So reicht jedes System mit Hilfslinien bis zur Mitte.
  */
-function locateChord(rendered: RenderedScore | null, event: MouseEvent): ChordLocation | null {
+function locateChord(rendered: RenderedScore | null, at: Point, previous: ChordLocation | null): ChordLocation | null {
   if (!rendered) return null;
-  const point = toScoreCoordinates(rendered.svg, event);
+  const point = toScoreCoordinates(rendered.svg, at);
   const upper = rendered.staves[0];
   if (!point || !upper) return null;
   const lower = rendered.bassStaves[0];
   const below = lower && point.y > (upper.stave.getYForLine(4) + lower.stave.getYForLine(0)) / 2;
-  const geometry = below ? lower : upper;
-  const highest = diatonicForY(geometry, geometry.stave.getYForLine(0)) + LEDGER_STEPS;
-  const lowest = diatonicForY(geometry, geometry.stave.getYForLine(4)) - LEDGER_STEPS;
+  const staff = below ? 'l' : 'u';
   return {
-    staff: below ? 'l' : 'u',
-    diatonic: Math.min(highest, Math.max(lowest, diatonicForY(geometry, point.y))),
+    staff,
+    diatonic: stepAt(below ? lower : upper, point.y, previous?.staff === staff ? previous.diatonic : undefined),
   };
 }
 
@@ -1105,20 +1172,16 @@ function ChordInput({ task, answer, update, history, readOnly }: ModeProps) {
   const placed = (answer.n as ChordAnswer | undefined) ?? {};
   const [alter, setAlter] = useState(0);
   const { onRendered, live } = useRenderedRef();
-  const [hover, setHover] = useState<ChordLocation | null>(null);
   const area = useRef<HTMLDivElement>(null);
-  const onMove = useCallback(
-    (event: MouseEvent) => {
-      if (readOnly) return;
-      const next = locateChord(live(), event);
-      setHover((previous) =>
-        previous && next && previous.staff === next.staff && previous.diatonic === next.diatonic ? previous : next,
-      );
-    },
-    [readOnly, live],
-  );
-  const onLeave = useCallback(() => setHover(null), []);
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
+  const pointer = usePointerPlacement<ChordLocation>({
+    locate: (point, previous) => locateChord(live(), point, previous),
+    same: (a, b) => a.staff === b.staff && a.diatonic === b.diatonic,
+    preview: !readOnly,
+    enabled: !readOnly,
+    commit: handleClick,
+    area,
+  });
+  const { hover } = pointer;
 
   const upper = placed.u ?? [];
   const lower = placed.l ?? [];
@@ -1161,10 +1224,8 @@ function ChordInput({ task, answer, update, history, readOnly }: ModeProps) {
     return { ...task.score, measures: [{ notes, bass }] };
   }, [task.score, JSON.stringify(placed), hover?.staff, hover?.diatonic, alter, readOnly]);
 
-  function handleClick(event: PointerEvent) {
-    if (event.button !== 0 || readOnly) return;
-    const hit = locateChord(live(), event);
-    if (!hit) return;
+  function handleClick(hit: ChordLocation) {
+    if (readOnly) return;
     const own = placed[hit.staff] ?? [];
     const incoming = noteFrom(hit.diatonic, alter, { duration: 'w', dotted: false });
     // Dieselbe Stelle noch einmal: gleiches Vorzeichen nimmt den Ton weg,
@@ -1240,9 +1301,16 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
   const [editMode, setEditMode] = useState<EditMode>('eingabe');
   const [selection, setSelection] = useState<Selection[]>([]);
   const { rendered, onRendered, live } = useRenderedRef();
-  const { hover, onMove, onLeave, clearHover } = useHover(live, !readOnly && editMode === 'eingabe');
   const [wrapper, width] = useMeasuredWidth(720, minDrawWidth(task.score.measures.length));
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, wrapper);
+  const pointer = usePointerPlacement<Location>({
+    locate: (point, previous) => locate(live(), point, previous),
+    same: sameLocation,
+    preview: !readOnly && editMode === 'eingabe',
+    enabled: !readOnly,
+    commit: handleClick,
+    area: wrapper,
+  });
+  const { hover, clearHover } = pointer;
 
   if (solution.type !== 'melody') return null;
 
@@ -1296,14 +1364,10 @@ function MelodyInput({ task, answer, update, readOnly }: ModeProps) {
     task.score,
   ]);
 
-  function handleClick(event: PointerEvent) {
-    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
-    // die Vorschau zuletzt stand.
-    if (event.button !== 0) return;
+  function handleClick(hit: Location) {
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, die die
+    // Vorschau zuletzt zeigte.
     if (readOnly) return;
-    const hit = locate(live(), event);
-    if (!hit) return;
-
     const drawn = rendered.current?.notes[hit.measure] ?? [];
     let nearest = -1;
     let nearestDistance = Infinity;
@@ -1512,9 +1576,16 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
   const placed = (answer.n as SlotAnswer | undefined) ?? {};
   const [choice, setChoice] = useState<DurationChoice>({ duration: 'q', dotted: false });
   const { onRendered, live } = useRenderedRef();
-  const { hover, onMove, onLeave } = useHover(live, !readOnly);
   const [wrapper, width] = useMeasuredWidth(760, minDrawWidth(task.score.measures.length));
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, wrapper);
+  const pointer = usePointerPlacement<Location>({
+    locate: (point, previous) => locate(live(), point, previous),
+    same: sameLocation,
+    preview: !readOnly,
+    enabled: !readOnly,
+    commit: handleClick,
+    area: wrapper,
+  });
+  const { hover } = pointer;
 
   if (solution.type !== 'slot') return null;
   const asRest = task.mode === 'rest';
@@ -1553,13 +1624,10 @@ function SlotInput({ task, answer, update, readOnly }: ModeProps) {
     return { ...task.score, width, measures };
   }, [task.score, JSON.stringify(placed), asRest, hover?.measure, JSON.stringify(choice), width]);
 
-  function handleClick(event: PointerEvent) {
-    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
-    // die Vorschau zuletzt stand.
-    if (event.button !== 0) return;
+  function handleClick(hit: Location) {
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, die die
+    // Vorschau zuletzt zeigte.
     if (readOnly) return;
-    const hit = locate(live(), event);
-    if (!hit) return;
     update({
       ...placed,
       [String(hit.measure)]: { d: choice.duration, ...(choice.dotted ? { dot: true } : {}) },
@@ -1629,9 +1697,16 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
   const value = (answer.n as KeysigAnswer | undefined) ?? { sign: 1, placed: [] };
   const { setAnswer } = useExam();
   const { onRendered, live } = useRenderedRef();
-  const { hover, onMove, onLeave } = useHover(live, !readOnly);
   const area = useRef<HTMLDivElement>(null);
-  const pointer = usePointerPlacement({ onMove, onLeave }, !readOnly, handleClick, area);
+  const pointer = usePointerPlacement<Location>({
+    locate: (point, previous) => locate(live(), point, previous),
+    same: sameLocation,
+    preview: !readOnly,
+    enabled: !readOnly,
+    commit: handleClick,
+    area,
+  });
+  const { hover } = pointer;
 
   // Eine Tonart ohne Vorzeichen verlangt ein leeres System. Damit «Prüfen»
   // dafür nicht erst eine Eingabe braucht, steht die leere Antwort von Anfang
@@ -1686,12 +1761,10 @@ function KeySignatureInput({ task, answer, update, history, readOnly }: ModeProp
       ? 'Falsche Reihenfolge'
       : null;
 
-  function handleClick(event: PointerEvent) {
-    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, an der
-    // die Vorschau zuletzt stand.
-    if (event.button !== 0 || readOnly) return;
-    const hit = locate(live(), event);
-    if (!hit) return;
+  function handleClick(hit: Location) {
+    // Aufgerufen beim Loslassen (usePointerPlacement), an der Stelle, die die
+    // Vorschau zuletzt zeigte.
+    if (readOnly) return;
     const { step, octave } = diatonicToStep(hit.diatonic);
     const existing = value.placed.findIndex((entry) => entry.s === step && entry.o === octave);
     const placed =
