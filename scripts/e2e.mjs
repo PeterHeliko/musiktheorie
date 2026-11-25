@@ -213,7 +213,9 @@ async function main() {
         response.status === 200 &&
         html.includes(`<title>${title.replaceAll('&', '&amp;')}</title>`) &&
         html.includes('property="og:title"') &&
-        html.includes('name="description"');
+        html.includes('name="description"') &&
+        // Sonst ist env(safe-area-inset-*) auf dem iPhone 0: die Leiste unten läge unter dem Balken.
+        html.includes('viewport-fit=cover');
       if (ok) filesOk++;
       else console.log(`       ${path || '/'}: Status ${response.status}`);
     }
@@ -1174,6 +1176,34 @@ async function main() {
     }
     await pianoPhone.close();
 
+    // Tablet: die Klaviatur darf über die Spalte (760 px) hinaus, bis 1000 px.
+    for (const [name, viewport, expected] of [
+      ['quer', { width: 1180, height: 820 }, 1000],
+      ['hoch', { width: 820, height: 1180 }, 820 - 32],
+    ]) {
+      const tablet = await browser.newPage({ viewport, hasTouch: true, isMobile: true });
+      for (const id of ['intervalle-klaviatur-spielen', 'toene-klaviatur-benennen']) {
+        await tablet.goto(exercise(id), { waitUntil: 'networkidle' });
+        await tablet.waitForSelector('.question .piano');
+        const box = await tablet.locator('.question .piano').boundingBox();
+        const barTop = (await tablet.locator('.session-bar').boundingBox()).y;
+        const lastChoice = tablet.locator('.question .choice').last();
+        const bottom = (await lastChoice.count()) ? await lastChoice.boundingBox() : box;
+        const scrollsSideways = await tablet.evaluate(
+          () => document.querySelector('.session-body').scrollWidth > document.querySelector('.session-body').clientWidth,
+        );
+        check(
+          Math.abs(box.width - expected) <= 1 &&
+            Math.abs(box.x + box.width / 2 - viewport.width / 2) <= 1 &&
+            !scrollsSideways &&
+            bottom.y + bottom.height <= barTop + 1,
+          `${id}, Tablet ${name}: Klaviatur ${Math.round(box.width)} px breit (erwartet ${expected}), mittig, alles ohne Scrollen sichtbar`,
+        );
+        await tablet.screenshot({ path: join(SHOTS, `tablet-${name}-${id}.png`) });
+      }
+      await tablet.close();
+    }
+
     const pianoLandscape = await browser.newContext({ ...devices['iPhone 13 landscape'], viewport: { width: 750, height: 340 } });
     const pianoLandscapePage = await pianoLandscape.newPage();
     for (const id of ['intervalle-klaviatur-benennen', 'intervalle-grob-klaviatur-benennen', 'intervalle-klaviatur-spielen']) {
@@ -1683,6 +1713,16 @@ async function main() {
     console.log('\nKurse');
     await page.goto(BASE, { waitUntil: 'networkidle' });
     check((await page.locator('.course-hint').count()) === 1, 'ohne Kurs steht unter «Kurse» der Hinweis auf ⚙');
+    {
+      const titles = await page.locator('.box-title').evaluateAll((all) =>
+        all.map((title) => `${title.textContent}:${getComputedStyle(title).fontSize}`),
+      );
+      check(
+        titles.length === 2 && titles[0].startsWith('Übungen:') && titles[1].startsWith('Kurse:') &&
+          titles[0].split(':')[1] === titles[1].split(':')[1],
+        `Startseite: «Übungen» und «Kurse» gleich gross (${titles.join(', ')})`,
+      );
+    }
 
     // Zusammenstellen: ⚙ → «Zu Kurs hinzufügen», mit den Einstellungen im Blatt.
     await page.goto(exercise('intervalle-bestimmen'), { waitUntil: 'networkidle' });

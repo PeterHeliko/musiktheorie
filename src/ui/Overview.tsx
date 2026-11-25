@@ -12,22 +12,22 @@
 import { countDone, courseTitle, decodeCourse } from '../courses';
 import { topicSections, topicsWithGenerators } from '../generators/index';
 import { topicTitle, type TopicId } from '../generators/types';
-import { SITE_NAME } from '../pages';
 import { hrefFor } from '../router';
 import { listCourses } from '../settings';
 import { GearIcon, SkillIcon } from './icons';
 
 /**
  * Startseite, zwei Kästen (Entscheid 2026-11-24): oben die Themen, darunter
- * die Kurse dieses Geräts. Die Themen brauchen keinen Zwischentitel: der Name
- * der Website sagt, was sie sind. Die Werkzeuge darunter («Tonhöhe anzeigen»)
- * sind vorerst zurückgestellt (2026-11-25, `PitchTool.tsx`).
+ * die Kurse dieses Geräts. Beide Kästen tragen ihren Titel gleich gross,
+ * «Übungen» und «Kurse» (Entscheid 2026-11-25); der Name der Website steht
+ * schon in der Kopfzeile. Die Werkzeuge darunter («Tonhöhe anzeigen») sind
+ * vorerst zurückgestellt (2026-11-25, `PitchTool.tsx`).
  */
 export function StartPage() {
   return (
     <>
       <div class="list-page">
-        <h1>{SITE_NAME}</h1>
+        <h1 class="box-title">Übungen</h1>
         <section>
           <ul class="nav-list">
             {topicsWithGenerators().map((topic) => (
@@ -39,7 +39,7 @@ export function StartPage() {
         </section>
       </div>
       <section class="list-page course-box">
-        <h2>Kurse</h2>
+        <h2 class="box-title">Kurse</h2>
         <CourseList />
       </section>
     </>

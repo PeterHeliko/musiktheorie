@@ -40,16 +40,18 @@ const WHITE_LENGTH = 5.5;
 /** Kleiner wird sie auch auf engstem Raum nicht (Höhe in px). */
 const MIN_HEIGHT = 72;
 
-/** Breiter wird sie nur, wenn die Höhe knapp ist (weisse Tasten ≈ 45 px). */
-const MAX_WIDTH = 640;
+/**
+ * Breiter wird sie nie (Entscheid 2026-11-25): auf dem Tablet gross genug zum
+ * Spielen, zwei Oktaven mit weissen Tasten von gut 70 px. Das ist breiter als
+ * die Spalte der Übung (760 px); die Klaviatur darf über sie hinaus.
+ */
+const MAX_WIDTH = 1000;
 
 /**
  * Eine weisse Taste wird nie breiter als die grösste einer Klaviatur mit zwei
- * Oktaven (14 weisse Tasten): rund 46 px, oder so breit, wie die zwei Oktaven
- * sie im selben Platz bekämen, falls das mehr ist (quer auf dem Telefon). Eine
- * Klaviatur mit wenigen Tasten (tiefster und höchster Ton nah beieinander)
- * zieht so keine riesigen Tasten über die ganze Breite; ab 14 Tasten ändert
- * sich nichts.
+ * Oktaven (14 weisse Tasten). Eine Klaviatur mit wenigen Tasten (tiefster und
+ * höchster Ton nah beieinander) zieht so keine riesigen Tasten über die ganze
+ * Breite; ab 14 Tasten ändert sich nichts.
  */
 const TWO_OCTAVES = 14;
 const MAX_KEY_WIDTH = MAX_WIDTH / TWO_OCTAVES;
@@ -190,30 +192,38 @@ export function PianoKeyboard({
 /**
  * Die Klaviatur in den Platz bringen, den der Rest der Aufgabe übrig lässt.
  *
- * Passt sie in ihrem Seitenverhältnis (WHITE_LENGTH), bleibt es dabei, höchstens
- * MAX_WIDTH breit. Wird die Höhe knapp — quer auf dem Telefon —, nimmt sie
- * stattdessen die ganze Spalte in der Breite und wird niedriger: breite
- * Tasten treffen sich besser als lange (Entscheid 2026-11-24). Mit weniger
- * als 14 weissen Tasten nur ein entsprechender Teil davon (MAX_KEY_WIDTH). Die
- * Tasten sind in Prozent gesetzt und folgen jedem Seitenverhältnis.
+ * In der Breite hat sie die ganze Übung, nicht nur deren Spalte: links und
+ * rechts bleibt der Rand der Spalte frei, und mehr als MAX_WIDTH wird es nie.
+ * Mit weniger als 14 weissen Tasten nur ein entsprechender Teil davon
+ * (MAX_KEY_WIDTH). Ist sie breiter als die Spalte, steht sie mittig über ihr
+ * hinaus. Passt sie in ihrem Seitenverhältnis (WHITE_LENGTH), bleibt es dabei.
+ * Wird die Höhe knapp (quer auf dem Telefon), bleibt die Breite, und sie wird
+ * niedriger: breite Tasten treffen sich besser als lange (Entscheid
+ * 2026-11-24). Die Tasten sind in Prozent gesetzt und folgen jedem
+ * Seitenverhältnis.
  */
 function fitToRoom(piano: HTMLElement, ratio: number): void {
   const body = piano.closest<HTMLElement>('.session-body');
   const column = body?.firstElementChild as HTMLElement | null | undefined;
-  if (!body || !column) return;
+  const parent = piano.parentElement;
+  if (!body || !column || !parent) return;
   const style = getComputedStyle(body);
   const room = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
   const others = column.getBoundingClientRect().height - piano.getBoundingClientRect().height;
   const available = room - others;
   const columnStyle = getComputedStyle(column);
-  const full = column.clientWidth - parseFloat(columnStyle.paddingLeft) - parseFloat(columnStyle.paddingRight);
-  const capped = ratio * WHITE_LENGTH * Math.max(MAX_KEY_WIDTH, full / TWO_OCTAVES);
-  const widest = Math.min(full, MAX_WIDTH, capped);
+  const gutters = parseFloat(columnStyle.paddingLeft) + parseFloat(columnStyle.paddingRight);
+  const full = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - gutters;
+  const widest = Math.floor(Math.min(full, MAX_WIDTH, ratio * WHITE_LENGTH * MAX_KEY_WIDTH));
   const natural = widest / ratio;
-  const [width, height] =
-    available >= natural ? [widest, natural] : [Math.min(full, capped), Math.max(available, MIN_HEIGHT)];
-  piano.style.width = `${Math.floor(width)}px`;
+  const height = available >= natural ? natural : Math.max(available, MIN_HEIGHT);
+  const parentStyle = getComputedStyle(parent);
+  const inside = parent.clientWidth - parseFloat(parentStyle.paddingLeft) - parseFloat(parentStyle.paddingRight);
+  const overhang = Math.min(0, (inside - widest) / 2);
+  piano.style.width = `${widest}px`;
   piano.style.height = `${Math.floor(height)}px`;
-  piano.style.maxWidth = '100%';
+  piano.style.maxWidth = 'none';
+  piano.style.marginLeft = overhang < 0 ? `${overhang}px` : '';
+  piano.style.marginRight = overhang < 0 ? `${overhang}px` : '';
   piano.style.aspectRatio = 'auto';
 }
