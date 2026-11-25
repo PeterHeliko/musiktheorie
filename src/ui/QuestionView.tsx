@@ -307,45 +307,42 @@ export function QuestionView({
         </div>
       </main>
 
-      {/* Schmal: Rückmeldung mittig über dem Knopf. Breit: Rückmeldung links,
-          Knöpfe rechts (Container-Query in styles.css). Der Hauptknopf steht
-          zuletzt, also ganz rechts. Nach dem Prüfen färbt sich die ganze
-          Leiste nach dem Urteil (styles.css). */}
+      {/* Eine Zeile, vor und nach dem Prüfen gleich hoch (Entscheid
+          2026-11-25): links «überspringen», nach dem Prüfen das Urteil;
+          rechts der Hauptknopf, erst «Prüfen», dann «Weiter». Nach dem
+          Prüfen ist die Leiste in der Farbe des Urteils getönt (styles.css). */}
       <footer class={`session-bar ${result ? `has-verdict is-${gradeOf(result)}` : ''}`}>
-        <div class="session-column">
-          <div class="bar-content">
-            {result && <Verdict result={result} task={question.task} />}
-            <div class="session-actions">
-              {result ? (
-                <button
-                  type="button"
-                  class="primary"
-                  onClick={onNext}
-                  ref={nextButton}
-                  aria-keyshortcuts="Enter Space"
-                >
-                  {nextLabel}
-                </button>
-              ) : (
-                <>
-                  <button type="button" class="link-button" onClick={onNext}>
-                    überspringen
-                  </button>
-                  {!selfChecking && (
-                    <button
-                      type="button"
-                      class="primary"
-                      onClick={check}
-                      disabled={!canCheck}
-                      aria-keyshortcuts="Enter Space"
-                    >
-                      Prüfen
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+        <div class="session-column bar-content">
+          {result ? (
+            <Verdict result={result} task={question.task} />
+          ) : (
+            <button type="button" class="bar-skip" onClick={onNext}>
+              überspringen
+            </button>
+          )}
+          {result ? (
+            <button
+              type="button"
+              class="bar-primary"
+              onClick={onNext}
+              ref={nextButton}
+              aria-keyshortcuts="Enter Space"
+            >
+              {nextLabel}
+            </button>
+          ) : (
+            !selfChecking && (
+              <button
+                type="button"
+                class="bar-primary"
+                onClick={check}
+                disabled={!canCheck}
+                aria-keyshortcuts="Enter Space"
+              >
+                Prüfen
+              </button>
+            )
+          )}
         </div>
       </footer>
     </>

@@ -362,8 +362,8 @@ async function main() {
       const bar = await phonePage.locator('.session-bar').boundingBox();
       check(question.y < 120, `${mode}: die Aufgabe beginnt gleich unter der Leiste (bei ${Math.round(question.y)} px)`);
       check(
-        Math.abs(bar.y + bar.height - viewport.height) < 2,
-        `${mode}: der Hauptknopf steht am unteren Rand`,
+        Math.abs(bar.y + bar.height - viewport.height) < 2 && bar.height <= 58,
+        `${mode}: die Leiste steht am unteren Rand, ${Math.round(bar.height)} px hoch`,
       );
       await phonePage.screenshot({ path: join(SHOTS, `telefon-${mode}.png`) });
     }
@@ -830,6 +830,15 @@ async function main() {
       check(
         answeredBox.y + answeredBox.height <= answeredBarTop + 1,
         `${id}: nach dem Antworten ist die letzte Knopfreihe nicht verdeckt`,
+      );
+      // Eine Zeile: Urteil links, «Weiter» rechts daneben, die Leiste wächst nicht.
+      const verdictBox = await sizePhonePage.locator('.verdict').boundingBox();
+      const nextBox = await sizePhonePage.locator('.bar-primary').boundingBox();
+      check(
+        Math.abs(answeredBarTop - barTop) < 1 &&
+          verdictBox.x + verdictBox.width <= nextBox.x &&
+          Math.abs(verdictBox.y + verdictBox.height / 2 - (nextBox.y + nextBox.height / 2)) < 12,
+        `${id}: Leiste vor und nach dem Prüfen gleich hoch, Urteil links neben «Weiter»`,
       );
     }
     await sizePhone.close();
@@ -1309,9 +1318,9 @@ async function main() {
     const phoneBarPage = await phoneBar.newPage();
     const slim = await barCheck(phoneBarPage);
     check(
-      slim.verdict.y + slim.verdict.height <= slim.button.y + 1 &&
-        Math.abs(slim.verdict.x + slim.verdict.width / 2 - slim.width / 2) < 4,
-      'schmal: Rückmeldung mittig über dem Knopf',
+      slim.verdict.x + slim.verdict.width <= slim.button.x &&
+        Math.abs(slim.verdict.y + slim.verdict.height / 2 - (slim.button.y + slim.button.height / 2)) < 12,
+      'schmal: ebenso eine Zeile, Rückmeldung links, «Weiter» rechts',
     );
     await phoneBarPage.screenshot({ path: join(SHOTS, 'telefon-rueckmeldung.png') });
     await phoneBar.close();
@@ -1668,7 +1677,7 @@ async function main() {
         tasks.push(await scoreFingerprint(p));
         await p.locator('.question .choice:not([disabled])').first().click();
         await p.waitForSelector('.verdict');
-        await p.locator('.session-bar .primary').click();
+        await p.locator('.session-bar .bar-primary').click();
       }
       roundTasks.push(tasks.join(' | '));
       await ctx.close();
@@ -1697,7 +1706,7 @@ async function main() {
     for (let i = 0; i < 10; i++) {
       await page.locator('.question .choice:not([disabled])').first().click();
       await page.waitForSelector('.verdict');
-      await page.locator('.session-bar .primary').click();
+      await page.locator('.session-bar .bar-primary').click();
       await page.waitForTimeout(100);
     }
     await page.waitForSelector('.round-summary', { timeout: 5000 });
@@ -1813,7 +1822,7 @@ async function main() {
     for (let i = 0; i < 2; i++) {
       await page.locator('.question .choice:not([disabled])').first().click();
       await page.waitForSelector('.verdict');
-      await page.locator('.session-bar .primary').click();
+      await page.locator('.session-bar .bar-primary').click();
     }
     await page.waitForSelector('.round-summary');
     await page.locator('.round-actions button:has-text("Nächste Übung")').click();
@@ -2166,7 +2175,7 @@ async function main() {
     );
     check((await singPage.locator('.session-bar.is-wrong').count()) === 1, 'die Leiste unten wird rot');
     await singPage.screenshot({ path: join(SHOTS, 'intervalle-singen-falsch.png') });
-    await singPage.locator('.session-actions button.primary').click();
+    await singPage.locator('.session-bar .bar-primary').click();
     await singPage.waitForSelector('.sing-curve canvas', { timeout: 5000 });
     check(
       (await singPage.locator('.sing-mic').count()) === 0,
