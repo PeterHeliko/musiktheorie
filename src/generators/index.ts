@@ -82,8 +82,6 @@ export const GENERATORS: Generator<FilterValues>[] = [
   notenBenennen,
   notenSchreiben,
   notenKlaviaturSpielen,
-  rhythmusNotenwerte,
-  rhythmusPausen,
   intervalleGrobBestimmen,
   intervalleGrobNotieren,
   intervalleGrobKlaviaturBenennen,
@@ -130,9 +128,15 @@ export const GENERATORS: Generator<FilterValues>[] = [
 /**
  * Vorerst zurückgestellt (Entscheid 2026-11-25): fertig und getestet, aber
  * ohne Seite, Link und Platz auf der Themenseite. Wieder anbieten heisst:
- * zurück nach GENERATORS.
+ * zurück nach GENERATORS. Mit den beiden Rhythmusübungen fällt das ganze
+ * Thema «Rhythmus» weg (`topicsWithGenerators`).
  */
-export const SHELVED_GENERATORS: Generator<FilterValues>[] = [tonartenHalbtonschritte, dreiklaengeStufen];
+export const SHELVED_GENERATORS: Generator<FilterValues>[] = [
+  rhythmusNotenwerte,
+  rhythmusPausen,
+  tonartenHalbtonschritte,
+  dreiklaengeStufen,
+];
 
 /**
  * Themen in ihrer Reihenfolge, mit ihren Übungen. Themen ohne Übung fallen

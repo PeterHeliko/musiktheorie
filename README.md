@@ -1,7 +1,7 @@
 # Übungen Musiktheorie
 
-Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde,
-Rhythmus und Gehörbildung.
+Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde
+und Gehörbildung.
 Jede Aufgabe wird neu gewürfelt, jede Übung hat Einstellungen für genau das, woran man
 gerade arbeitet — und jede Übung, jede Aufgabe und jede Runde lässt sich als Link teilen.
 
@@ -125,8 +125,8 @@ Link / Speicher / Filterformular
   bleiben Audiokontext und Mikrofon offen, und Safari fragt nicht bei jeder Seite neu nach
   dem Mikrofon.
 - **Notensatz nur, wo er gebraucht wird.** Die Übungsansicht samt VexFlow (gut 400 kB
-  komprimiert) lädt erst, wenn eine Übung offen ist. Startseite und Tonhöhe kommen mit
-  rund 30 kB aus.
+  komprimiert) lädt erst, wenn eine Übung offen ist. Die Startseite kommt mit rund 30 kB
+  aus.
 
 ### Aufbau der Oberfläche
 
@@ -217,6 +217,10 @@ Akkord falsch, steht eine richtige Lösung grün daneben.
 
 ### Tonhöhe (Versuch)
 
+Vorerst zurückgestellt (2026-11-25): die Seite wird nicht gebaut und steht nicht auf der
+Startseite. Der Code liegt in `src/ui/PitchTool.tsx`; dort steht, was es braucht, um sie
+wieder anzubieten.
+
 `/werkzeuge/tonhoehe/` zeigt den gesungenen Ton, die Abweichung in Cent und eine
 Tonhöhenkurve. Die Seite ist zugleich der Versuch aus Phase 0: **trägt die Erkennung auf
 echten Geräten?** Unter «Technische Angaben» steht, was der Browser eingestellt hat und
@@ -228,7 +232,7 @@ wie lange die Auswertung dauert.
   Töne.
 - Der Ton wird nur im Browser ausgewertet; nichts wird aufgenommen oder verschickt.
 - Die Browserprüfung spielt Chromium eine WAV-Datei als Mikrofon vor und erwartet das
-  richtige «g».
+  richtige «g» (solange das Werkzeug ruht, nur in «Intervalle singen»).
 
 ### Singen
 

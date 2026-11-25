@@ -18,9 +18,10 @@ import { listCourses } from '../settings';
 import { GearIcon, SkillIcon } from './icons';
 
 /**
- * Startseite, zwei Kästen (Entscheid 2026-11-24): oben die Übungen — Themen
- * und Werkzeuge —, darunter die Kurse dieses Geräts. Die Themen brauchen
- * keinen Zwischentitel: der Name der Website sagt, was sie sind.
+ * Startseite, zwei Kästen (Entscheid 2026-11-24): oben die Themen, darunter
+ * die Kurse dieses Geräts. Die Themen brauchen keinen Zwischentitel: der Name
+ * der Website sagt, was sie sind. Die Werkzeuge darunter («Tonhöhe anzeigen»)
+ * sind vorerst zurückgestellt (2026-11-25, `PitchTool.tsx`).
  */
 export function StartPage() {
   return (
@@ -34,14 +35,6 @@ export function StartPage() {
                 <a href={hrefFor({ page: 'thema', topic: topic.id })}>{topic.title}</a>
               </li>
             ))}
-          </ul>
-        </section>
-        <section>
-          <h2 class="nav-heading">Werkzeuge</h2>
-          <ul class="nav-list">
-            <li>
-              <a href={hrefFor({ page: 'tonhoehe' })}>Tonhöhe anzeigen</a>
-            </li>
           </ul>
         </section>
       </div>

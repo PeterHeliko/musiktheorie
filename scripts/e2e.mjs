@@ -36,8 +36,6 @@ const MODES = {
   'noten-benennen': 'Noten benennen',
   'noten-schreiben': 'Noten schreiben',
   'noten-klaviatur-spielen': 'Noten auf Klaviatur spielen',
-  'notenwerte-zuordnen': 'Notenwerte und Pausenzeichen zuordnen',
-  'pausen-ergaenzen': 'Fehlende Pausen ergänzen',
   'intervalle-grob-bestimmen': 'Intervalle in Noten benennen (Grobbestimmung)',
   'intervalle-grob-notieren': 'Intervalle notieren (Grobbestimmung)',
   'intervalle-grob-klaviatur-benennen': 'Intervalle auf Klaviatur benennen (Grobbestimmung)',
@@ -83,7 +81,7 @@ const MODES = {
 const MODE_IDS = Object.keys(MODES);
 
 /** Themen mit Übungen — muss zu src/generators/types.ts (TOPICS) passen. */
-const TOPICS = ['toene', 'rhythmus', 'intervalle', 'dreiklaenge', 'septakkorde', 'tonleitern', 'melodie'];
+const TOPICS = ['toene', 'intervalle', 'dreiklaenge', 'septakkorde', 'tonleitern', 'melodie'];
 
 let failures = 0;
 
@@ -203,7 +201,6 @@ async function main() {
       ['ueben/', 'Übungen Musiktheorie'],
       ['ueben/intervalle/', 'Intervalle · Übungen Musiktheorie'],
       ['ueben/tonleitern/', 'Tonleitern und Tonarten · Übungen Musiktheorie'],
-      ['werkzeuge/tonhoehe/', 'Tonhöhe anzeigen · Übungen Musiktheorie'],
       ...MODE_IDS.map((id) => [`ueben/${id}/`, `${MODES[id]} · Übungen Musiktheorie`]),
     ];
     let filesOk = 0;
@@ -243,9 +240,11 @@ async function main() {
     await page.goto(BASE, { waitUntil: 'networkidle' });
     const topicLinks = page.locator('.nav-list').first().locator('a');
     check((await topicLinks.count()) === TOPICS.length, `${TOPICS.length} Themen auf der Startseite`);
+    // Vorerst zurückgestellt (2026-11-25): das Thema Rhythmus und das Werkzeug «Tonhöhe anzeigen».
+    const startText = await page.locator('.list-page').first().innerText();
     check(
-      (await page.locator('.list-page').first().innerText()).includes('Tonhöhe anzeigen'),
-      'darunter das Werkzeug «Tonhöhe anzeigen»',
+      !startText.includes('Rhythmus') && !startText.includes('Tonhöhe anzeigen') && !startText.includes('Werkzeuge'),
+      'ohne Rhythmus und ohne Werkzeuge',
     );
     check(!loaded.some((url) => url.includes('ExercisePage')), 'die Startseite lädt den Notensatz nicht');
     check(!loaded.some((url) => url.includes('/samples/')), 'die Startseite lädt keine Klaviertöne');
@@ -1713,11 +1712,11 @@ async function main() {
     await browser.close();
   }
 
-  // ---------------------------------------------------------- Tonhöhe
+  // ---------------------------------------------------------- Mikrofon
   // Eigener Browser: Chromium liest eine WAV-Datei als Mikrofon. 196 Hz mit
   // Obertönen = g (kleines g), ähnlich obertonreich wie eine Stimme — und so
-  // leise, wie ein iPhone das Mikrofon liefert.
-  console.log('\nTonhöhe mit künstlichem, leisem Mikrofon (wie auf iOS)');
+  // leise, wie ein iPhone das Mikrofon liefert. Die Prüfung des Werkzeugs
+  // «Tonhöhe anzeigen» ruht, solange es zurückgestellt ist (2026-11-25).
   const wav = join(tmpdir(), `musiktheorie-e2e-${process.pid}.wav`);
   writeToneWav(wav, 196);
   const micBrowser = await chromium.launch({
@@ -1731,52 +1730,7 @@ async function main() {
   });
   try {
     const micContext = await micBrowser.newContext({ permissions: ['microphone'] });
-    const micPage = await micContext.newPage();
     const micProblems = [];
-    micPage.on('console', (message) => {
-      if (message.type() === 'error') micProblems.push(message.text());
-    });
-    await micPage.goto(`${BASE}werkzeuge/tonhoehe/`, { waitUntil: 'networkidle' });
-    const startButton = micPage.locator('button:has-text("Mikrofon einschalten")');
-    const [background, colour] = await startButton.evaluate((node) => {
-      const style = getComputedStyle(node);
-      return [style.backgroundColor, style.color];
-    });
-    check(background !== colour, `der Startknopf ist lesbar (${colour} auf ${background})`);
-    await startButton.click();
-    let heard = '';
-    try {
-      await micPage.waitForFunction(
-        () => document.querySelector('.pitch-note')?.textContent?.trim() === 'g',
-        null,
-        { timeout: 8000 },
-      );
-      heard = 'g';
-    } catch {
-      heard = (await micPage.locator('.pitch-note').innerText()).trim();
-    }
-    check(heard === 'g', `erkennt den leisen Ton 196 Hz als «g» (angezeigt: «${heard}»)`);
-    check(
-      (await micPage.locator('.level-fill.is-above').count()) === 1,
-      'der Pegelmesser zeigt den Ton über der Schwelle',
-    );
-    const numbers = await micPage.locator('.pitch-numbers').innerText();
-    const hz = Number(/([\d.]+) Hz/.exec(numbers)?.[1]);
-    check(Math.abs(hz - 196) < 1.5, `misst die Frequenz genau (${numbers})`);
-    await micPage.locator('.tool-help summary', { hasText: 'Technische Angaben' }).click();
-    const diagnostics = await micPage.locator('.diagnostics').innerText();
-    check(
-      diagnostics.includes('ms je Fenster') && diagnostics.includes('Grundrauschen'),
-      'zeigt die technischen Angaben für den Gerätetest',
-    );
-    console.log(`       ${diagnostics.split('\n').find((line) => line.includes('Grundrauschen'))}`);
-    await micPage.screenshot({ path: join(SHOTS, 'tonhoehe.png'), fullPage: true });
-    await micPage.locator('button:has-text("Mikrofon ausschalten")').click();
-    check(
-      (await micPage.locator('.pitch-numbers').innerText()).includes('Mikrofon ist aus'),
-      'Mikrofon lässt sich ausschalten',
-    );
-    check(micProblems.length === 0, `keine Konsolenfehler${micProblems.length ? `: ${micProblems.join('; ')}` : ''}`);
 
     // ------------------------------------------------- Intervalle singen
     // Dasselbe künstliche g, als gesungene Antwort. Feste Aufgaben, damit das

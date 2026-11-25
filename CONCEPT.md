@@ -188,12 +188,16 @@ they are sliders; the lower one pushes the upper one along. In links they read
 
 | Übung                                     | Fertigkeit |     |
 | ----------------------------------------- | ---------- | --- |
-| Notenwerte und Pausenzeichen zuordnen     | Erkennen   | ✓   |
-| Fehlende Pausen ergänzen                  | Notieren   | ✓   |
+| Notenwerte und Pausenzeichen zuordnen     | Erkennen   | ⏸   |
+| Fehlende Pausen ergänzen                  | Notieren   | ⏸   |
 | Rhythmus klopfen: vom Blatt und nachklopfen | Klopfen    |     |
 | Rhythmusdiktat                            | Hören      | ✓   |
 
 *Später:* Taktart bestimmen, Taktstriche setzen, Triolen, Synkopen, 6/8.
+
+⏸ The whole topic Rhythmus is shelved for now (2026-11-25): both exercises are built and tested,
+but not offered (`SHELVED_GENERATORS`), so the topic is off the start page. The Rhythmusdiktat
+lives on as «Rhythmus- und Melodiediktat» under Melodie.
 
 ### Intervalle
 
@@ -426,7 +430,10 @@ and judges the pitch.
 | Tonleitern singen          | Dur, Moll                                                                   |
 | Melodie nachsingen         | hear a short melody, sing it back                                           |
 | Melodie vom Blatt singen   | score shown, starting tone given, sing it                                   |
-| *Werkzeug:* Tonhöhe        | live display of the sung pitch; doubles as a tuner                          |
+| *Werkzeug:* Tonhöhe ⏸      | live display of the sung pitch; doubles as a tuner                          |
+
+⏸ The Tonhöhe tool is shelved for now (2026-11-25): built, but no page and no link on the start
+page (`src/ui/PitchTool.tsx`).
 
 ### How singing is judged
 

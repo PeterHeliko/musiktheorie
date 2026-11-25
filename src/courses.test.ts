@@ -19,7 +19,7 @@ import {
   stepQuery,
   type Course,
 } from './courses';
-import { GENERATORS, generatorById } from './generators/index';
+import { GENERATORS, SHELVED_GENERATORS, generatorById } from './generators/index';
 import { makeRng, type Rng } from './generators/rng';
 import type { FilterValues, Generator } from './generators/types';
 import { PARAM_NAMES, canonicalFilters, decodeLink, encodeLink } from './links';
@@ -226,7 +226,8 @@ describe('Beschreibung eines Schritts', () => {
   });
 
   it('beantwortet Fragen ohne Doppelpunkt', () => {
-    const entry = generator('notenwerte-zuordnen');
+    // Nur «Notenwerte zuordnen» fragt so, und die Übung ist zurückgestellt.
+    const entry = SHELVED_GENERATORS.find((shelved) => shelved.id === 'notenwerte-zuordnen')!;
     const kinds = entry.filters.find((filter) => filter.key === 'kinds')!;
     expect(kinds.label.endsWith('?')).toBe(true);
     const parts = describeSettings(entry, { ...entry.defaults, kinds: ['rest'] });

@@ -993,13 +993,17 @@ describe('Dreiklänge', () => {
     expect(TOPIC_GROUPS.dreiklaenge!.map((group) => group.title)).toEqual(['Grundstellung', 'Umkehrungen & Lagen']);
   });
 
-  it('stellt «Stufen bestimmen» und «Halbtonschritte markieren» vorerst zurück', () => {
-    expect(generatorById('stufen-bestimmen')).toBeUndefined();
-    expect(generatorById('halbtonschritte-markieren')).toBeUndefined();
+  it('stellt Rhythmus, «Stufen bestimmen» und «Halbtonschritte markieren» vorerst zurück', () => {
+    for (const id of ['notenwerte-zuordnen', 'pausen-ergaenzen', 'stufen-bestimmen', 'halbtonschritte-markieren']) {
+      expect(generatorById(id), id).toBeUndefined();
+    }
     expect(SHELVED_GENERATORS.map((entry) => [entry.id, entry.topic])).toEqual([
+      ['notenwerte-zuordnen', 'rhythmus'],
+      ['pausen-ergaenzen', 'rhythmus'],
       ['halbtonschritte-markieren', 'tonleitern'],
       ['stufen-bestimmen', 'tonleitern'],
     ]);
+    expect(topicsWithGenerators().map((topic) => topic.id)).not.toContain('rhythmus');
   });
 
   it('zeigt in Grundstellung drei Töne eng über dem Grundton, im gefragten Geschlecht', () => {

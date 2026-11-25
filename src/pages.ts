@@ -21,7 +21,6 @@ export type Route =
   | { page: 'start' }
   | { page: 'thema'; topic: TopicId }
   | { page: 'uebung'; id: string }
-  | { page: 'tonhoehe' }
   | { page: 'kurs' }
   | { page: 'nicht-gefunden' };
 
@@ -65,8 +64,6 @@ export function pathOf(route: Route): string {
       return `ueben/${route.topic}/`;
     case 'uebung':
       return `ueben/${route.id}/`;
-    case 'tonhoehe':
-      return 'werkzeuge/tonhoehe/';
     case 'kurs':
       return 'kurs/';
     case 'nicht-gefunden':
@@ -80,7 +77,6 @@ export function routeFromPath(path: string): Route {
   if (clean === '') return { page: 'start' };
   const alias = aliasTarget(clean);
   if (alias) return alias;
-  if (clean === 'werkzeuge/tonhoehe') return { page: 'tonhoehe' };
   if (clean === 'kurs') return { page: 'kurs' };
   const match = /^ueben\/([a-z0-9-]+)$/.exec(clean);
   if (match) {
@@ -104,8 +100,8 @@ export function metaFor(route: Route): PageMeta {
         path,
         title: SITE_NAME,
         description:
-          'Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde, ' +
-          'Rhythmus und Gehörbildung. Unbegrenzt viele Aufgaben, frei einstellbar, ohne Konto.',
+          'Musiktheorie im Browser üben: Töne und Noten, Intervalle, Tonarten, Dreiklänge, Septakkorde ' +
+          'und Gehörbildung. Unbegrenzt viele Aufgaben, frei einstellbar, ohne Konto.',
       };
     case 'thema': {
       const topic = TOPICS.find((entry) => entry.id === route.topic)!;
@@ -128,14 +124,6 @@ export function metaFor(route: Route): PageMeta {
         description: `${plainText(generator.instruction)} Unbegrenzt viele Aufgaben, frei einstellbar.`,
       };
     }
-    case 'tonhoehe':
-      return {
-        path,
-        title: 'Tonhöhe anzeigen',
-        description:
-          'Singe oder spiele einen Ton: die Seite zeigt, welcher es ist und wie genau er ' +
-          'getroffen ist. Der Ton wird nur im Browser ausgewertet.',
-      };
     case 'kurs':
       // Eine Datei für alle Kurse: die Vorschau kann den Titel nicht kennen,
       // denn Chats führen kein JavaScript aus (CONCEPT §7).
@@ -162,7 +150,6 @@ export function allPages(): PageMeta[] {
     { page: 'start' },
     ...topicsWithGenerators().map((topic): Route => ({ page: 'thema', topic: topic.id })),
     ...GENERATORS.map((generator): Route => ({ page: 'uebung', id: generator.id })),
-    { page: 'tonhoehe' },
     { page: 'kurs' },
   ];
   return routes.map(metaFor);

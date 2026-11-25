@@ -144,14 +144,14 @@ describe('Hin und zurück', () => {
   });
 
   it('lässt Kommas und Schrägstriche lesbar stehen', () => {
-    const generator = GENERATORS.find((g) => g.id === 'pausen-ergaenzen')!;
+    const generator = GENERATORS.find((g) => g.id === 'melodiediktat')!;
     const query = encodeLink(generator, {
-      filters: { ...generator.defaults, timeSignature: '3/4', gaps: ['h', 'q'] },
+      filters: { ...generator.defaults, timeSignature: '3/4', durations: ['h', 'q'] },
       round: null,
       seed: null,
     });
     expect(query).toContain('taktart=3/4');
-    expect(query).toContain('gesucht=h,q');
+    expect(query).toContain('notenwerte=h,q');
   });
 
   it('liest Runde und Aufgabe', () => {
@@ -227,7 +227,7 @@ describe('Kaputte und alte Links', () => {
 
 describe('Aufgabenlinks', () => {
   it('bringen Mehrfachauswahlen in Optionsreihenfolge', () => {
-    const generator = GENERATORS.find((g) => g.id === 'notenwerte-zuordnen')!;
+    const generator = GENERATORS.find((g) => g.id === 'melodiediktat')!;
     const values = canonicalFilters(generator, { ...generator.defaults, durations: ['8', 'w', 'h'] });
     expect(values.durations).toEqual(['w', 'h', '8']);
   });

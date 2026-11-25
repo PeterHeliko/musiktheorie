@@ -13,7 +13,6 @@ import { SITE_NAME, documentTitle, metaFor } from '../pages';
 import { hrefFor, useLocation } from '../router';
 import { CoursePage } from './CoursePage';
 import { StartPage, TopicPage } from './Overview';
-import { PitchTool } from './PitchTool';
 
 /**
  * Die Übungsansicht wird erst geladen, wenn eine Übung offen ist. Mit ihr
@@ -83,9 +82,6 @@ export function App() {
       page = <LazyExercisePage key={`${route.id}${search}`} generator={generator} search={search} />;
       break;
     }
-    case 'tonhoehe':
-      page = <PitchTool />;
-      break;
     case 'nicht-gefunden':
       page = <NotFound />;
       break;

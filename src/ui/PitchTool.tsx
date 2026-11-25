@@ -1,6 +1,11 @@
 /**
  * Werkzeug «Tonhöhe anzeigen» — zugleich der Versuch aus Phase 0.
  *
+ * Vorerst zurückgestellt (Entscheid 2026-11-25): ohne Seite und ohne Link auf
+ * der Startseite. Wieder anbieten heisst: die Seite «tonhoehe» zurück in
+ * `pages.ts` (Route, Pfad «werkzeuge/tonhoehe/», Titel, `allPages`), in
+ * `App.tsx` und als Werkzeug auf die Startseite (`Overview.tsx`).
+ *
  * Bevor Singübungen gebaut werden, muss feststehen, dass die Tonhöhen-
  * erkennung auf echten Geräten trägt: mit verschiedenen Stimmen, in normalen
  * Räumen, auf Telefonen. Diese Seite zeigt deshalb nicht nur den Ton, sondern
