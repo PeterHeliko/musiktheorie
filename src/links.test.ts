@@ -211,6 +211,25 @@ describe('Kaputte und alte Links', () => {
     expect(decodeLink(generator, '?tempo=77').filters.tempo).toBe(78);
   });
 
+  it('verstehen Einstellungen, die es nicht mehr gibt', () => {
+    const naturals = ['c', 'd', 'e', 'f', 'g', 'a', 'h'];
+    const byId = (id: string) => GENERATORS.find((g) => g.id === id)!;
+    const read = (id: string, search: string) => canonicalFilters(byId(id), decodeLink(byId(id), search).filters);
+    // «Vorzeichen: nur Stammtöne» und «Tasten: nur weisse» heissen jetzt: Töne c bis h.
+    for (const id of ['toene-klaviatur-spielen', 'noten-benennen', 'noten-schreiben', 'noten-klaviatur-spielen']) {
+      const filters = read(id, '?vorzeichen=stammton');
+      expect(filters.notes, id).toEqual(naturals);
+      expect(filters, id).not.toHaveProperty('accidentals');
+      expect(encodeLink(byId(id), { filters, round: null, seed: null }), id).toBe('?toene=c,d,e,f,g,a,h');
+      expect(read(id, '?vorzeichen=einfach'), id).toEqual(byId(id).defaults);
+    }
+    expect(read('toene-klaviatur-benennen', '?tasten=weiss').notes).toEqual(naturals);
+    expect(read('toene-klaviatur-benennen', '?tasten=alle')).toEqual(byId('toene-klaviatur-benennen').defaults);
+    // Gespeicherte Einstellungen von früher ebenso.
+    const stored = { ...byId('noten-benennen').defaults, accidentals: 'stammton' };
+    expect(canonicalFilters(byId('noten-benennen'), stored).notes).toEqual(naturals);
+  });
+
   it('melden eine Aufgabe aus einer anderen Fassung', () => {
     const generator = GENERATORS[0];
     const back = decodeLink(generator, `?aufgabe=${encodeSeed(7)}&v=${generator.version + 1}`);

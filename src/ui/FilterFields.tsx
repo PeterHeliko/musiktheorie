@@ -13,6 +13,8 @@
  */
 
 import type { FilterSpec, FilterValues } from '../generators/types';
+import { sameValue } from '../links';
+import { noteGridPlace, noteRows } from './note-grid';
 
 export function FilterFields({
   filters,
@@ -151,55 +153,79 @@ function MultiField({
   const minimum = filter.min ?? 1;
   const allSelected = selected.length === filter.options.length;
 
+  /** Die Auswahl nach einem Tipp auf `value`; was mit ihm zusammengehört, geht mit. */
+  const toggled = (value: string) => {
+    const group = filter.together?.find((entry) => entry.includes(value)) ?? [value];
+    return selected.includes(value)
+      ? selected.filter((entry) => !group.includes(entry))
+      : [...selected, ...group.filter((entry) => !selected.includes(entry))];
+  };
+
   const toggle = (value: string) => {
-    const next = selected.includes(value)
-      ? selected.filter((entry) => entry !== value)
-      : [...selected, value];
+    const next = toggled(value);
     // Der letzte Haken bleibt: ohne erlaubten Wert kann nichts gewürfelt werden.
     if (next.length < minimum) return;
     set(filter.key, next);
   };
 
+  const rows = filter.layout === 'notes' ? noteRows(filter.options.map((option) => option.value)) : [];
+  const chips = filter.options.map((option) => {
+    const active = selected.includes(option.value);
+    const locked = active && toggled(option.value).length < minimum;
+    return (
+      <button
+        key={option.value}
+        type="button"
+        role="checkbox"
+        aria-checked={active}
+        class={`filter-chip ${active ? 'is-selected' : ''}`}
+        style={filter.layout === 'notes' ? noteGridPlace(option.value, rows) : undefined}
+        disabled={locked}
+        title={locked ? `Mindestens ${minimum} muss ausgewählt bleiben.` : undefined}
+        aria-label={spokenLabel(option.label)}
+        onClick={() => toggle(option.value)}
+      >
+        <OptionLabel label={option.label} />
+      </button>
+    );
+  });
+
   return (
     <>
-      <div class="filter-options">
-        {filter.options.map((option) => {
-          const active = selected.includes(option.value);
-          const locked = active && selected.length <= minimum;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="checkbox"
-              aria-checked={active}
-              class={`filter-chip ${active ? 'is-selected' : ''}`}
-              disabled={locked}
-              title={locked ? `Mindestens ${minimum} muss ausgewählt bleiben.` : undefined}
-              aria-label={spokenLabel(option.label)}
-              onClick={() => toggle(option.value)}
-            >
-              <OptionLabel label={option.label} />
-            </button>
-          );
-        })}
-      </div>
+      <div class={filter.layout === 'notes' ? 'filter-note-grid' : 'filter-options'}>{chips}</div>
       <div class="filter-bulk">
-        <button
-          type="button"
-          class="link-button"
-          disabled={allSelected}
-          onClick={() => set(filter.key, filter.options.map((o) => o.value))}
-        >
-          alle
-        </button>
-        <button
-          type="button"
-          class="link-button"
-          disabled={selected.length <= minimum}
-          onClick={() => set(filter.key, selected.slice(0, minimum))}
-        >
-          keine
-        </button>
+        {filter.presets ? (
+          filter.presets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              class="link-button"
+              disabled={sameValue(selected, preset.values)}
+              onClick={() => set(filter.key, preset.values)}
+            >
+              {preset.label}
+            </button>
+          ))
+        ) : (
+          <>
+            <button
+              type="button"
+              class="link-button"
+              disabled={allSelected}
+              onClick={() => set(filter.key, filter.options.map((o) => o.value))}
+            >
+              alle
+            </button>
+            <button
+              type="button"
+              class="link-button"
+              disabled={selected.length <= minimum}
+              onClick={() => set(filter.key, selected.slice(0, minimum))}
+            >
+              keine
+            </button>
+          </>
+        )}
       </div>
     </>
   );

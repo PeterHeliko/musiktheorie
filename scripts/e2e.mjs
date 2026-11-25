@@ -1709,6 +1709,48 @@ async function main() {
       check(await page.locator('.question').isVisible(), 'Falsche lassen sich wiederholen');
     }
 
+    // ----------------------------------------------------------- Töne wählen
+    console.log('\nTöne wählen');
+    {
+      await page.goto(exercise('toene-klaviatur-benennen'), { waitUntil: 'networkidle' });
+      await page.waitForSelector('.question');
+      await page.locator('.session-settings').click();
+      await page.waitForSelector('.sheet');
+      const field = page.locator('.filter-field', { hasText: 'Töne' });
+      const chip = (name) => field.locator('.filter-chip').filter({ hasText: new RegExp(`^${name}$`) });
+      const chosen = async () => (await field.locator('.filter-chip.is-selected').allInnerTexts()).join(' ');
+      const [cis, c, des] = await Promise.all(['cis', 'c', 'des'].map((name) => chip(name).boundingBox()));
+      const d = await chip('d').boundingBox();
+      check(
+        (await field.locator('.filter-chip').count()) === 17 &&
+          Math.abs(cis.x - c.x) < 1 && cis.y < c.y && Math.abs(des.x - d.x) < 1 && des.y > d.y,
+        'Einstellungen: «Töne» als Raster wie die Antworten, cis über c, des unter d',
+      );
+      await field.locator('button:has-text("Stammtöne")').click();
+      check((await chosen()) === 'c d e f g a h', 'Schnellwahl «Stammtöne»');
+      await chip('cis').click();
+      check((await chosen()) === 'c cis des d e f g a h', 'Tasten benennen: cis wählt des mit, eine Taste');
+      await page.screenshot({ path: join(SHOTS, 'einstellungen-toene.png'), fullPage: true });
+      await page.locator('.sheet-bar button:has-text("Fertig")').click();
+      await page.waitForSelector('.sheet', { state: 'detached' });
+      check(
+        await eventually(page, () => new URL(location.href).searchParams.get('toene') === 'c,cis,des,d,e,f,g,a,h'),
+        'die Wahl steht im Link («toene=c,cis,des,d,e,f,g,a,h»)',
+      );
+
+      // Ein Link von früher: «nur Stammtöne» heisst jetzt Töne c bis h.
+      await page.goto(exercise('noten-benennen', '?vorzeichen=stammton'), { waitUntil: 'networkidle' });
+      await page.waitForSelector('.question');
+      check(
+        await eventually(page, () => {
+          const params = new URL(location.href).searchParams;
+          return params.get('toene') === 'c,d,e,f,g,a,h' && !params.has('vorzeichen');
+        }),
+        'alter Link «vorzeichen=stammton» wird zu «toene=c,d,e,f,g,a,h»',
+      );
+      check((await page.locator('.question .note-grid .choice').count()) === 7, 'und bietet wie früher c bis h an');
+    }
+
     // -------------------------------------------------------------------- Kurse
     console.log('\nKurse');
     await page.goto(BASE, { waitUntil: 'networkidle' });

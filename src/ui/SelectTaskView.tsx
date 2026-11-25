@@ -10,9 +10,9 @@
 
 import { resolveOptions } from '../content/options';
 import type { SelectField, SelectTask } from '../content/schema';
-import { STEPS, germanNoteName } from '../music/theory';
 import { acceptedValues } from '../scoring';
 import { useExam } from '../state';
+import { noteGridPlace, noteRows } from './note-grid';
 import { PianoKeyboard } from './PianoKeyboard';
 import { Score } from './Score';
 
@@ -158,23 +158,20 @@ function Field({
       <fieldset class={`field field-buttons ${muted ? 'is-muted' : ''}`} disabled={locked}>
         {field.label && <legend>{field.label}</legend>}
         <div class="button-grid note-grid" role="radiogroup" aria-label={field.label ?? 'Antwort'}>
-          {options.map((option) => {
-            const cell = noteCell(option.value);
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={current === option.value}
-                class={choiceClass(option.value, current, field, reveal)}
-                style={cell ? { gridColumn: cell.column, gridRow: rows.indexOf(cell.alter) + 1 } : undefined}
-                onClick={() => setField(taskId, field.id, current === option.value ? '' : option.value)}
-                disabled={locked}
-              >
-                {option.label}
-              </button>
-            );
-          })}
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={current === option.value}
+              class={choiceClass(option.value, current, field, reveal)}
+              style={noteGridPlace(option.value, rows)}
+              onClick={() => setField(taskId, field.id, current === option.value ? '' : option.value)}
+              disabled={locked}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </fieldset>
     );
@@ -290,35 +287,4 @@ function intervalAreas(values: string[]): Record<string, string> {
       .map((cells) => `"${cells.join(' ')}"`)
       .join(' ');
   return { '--portrait': layout(PORTRAIT), '--landscape': layout(LANDSCAPE) };
-}
-
-// ---------------------------------------------------------------------------
-// Tonnamen-Raster
-// ---------------------------------------------------------------------------
-
-/**
- * Platz jedes Tonnamens (klein geschrieben, wie in src/generators/toene.ts):
- * die Spalte ist der Stammton (c … h), die Zeile das Vorzeichen — oben ♯, in
- * der Mitte keins, unten ♭ (Entscheid 2026-11-24): erhöht steht oben,
- * erniedrigt unten. So steht cis über c und des unter d, und jeder
- * Name immer an derselben Stelle.
- */
-const NOTE_CELL: Record<string, { column: number; alter: number }> = Object.fromEntries(
-  STEPS.flatMap((step, index) =>
-    [-1, 0, 1].map((alter) => [germanNoteName(step, alter).toLowerCase(), { column: index + 1, alter }]),
-  ),
-);
-
-/**
- * Platz eines Werts im Raster: ein Tonname («fis») oder eine Tonart («Fis-Dur»,
- * «fis-Moll») — die steht dort, wo ihr Grundton steht.
- */
-function noteCell(value: string): { column: number; alter: number } | undefined {
-  return NOTE_CELL[value.replace(/-(dur|moll)$/i, '').toLowerCase()];
-}
-
-/** Die Vorzeichen-Zeilen, die vorkommen, von oben nach unten. Leere fallen weg. */
-function noteRows(values: string[]): number[] {
-  const present = new Set(values.map((value) => noteCell(value)?.alter));
-  return [1, 0, -1].filter((alter) => present.has(alter));
 }

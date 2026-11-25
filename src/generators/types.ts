@@ -113,6 +113,15 @@ export type FilterSpec =
       options: SelectOption[];
       /** So viele müssen mindestens angekreuzt bleiben. Vorgabe 1. */
       min?: number;
+      /**
+       * Tonnamen als Raster wie die Antwortknöpfe (eine Spalte je Stammton, ♯
+       * oben, ♭ unten) statt als Reihe.
+       */
+      layout?: 'notes';
+      /** Werte, die nur zusammen an- und abgehen: cis und des sind eine Taste. */
+      together?: string[][];
+      /** Schnellwahl unter den Knöpfen («Stammtöne», «alle») statt «alle · keine». */
+      presets?: { label: string; values: string[] }[];
     })
   | (FilterBase & {
       kind: 'single';
@@ -243,6 +252,15 @@ export interface Generator<F extends FilterValues = FilterValues> {
   hint?: string;
   filters: FilterSpec[];
   defaults: F;
+  /**
+   * Einstellungen, die es nicht mehr gibt, die alte Links und gespeicherte
+   * Stände aber noch nennen (links.ts, Regel 3). Gelesen werden sie wie die
+   * übrigen, gezeigt und geschrieben nirgends; `upgrade` übersetzt sie in die
+   * heutigen.
+   */
+  retiredFilters?: FilterSpec[];
+  /** Alte Filterwerte → heutige. Läuft auf jedem Weg in die Seite (`canonicalFilters`). */
+  upgrade?(values: FilterValues): FilterValues;
   /**
    * Würfelt eine Aufgabe. Muss die eigene Lösung gegen den Theoriekern prüfen
    * und lieber werfen als eine falsche Aufgabe stellen — eine Übungsseite, die

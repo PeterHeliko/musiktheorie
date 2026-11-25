@@ -224,8 +224,11 @@ export function describeSettings(generator: Generator<FilterValues>, filters: Fi
     switch (filter.kind) {
       case 'multi': {
         const chosen = Array.isArray(value) ? value : [];
+        // «Töne: Stammtöne» statt der sieben Namen.
+        const preset = filter.presets?.find((entry) => sameValue(entry.values, chosen));
         const labels = filter.options.filter((option) => chosen.includes(option.value)).map((option) => option.label);
-        if (labels.length > 0) parts.push(labelled(filter.label, labels.join(', ')));
+        if (preset) parts.push(labelled(filter.label, preset.label));
+        else if (labels.length > 0) parts.push(labelled(filter.label, labels.join(', ')));
         break;
       }
       case 'single': {

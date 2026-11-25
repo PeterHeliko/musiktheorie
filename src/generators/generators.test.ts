@@ -711,8 +711,8 @@ describe('Töne', () => {
     expect(scoreTask(question.task, {}).details[0].correctResponse).toBe(`${sharp} oder ${flat}`);
   });
 
-  it('nimmt mit «nur weisse» nur weisse Tasten und bietet nur c bis h an', () => {
-    for (const question of generate('toene-klaviatur-benennen', { keyColours: 'weiss' })) {
+  it('nimmt mit nur Stammtönen nur weisse Tasten und bietet nur c bis h an', () => {
+    for (const question of generate('toene-klaviatur-benennen', { notes: WHITE_NAMES })) {
       expect(isWhiteKey((question.task as SelectTask).keyboard!.marked![0])).toBe(true);
       expect(optionValues(question)).toEqual(WHITE_NAMES);
     }
@@ -736,7 +736,7 @@ describe('Töne', () => {
 
   it('spielt ohne Vorzeichen nur Stammtöne, auf weissen Tasten', () => {
     const prompts = new Set<string>();
-    for (const question of generate('toene-klaviatur-spielen', { accidentals: 'stammton' })) {
+    for (const question of generate('toene-klaviatur-spielen', { notes: WHITE_NAMES })) {
       const task = question.task as KeyboardTask;
       prompts.add(task.prompt!);
       expect(task.whiteOnly).toBe(true);
@@ -745,7 +745,7 @@ describe('Töne', () => {
   });
 
   it('nennt beim Spielen in der Rückmeldung die gespielte Taste', () => {
-    const question = generate('toene-klaviatur-spielen', { accidentals: 'stammton' }).find(
+    const question = generate('toene-klaviatur-spielen', { notes: WHITE_NAMES }).find(
       (entry) => entry.task.prompt === 'c',
     )!;
     const fis = midi(parsePitch('f#3'));
@@ -771,7 +771,7 @@ describe('Töne', () => {
 
   it('bleibt beim Notenbenennen ohne Vorzeichen bei Stammtönen und im Schlüssel', () => {
     const seen = new Set<string>();
-    for (const question of generate('noten-benennen', { accidentals: 'stammton', clefs: ['bass'] })) {
+    for (const question of generate('noten-benennen', { notes: WHITE_NAMES, clefs: ['bass'] })) {
       const score = (question.task as SelectTask).score!;
       const key = score.measures[0].notes[0].keys![0];
       seen.add(key);
@@ -810,7 +810,7 @@ describe('Töne', () => {
   it('nimmt je Schlüssel seinen eigenen Umfang', () => {
     const filters = {
       clefs: ['treble', 'bass'],
-      accidentals: 'stammton',
+      notes: WHITE_NAMES,
       trebleLowest: 'c3',
       trebleHighest: 'c3',
       bassLowest: 'C',
@@ -826,7 +826,7 @@ describe('Töne', () => {
   });
 
   it('bringt einen vertauschten Umfang aus einem Link wieder in Reihenfolge', () => {
-    for (const question of generate('noten-benennen', { accidentals: 'stammton', trebleLowest: 'e2', trebleHighest: 'c2' })) {
+    for (const question of generate('noten-benennen', { notes: WHITE_NAMES, trebleLowest: 'e2', trebleHighest: 'c2' })) {
       const key = (question.task as SelectTask).score!.measures[0].notes[0].keys![0];
       expect(['c5', 'd5', 'e5']).toContain(key);
     }
@@ -835,9 +835,9 @@ describe('Töne', () => {
   it('gibt dem System so viel Platz, wie der Umfang braucht, und nicht mehr', () => {
     const space = (filters: FilterValues) => (generate('noten-benennen', filters, 1)[0].task as SelectTask).score!.space!;
     // Nur Töne im System: es bleibt beim Platz des Violinschlüssels.
-    expect(space({ accidentals: 'stammton', trebleLowest: 'f1', trebleHighest: 'e2' })).toEqual({ above: 15, below: 17 });
+    expect(space({ notes: WHITE_NAMES, trebleLowest: 'f1', trebleHighest: 'e2' })).toEqual({ above: 15, below: 17 });
     // Weiter hinaus braucht mehr, mit Vorzeichen noch mehr.
-    const wide = space({ accidentals: 'stammton', trebleLowest: 'g', trebleHighest: 'c3' });
+    const wide = space({ notes: WHITE_NAMES, trebleLowest: 'g', trebleHighest: 'c3' });
     const wideSigns = space({ trebleLowest: 'g', trebleHighest: 'c3' });
     expect(wide.above).toBeGreaterThan(15);
     expect(wide.below).toBeGreaterThan(17);
@@ -892,7 +892,7 @@ describe('Töne', () => {
   });
 
   it('spielt Noten ohne Vorzeichen nur auf weissen Tasten', () => {
-    for (const question of generate('noten-klaviatur-spielen', { accidentals: 'stammton' })) {
+    for (const question of generate('noten-klaviatur-spielen', { notes: WHITE_NAMES })) {
       const task = question.task as KeyboardTask;
       expect(task.whiteOnly).toBe(true);
       expect(parsePitch(task.score!.measures[0].notes[0].keys![0]).alter).toBe(0);
@@ -936,8 +936,62 @@ describe('Töne', () => {
     }
   });
 
+  it('fragt nur die gewählten Töne, in jeder Übung', () => {
+    const asked = (question: Question): string => {
+      const task = question.task;
+      if (task.kind === 'select' && task.keyboard) return keyNamesOf(task.keyboard.marked![0]).join('/');
+      if (task.kind === 'select' || (task.kind === 'keyboard' && task.score)) {
+        return spelled((task as SelectTask | KeyboardTask).score!.measures[0].notes[0].keys![0]);
+      }
+      return task.prompt!;
+    };
+    const filters = { notes: ['d', 'fis', 'b'] };
+    const expected: Record<string, string[]> = {
+      // Eine schwarze Taste mit einem gewählten Namen zählt ganz.
+      'toene-klaviatur-benennen': ['d', 'fis/ges', 'ais/b'],
+      'toene-klaviatur-spielen': ['d', 'fis', 'b'],
+      'noten-benennen': ['d', 'fis', 'b'],
+      'noten-schreiben': ['d', 'fis', 'b'],
+      'noten-klaviatur-spielen': ['d', 'fis', 'b'],
+    };
+    for (const [id, names] of Object.entries(expected)) {
+      const seen = new Set(generate(id, filters).map(asked));
+      expect([...seen].sort(), id).toEqual([...names].sort());
+    }
+  });
+
+  it('bietet mit gewählten Vorzeichen-Tönen alle Antworten an, mit nur Stammtönen c bis h', () => {
+    const offered = (id: string, notes: string[]) =>
+      new Set(generate(id, { notes }, 10).flatMap(optionValues));
+    expect(offered('noten-benennen', ['c', 'cis']).size).toBe(21);
+    expect([...offered('noten-benennen', ['c', 'g'])]).toEqual(WHITE_NAMES);
+    expect(offered('toene-klaviatur-benennen', ['c', 'cis', 'des']).size).toBe(17);
+    expect([...offered('toene-klaviatur-benennen', ['c', 'g'])]).toEqual(WHITE_NAMES);
+    // Klaviatur und Werkzeugleiste wie früher mit «nur Stammtöne».
+    for (const question of generate('toene-klaviatur-spielen', { notes: ['c', 'g'] }, 5)) {
+      expect((question.task as KeyboardTask).whiteOnly).toBe(true);
+    }
+    for (const question of generate('toene-klaviatur-spielen', { notes: ['c', 'cis'] }, 5)) {
+      expect((question.task as KeyboardTask).whiteOnly).toBeUndefined();
+    }
+  });
+
+  it('sagt, wenn kein gewählter Ton im Umfang liegt', () => {
+    expect(() => generate('toene-klaviatur-spielen', { notes: ['d'], lowest: 'e1', highest: 'a1' }, 1)).toThrow(
+      'Keiner der gewählten Töne',
+    );
+    expect(() => generate('noten-benennen', { notes: ['d'], trebleLowest: 'e1', trebleHighest: 'a1' }, 1)).toThrow(
+      'Keiner der gewählten Töne',
+    );
+    // Mit zwei Schlüsseln nimmt sie den, in dem der Ton liegt.
+    const filters = { notes: ['d'], clefs: ['treble', 'bass'], trebleLowest: 'e1', trebleHighest: 'a1' };
+    for (const question of generate('noten-benennen', filters, 10)) {
+      expect((question.task as SelectTask).score!.clef).toBe('bass');
+    }
+  });
+
   it('schreibt ohne Vorzeichen nur Stammtöne, ohne Vorzeichen-Werkzeug', () => {
-    for (const question of generate('noten-schreiben', { accidentals: 'stammton' })) {
+    for (const question of generate('noten-schreiben', { notes: WHITE_NAMES })) {
       const task = question.task as NotationTask;
       expect(task.noAccidentals).toBe(true);
       expect(WHITE_NAMES).toContain(task.prompt);

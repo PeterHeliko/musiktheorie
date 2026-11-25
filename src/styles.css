@@ -80,6 +80,19 @@
   box-shadow: var(--focus);
 }
 
+/* «Töne»: Raster wie die Antwortknöpfe (FilterFields, layout 'notes'). */
+.filter-note-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 26rem;
+}
+
+.filter-note-grid .filter-chip {
+  min-width: 0;
+  padding: 7px 2px;
+}
+
 .filter-bulk {
   display: flex;
   gap: 12px;

@@ -57,6 +57,7 @@ export const PARAM_NAMES: Record<string, string> = {
   maxAccidentals: 'max-vorzeichen',
   maxLeap: 'sprung',
   metronome: 'metronom',
+  notes: 'toene',
   playback: 'wiedergabe',
   positions: 'lagen',
   prelude: 'vorspiel',
@@ -153,9 +154,11 @@ export function canonicalFilters(
   generator: Generator<FilterValues>,
   values: FilterValues,
 ): FilterValues {
-  const out: FilterValues = { ...values };
+  // Zuerst, was alte Links und Speicherstände noch nennen, in heutige Werte.
+  const current = generator.upgrade?.(values) ?? values;
+  const out: FilterValues = { ...current };
   for (const filter of generator.filters) {
-    const value = values[filter.key];
+    const value = current[filter.key];
     if (filter.kind === 'multi' && Array.isArray(value)) {
       out[filter.key] = filter.options
         .map((option) => option.value)
@@ -257,7 +260,8 @@ export function decodeLink(generator: Generator<FilterValues>, search: string): 
   const filters: FilterValues = { ...generator.defaults };
   let fromUrl = false;
 
-  for (const filter of generator.filters) {
+  // Auch Filter, die es nicht mehr gibt: `canonicalFilters` übersetzt sie.
+  for (const filter of [...generator.filters, ...(generator.retiredFilters ?? [])]) {
     const raw = params.get(paramName(filter.key));
     if (raw === null) continue;
     fromUrl = true;

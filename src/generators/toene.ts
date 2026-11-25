@@ -20,6 +20,13 @@
  *  - Notenbild: Hier ist die Schreibweise die Frage. Ein fes ist ein fes,
  *    auch wenn es wie e klingt; gespielt wird es auf der Taste e.
  *
+ * Welche Töne gefragt werden, wählt «Töne» (Entscheid 2026-11-25), ein
+ * Raster wie die Antwortknöpfe. Es ersetzt «Vorzeichen» (nur Stammtöne / ♭ ♯)
+ * und bei «Tasten benennen» «Tasten» (weiss / alle). Die Antwortknöpfe
+ * bleiben, wie sie waren: sind nur Stammtöne gewählt, verhält sich die Übung
+ * wie früher mit «nur Stammtöne» (Knöpfe c bis h, nur weisse Tasten, kein
+ * Vorzeichen-Werkzeug), sonst wie mit ♭ ♯.
+ *
  * Tiefster und höchster Ton (Entscheid 2026-11-25): bei den Übungen mit
  * Klaviatur die Enden der Klaviatur (Vorgabe c bis h¹ wie bei den
  * Intervallen), bei denen mit Notenbild die tiefste und höchste notierte
@@ -29,7 +36,7 @@
  */
 
 import type { KeyboardTask, NotationTask, ScoreSpec, SelectField, SelectOption, SelectTask } from '../content/schema';
-import { INTERVAL_KEYBOARD, isWhiteKey, keyNames, keysBetween, keysNamed } from '../music/piano';
+import { INTERVAL_KEYBOARD, KEY_NAMES, isWhiteKey, keyNames, keysBetween, keysNamed } from '../music/piano';
 import {
   STEPS,
   diatonicIndex,
@@ -86,10 +93,6 @@ function keyIs(key: number, name: string): boolean {
   return (((midi(pitchOfName(name, 4)) - key) % 12) + 12) % 12 === 0;
 }
 
-function policyOf(values: FilterValues): AccidentalPolicy {
-  return single(values, 'accidentals', 'einfach') === 'stammton' ? 'stammton' : 'einfach';
-}
-
 /** Alle Namen im Notenbild: je Stammton mit ♭, ohne und mit ♯ (bzw. nur ohne). */
 function staffNames(policy: AccidentalPolicy): { name: string; step: Step; alter: number }[] {
   return STEPS.flatMap((step) =>
@@ -98,6 +101,62 @@ function staffNames(policy: AccidentalPolicy): { name: string; step: Step; alter
 }
 
 const option = (name: string): SelectOption => ({ value: name, label: name });
+
+// ---------------------------------------------------------------------------
+// Welche Töne gefragt werden
+// ---------------------------------------------------------------------------
+
+const NATURAL_NAMES = STEPS.map((step) => nameOf(step, 0));
+
+/** Im Notenbild alle 21 Namen, ces bis his. */
+const STAFF_NAMES = staffNames('einfach').map((entry) => entry.name);
+
+/** Die zwei Namen jeder schwarzen Taste: in «Tasten benennen» eine Wahl. */
+const BLACK_KEY_NAMES = keysBetween(60, 71)
+  .filter((key) => !isWhiteKey(key))
+  .map(keyNames);
+
+/** Das Raster «Töne» mit den Namen, die die Übung kennt. */
+function notesFilter(names: string[], together?: string[][]): FilterSpec {
+  return {
+    kind: 'multi',
+    key: 'notes',
+    label: 'Töne',
+    options: names.map(option),
+    layout: 'notes',
+    ...(together ? { together } : {}),
+    presets: [
+      { label: 'Stammtöne', values: NATURAL_NAMES },
+      { label: 'alle', values: names },
+    ],
+  };
+}
+
+/** Die gewählten Töne; Unbekanntes fällt weg, und ohne einen gelten alle. */
+function chosenNotes(values: FilterValues, names: string[]): string[] {
+  const chosen = multi(values, 'notes', names).filter((name) => names.includes(name));
+  return chosen.length > 0 ? chosen : names;
+}
+
+/** Nur Stammtöne gewählt: dann wie früher «nur Stammtöne». */
+function policyOf(notes: string[]): AccidentalPolicy {
+  return notes.every((name) => NATURAL_NAMES.includes(name)) ? 'stammton' : 'einfach';
+}
+
+/** Wenn Umfang und Töne nichts gemeinsam haben; die Übung zeigt den Satz statt einer Aufgabe. */
+const NOTHING_IN_RANGE = 'Keiner der gewählten Töne liegt zwischen tiefstem und höchstem Ton.';
+
+/** Was es früher statt «Töne» gab. Alte Links und Speicherstände nennen es noch. */
+const RETIRED_ACCIDENTALS: FilterSpec = { kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS };
+const RETIRED_KEY_COLOURS: FilterSpec = { kind: 'single', key: 'keyColours', label: 'Tasten', options: KEY_COLOUR_OPTIONS };
+
+/** «nur Stammtöne» bzw. «nur weisse» von früher: von den gewählten Tönen nur die Stammtöne. */
+function upgradeNotes(values: FilterValues): FilterValues {
+  const { accidentals, keyColours, ...rest } = values;
+  if (accidentals !== 'stammton' && keyColours !== 'weiss') return rest;
+  const naturals = (Array.isArray(rest.notes) ? rest.notes : []).filter((name) => NATURAL_NAMES.includes(name));
+  return { ...rest, notes: naturals.length > 0 ? naturals : NATURAL_NAMES };
+}
 
 /** Das Tonnamen-Raster. `correct` zuerst; mehrere, wenn eine Taste zwei Namen hat. */
 function noteNameField(correct: string[], names: string[]): SelectField {
@@ -239,7 +298,7 @@ const keyboardFilters = rangeFilters(KEYBOARD_KEYS, KEYBOARD_SCALE);
 // ---------------------------------------------------------------------------
 
 interface KeyNamingFilters extends FilterValues {
-  keyColours: string;
+  notes: string[];
   lowest: string;
   highest: string;
 }
@@ -255,25 +314,33 @@ export const toeneKlaviaturBenennen: Generator<KeyNamingFilters> = {
     'Orientiere dich an den schwarzen Tasten: c liegt links neben den zwei schwarzen, f links neben den drei. ' +
     'Eine schwarze Taste hat zwei Namen; beide sind richtig.',
 
-  filters: [{ kind: 'single', key: 'keyColours', label: 'Tasten', options: KEY_COLOUR_OPTIONS }, ...keyboardFilters],
+  // Eine schwarze Taste ist eine Wahl: cis und des gehen zusammen an und ab.
+  filters: [notesFilter(KEY_NAMES, BLACK_KEY_NAMES), ...keyboardFilters],
+  retiredFilters: [RETIRED_KEY_COLOURS],
+  upgrade: upgradeNotes,
 
-  defaults: { keyColours: 'alle', ...KEYBOARD_DEFAULTS },
+  defaults: { notes: KEY_NAMES, ...KEYBOARD_DEFAULTS },
 
   generate(values, rng: Rng): Question {
-    const whiteOnly = single(values, 'keyColours', 'alle') === 'weiss';
+    const notes = chosenNotes(values, KEY_NAMES);
     const keyboard = chosenKeyboard(values);
-    const keys = keysBetween(keyboard.low, keyboard.high).filter((key) => !whiteOnly || isWhiteKey(key));
+    const all = keysBetween(keyboard.low, keyboard.high);
+    // Eine schwarze Taste zählt, sobald einer ihrer Namen gewählt ist.
+    const keys = all.filter((key) => keyNames(key).some((name) => notes.includes(name)));
+    if (keys.length === 0) throw new Error(NOTHING_IN_RANGE);
     const key = rng.pick(keys);
     const names = keyNames(key);
 
     // Unabhängig nachgerechnet: jeder Name, als Ton gelesen, ist diese Taste.
     for (const name of names) insist(keyIs(key, name), `Taste ${key} heisst nicht «${name}»`);
 
+    // Angeboten werden alle Namen der Klaviatur, nur Stammtöne gewählt: die weissen.
+    const offered = policyOf(notes) === 'stammton' ? all.filter(isWhiteKey) : all;
     const task: SelectTask = {
       id: taskId('tkb', rng),
       kind: 'select',
       keyboard: { ...keyboard, marked: [key] },
-      fields: [noteNameField(names, namesOn(keys))],
+      fields: [noteNameField(names, namesOn(offered))],
     };
     return { task };
   },
@@ -284,7 +351,7 @@ export const toeneKlaviaturBenennen: Generator<KeyNamingFilters> = {
 // ---------------------------------------------------------------------------
 
 interface KeyPlayingFilters extends FilterValues {
-  accidentals: string;
+  notes: string[];
   lowest: string;
   highest: string;
 }
@@ -298,15 +365,20 @@ export const toeneKlaviaturSpielen: Generator<KeyPlayingFilters> = {
   instruction: 'Tippe eine Taste des genannten Tons an.',
   hint: 'Jede Oktave zählt. Die angetippte Taste erklingt; mit «Prüfen» gibst du sie ab.',
 
-  filters: [{ kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS }, ...keyboardFilters],
+  filters: [notesFilter(KEY_NAMES), ...keyboardFilters],
+  retiredFilters: [RETIRED_ACCIDENTALS],
+  upgrade: upgradeNotes,
 
-  defaults: { accidentals: 'einfach', ...KEYBOARD_DEFAULTS },
+  defaults: { notes: KEY_NAMES, ...KEYBOARD_DEFAULTS },
 
   generate(values, rng: Rng): Question {
-    const whiteOnly = policyOf(values) === 'stammton';
+    const notes = chosenNotes(values, KEY_NAMES);
+    const whiteOnly = policyOf(notes) === 'stammton';
     const keyboard = chosenKeyboard(values);
     const keys = keysBetween(keyboard.low, keyboard.high).filter((key) => !whiteOnly || isWhiteKey(key));
-    const name = rng.pick(namesOn(keys));
+    const names = namesOn(keys).filter((name) => notes.includes(name));
+    if (names.length === 0) throw new Error(NOTHING_IN_RANGE);
+    const name = rng.pick(names);
     const accept = keysNamed(name, keyboard.low, keyboard.high);
 
     insist(accept.length > 0, `«${name}» liegt nicht auf der Klaviatur`);
@@ -408,13 +480,18 @@ function pickStaffNote(
   values: FilterValues,
   rng: Rng,
 ): { clef: Clef; clefs: Clef[]; policy: AccidentalPolicy; pitch: Pitch; name: string } {
-  const policy = policyOf(values);
+  const notes = chosenNotes(values, STAFF_NAMES);
+  const policy = policyOf(notes);
   const clefs = clefsOf(values);
-  const clef = rng.pick(clefs);
-  const { low, high } = staffRange(values, clef);
-  const pitches = writtenBetween(low, high, altersFor(policy));
-  insist(pitches.length > 0, 'keine Töne in diesem Umfang');
-  const pitch = rng.pick(pitches);
+  const candidates = (clef: Clef) => {
+    const { low, high } = staffRange(values, clef);
+    return writtenBetween(low, high, altersFor(policy)).filter((pitch) => notes.includes(nameOf(pitch.step, pitch.alter)));
+  };
+  // Nur Schlüssel, in deren Umfang einer der gewählten Töne liegt.
+  const usable = clefs.filter((clef) => candidates(clef).length > 0);
+  if (usable.length === 0) throw new Error(NOTHING_IN_RANGE);
+  const clef = rng.pick(usable);
+  const pitch = rng.pick(candidates(clef));
 
   const name = nameOf(pitch.step, pitch.alter);
   const back = pitchOfName(name, pitch.octave);
@@ -426,13 +503,13 @@ function pickStaffNote(
 }
 
 const staffNoteFilters: FilterSpec[] = [
-  { kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS },
+  notesFilter(STAFF_NAMES),
   { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
   ...staffFilters,
 ];
 
 interface StaffNoteFilters extends FilterValues {
-  accidentals: string;
+  notes: string[];
   clefs: string[];
   trebleLowest: string;
   trebleHighest: string;
@@ -440,7 +517,7 @@ interface StaffNoteFilters extends FilterValues {
   bassHighest: string;
 }
 
-const STAFF_NOTE_DEFAULTS: StaffNoteFilters = { accidentals: 'einfach', clefs: ['treble'], ...STAFF_DEFAULTS };
+const STAFF_NOTE_DEFAULTS: StaffNoteFilters = { notes: STAFF_NAMES, clefs: ['treble'], ...STAFF_DEFAULTS };
 
 // ---------------------------------------------------------------------------
 // Notenbild: benennen
@@ -457,6 +534,8 @@ export const notenBenennen: Generator<StaffNoteFilters> = {
   hint: 'Gefragt ist nur der Name, nicht die Oktave. Das Vorzeichen gehört zum Namen: fis, nicht f.',
 
   filters: staffNoteFilters,
+  retiredFilters: [RETIRED_ACCIDENTALS],
+  upgrade: upgradeNotes,
 
   defaults: STAFF_NOTE_DEFAULTS,
 
@@ -495,7 +574,7 @@ function settableOctaves(step: Step, alter: number, clef: Clef): Pitch[] {
 }
 
 interface NoteWritingFilters extends FilterValues {
-  accidentals: string;
+  notes: string[];
   clefs: string[];
 }
 
@@ -508,19 +587,19 @@ export const notenSchreiben: Generator<NoteWritingFilters> = {
   instruction: 'Setze den genannten Ton ins System.',
   hint: 'Jede Oktave zählt. Tippe die Stelle im System an oder ziehe dorthin; das Vorzeichen wählst du vorher in der Werkzeugleiste.',
 
-  filters: [
-    { kind: 'single', key: 'accidentals', label: 'Vorzeichen', options: ACCIDENTALS },
-    { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS },
-  ],
+  filters: [notesFilter(STAFF_NAMES), { kind: 'multi', key: 'clefs', label: 'Schlüssel', options: CLEF_OPTIONS }],
+  retiredFilters: [RETIRED_ACCIDENTALS],
+  upgrade: upgradeNotes,
 
-  defaults: { accidentals: 'einfach', clefs: ['treble'] },
+  defaults: { notes: STAFF_NAMES, clefs: ['treble'] },
 
   generate(values, rng: Rng): Question {
-    const policy = policyOf(values);
+    const notes = chosenNotes(values, STAFF_NAMES);
+    const policy = policyOf(notes);
     const clefs = multi(values, 'clefs', this.defaults.clefs);
     const clef = rng.pick(clefs) as Clef;
 
-    const { name, step, alter } = rng.pick(staffNames(policy));
+    const { name, step, alter } = rng.pick(staffNames(policy).filter((entry) => notes.includes(entry.name)));
     const accept = settableOctaves(step, alter, clef);
     insist(accept.length >= 2, `«${name}» lässt sich nur in einer Oktave setzen`);
     for (const pitch of accept) {
@@ -571,6 +650,8 @@ export const notenKlaviaturSpielen: Generator<StaffNoteFilters> = {
   hint: 'Jede Oktave zählt. Die angetippte Taste erklingt; mit «Prüfen» gibst du sie ab.',
 
   filters: staffNoteFilters,
+  retiredFilters: [RETIRED_ACCIDENTALS],
+  upgrade: upgradeNotes,
 
   defaults: STAFF_NOTE_DEFAULTS,
 
