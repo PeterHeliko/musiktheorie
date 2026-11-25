@@ -10,6 +10,7 @@ import './styles.css';
 import { App } from './ui/App';
 import { interceptLinks } from './router';
 import { installAudioUnlock } from './audio/unlock';
+import { installOffline } from './offline';
 
 const root = document.getElementById('app');
 if (!root) throw new Error('Kein Element mit der Kennung «app» gefunden.');
@@ -17,6 +18,7 @@ if (!root) throw new Error('Kein Element mit der Kennung «app» gefunden.');
 interceptLinks();
 installAudioUnlock();
 render(<App />, root);
+installOffline();
 
 // Klaviersamples werden nicht hier vorgeladen, sondern von jeder Aufgabe mit
 // Hörbeispiel selbst, sobald sie erscheint (PracticeAudioPlayer). So lädt

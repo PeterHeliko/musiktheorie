@@ -42,6 +42,23 @@ während der Entwicklung); vor dem Push deshalb lokal `npm run verify`.
 
 Einmalig im Repository: **Settings → Pages → Source: «GitHub Actions»**.
 
+### Als App und offline
+
+Auf dem Telefon lässt sich die Seite auf den Startbildschirm legen und läuft dann ohne
+Adresszeile (Android: Menü → «App installieren»; iPhone: Teilen → «Zum Home-Bildschirm»).
+Dafür sorgen `public/manifest.webmanifest`, die Symbole in `public/icons/` (aus
+`scripts/make-icons.sh`) und ein Service Worker:
+
+- `src/service-worker.js` ist die Vorlage; `scripts/write-sw.ts` setzt beim Bauen die
+  Dateiliste ein und schreibt `dist/sw.js`. Angemeldet wird er in `src/offline.ts`, nur in der
+  gebauten Seite, nie unter `npm run dev`.
+- Seiten und Code kommen zuerst aus dem Netz: ein Push ist sofort da, auch in der App. Ohne
+  Netz (oder nach drei Sekunden ohne Antwort) kommen sie aus dem Zwischenspeicher.
+- Im Browser-Tab speichert er die App (rund 1 MB) und nur die Klaviertöne, die gespielt wurden.
+  Die installierte App hält alle Klaviertöne bereit und klingt auch offline.
+- Auf dem iPhone hat die installierte App ihren eigenen Speicher: Einstellungen und
+  Trefferquoten aus Safari erscheinen dort nicht.
+
 Mit eigener Domain später: `BASE_PATH=/` und `SITE_ORIGIN=https://…` als Umgebungsvariablen
 für Build und Browserprüfung in der Workflow-Datei setzen. Achtung: auf einer neuen Domain ist der gespeicherte
 Fortschritt aller Besucher leer — der Umzugsplan steht in `CONCEPT.md` §7.
@@ -397,12 +414,18 @@ src/
   content/         Datenmodell der Aufgaben, Auswahllisten
   scoring/         Bewertung
   ui/              Seiten und Bausteine
+  offline.ts       Service Worker anmelden
+  service-worker.js  Vorlage für dist/sw.js
 scripts/
   write-pages.ts   eine HTML-Datei je Seite (Teil von npm run build)
+  write-sw.ts      dist/sw.js mit der Dateiliste (Teil von npm run build)
+  make-icons.sh    App-Symbole in public/icons/
   serve.mjs        dist/ ausliefern wie GitHub Pages
   e2e.mjs          Browserprüfung
   generate-samples.ts
 public/samples/    Klaviertöne C2–C6
+public/icons/      App-Symbole (Startbildschirm)
+public/manifest.webmanifest  Name, Symbole, ohne Adresszeile
 ```
 
 ### Schreibweisen

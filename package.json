@@ -6,7 +6,7 @@
   "description": "Übungen Musiktheorie — Übungsseite für GitHub Pages",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && vite-node scripts/write-pages.ts",
+    "build": "tsc --noEmit && vite build && vite-node scripts/write-pages.ts && vite-node scripts/write-sw.ts",
     "preview": "node scripts/serve.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

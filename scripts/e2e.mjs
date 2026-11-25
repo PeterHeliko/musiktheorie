@@ -12,7 +12,7 @@
  *         npm run e2e -- --headed --slow    zum Zuschauen
  */
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1342,6 +1342,124 @@ async function main() {
     );
     check((await audioPage.locator('.audio-error').count()) === 0, 'kein Audiofehler gemeldet');
     await fresh.close();
+
+    // ------------------------------------------------- Als App, offline
+    console.log('\nAls App installierbar und offline nutzbar');
+    {
+      // Eigener Server: er wird unten abgeschaltet, «offline» heisst hier
+      // wirklich kein Netz. Eigener Ursprung, also auch eigene Zwischenspeicher.
+      const appServer = await startServer(PORT + 1);
+      const APP_BASE = `http://127.0.0.1:${PORT + 1}${BASE_PATH}`;
+      const allSamples = readdirSync(join(ROOT, 'dist', 'samples')).length;
+
+      /** Einträge in den Zwischenspeichern des Service Workers, nach Art. */
+      const cached = (p) =>
+        p.evaluate(async () => {
+          const counts = { app: 0, samples: 0 };
+          for (const name of await caches.keys()) {
+            const kind = /(app|samples)-[0-9a-f]+$/.exec(name)?.[1];
+            if (kind) counts[kind] += (await (await caches.open(name)).keys()).length;
+          }
+          return counts;
+        });
+      /** Wie eventually(), aber für Bedingungen, die selbst warten müssen. */
+      const until = async (condition, timeout = 15_000) => {
+        for (const end = Date.now() + timeout; Date.now() < end; await new Promise((r) => setTimeout(r, 200))) {
+          if (await condition()) return true;
+        }
+        return false;
+      };
+      const controlled = (p) => eventually(p, () => navigator.serviceWorker.controller !== null, null, 15_000);
+
+      const exerciseHtml = await (await fetch(`${APP_BASE}ueben/intervalle-hoeren/`)).text();
+      check(
+        exerciseHtml.includes(`<link rel="manifest" href="${BASE_PATH}manifest.webmanifest"`) &&
+          exerciseHtml.includes(`<link rel="apple-touch-icon" href="${BASE_PATH}icons/apple-touch-icon.png"`),
+        'jede Seite verweist auf Manifest und Symbol fürs iPhone',
+      );
+
+      // Im Browser-Tab: App gespeichert, Klaviertöne nur, was gespielt wurde.
+      const tab = await browser.newContext();
+      const tabPage = await tab.newPage();
+      await tabPage.goto(APP_BASE, { waitUntil: 'networkidle' });
+
+      const cdp = await tab.newCDPSession(tabPage);
+      const manifest = await cdp.send('Page.getAppManifest');
+      const parsed = manifest.data ? JSON.parse(manifest.data) : {};
+      check(
+        manifest.errors.length === 0 && parsed.display === 'standalone' && parsed.short_name === 'Musiktheorie',
+        `Manifest ohne Fehler: «${parsed.short_name}», ohne Adresszeile`,
+      );
+      const icons = await Promise.all(
+        [...(parsed.icons ?? []).map((icon) => icon.src), 'icons/apple-touch-icon.png'].map((src) =>
+          fetch(new URL(src, manifest.url)),
+        ),
+      );
+      check(
+        icons.length === 4 && icons.every((r) => r.ok && r.headers.get('content-type') === 'image/png'),
+        `${icons.length} Symbole vorhanden`,
+      );
+      check(await controlled(tabPage), 'Service Worker übernimmt die Seite');
+      // Playwright-Kontexte zählen als Inkognito-Fenster; dort bietet Chrome
+      // nie an zu installieren. Alles andere wäre ein Mangel.
+      const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
+      const blocking = installabilityErrors.map((e) => e.errorId).filter((id) => id !== 'in-incognito');
+      check(blocking.length === 0, `Chrome hält die Seite für installierbar${blocking.length ? ` (${blocking.join(', ')})` : ''}`);
+      const afterStart = await cached(tabPage);
+      check(afterStart.app > 3 && afterStart.samples === 0, `App gespeichert (${afterStart.app} Dateien), keine Klaviertöne`);
+
+      await tabPage.goto(`${APP_BASE}ueben/intervalle-hoeren/`, { waitUntil: 'networkidle' });
+      await tabPage.waitForSelector('.play-button:not(.is-playing)', { timeout: 20_000 });
+      const afterPlay = await cached(tabPage);
+      check(
+        afterPlay.samples > 0 && afterPlay.samples < allSamples,
+        `im Tab nur die Klaviertöne der Aufgabe (${afterPlay.samples} von ${allSamples})`,
+      );
+      await tab.close();
+
+      // Vom Startbildschirm: alle Klaviertöne. Playwright kann den
+      // display-mode nicht nachstellen, darum meldet matchMedia ihn hier.
+      const app = await browser.newContext();
+      await app.addInitScript(() => {
+        const matchMedia = window.matchMedia.bind(window);
+        const standalone = (media) => ({
+          matches: true,
+          media,
+          onchange: null,
+          addEventListener() {},
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          dispatchEvent: () => false,
+        });
+        window.matchMedia = (query) => (/display-mode:\s*standalone/.test(query) ? standalone(query) : matchMedia(query));
+      });
+      const appPage = await app.newPage();
+      await appPage.goto(APP_BASE, { waitUntil: 'networkidle' });
+      check(await controlled(appPage), 'installierte App: Service Worker übernimmt');
+      check(
+        await until(async () => (await cached(appPage)).samples === allSamples),
+        `installierte App hält alle ${allSamples} Klaviertöne bereit`,
+      );
+
+      appServer.closeAllConnections();
+      await new Promise((done) => appServer.close(done));
+      await app.setOffline(true);
+
+      // Eine Übung, die noch nie geöffnet war, samt Klang.
+      await appPage.goto(`${APP_BASE}ueben/dreiklaenge-hoeren/`);
+      check(
+        await eventually(appPage, (title) => document.title.startsWith(title), MODES['dreiklaenge-hoeren'], 10_000),
+        'offline: eine noch nie geöffnete Übung startet',
+      );
+      await appPage.waitForSelector('.play-button:not(.is-playing)', { timeout: 20_000 });
+      await appPage.locator('.play-button').first().click();
+      const offlinePlays = await appPage
+        .waitForSelector('.play-button.is-playing', { timeout: 5000 })
+        .then(() => true, () => false);
+      check(offlinePlays && (await appPage.locator('.audio-error').count()) === 0, 'offline: das Hörbeispiel klingt');
+      await app.close();
+    }
 
     // ---------------------------------------------------- Einstellungen (⚙)
     console.log('\nEinstellungen und Adresszeile');
