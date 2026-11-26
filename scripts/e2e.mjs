@@ -1975,6 +1975,32 @@ async function main() {
     );
     await page.screenshot({ path: join(SHOTS, 'melodiediktat-generiert.png') });
 
+    // Neben dem Rahmen losgelassen, rechts auf seiner Höhe, setzt trotzdem:
+    // beim letzten Platz endet der Rahmen kurz vor dem Bildschirmrand, und
+    // gezogen wird gern neben der Note. Darüber losgelassen bricht ab.
+    await page.goto(exercise('generiertes-melodiediktat', '?tonleitern=dur&max-vorzeichen=2&aufgabe=2&v=1'), {
+      waitUntil: 'networkidle',
+    });
+    await page.waitForSelector('.slot-button.is-active');
+    const sideArea = await page.locator('.score-click-area').boundingBox();
+    const sideStave = await page.locator('.score-click-area svg .vf-stave').first().boundingBox();
+    await page.mouse.move(sideStave.x + 15, sideStave.y);
+    await page.mouse.down();
+    await page.mouse.move(sideArea.x + sideArea.width + 30, sideStave.y, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(80);
+    const sideSummary = await page.locator('.input-summary').innerText();
+    await page.mouse.move(sideStave.x + 15, sideStave.y);
+    await page.mouse.down();
+    await page.mouse.move(sideStave.x + 15, sideArea.y - 30, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(80);
+    const aboveSummary = await page.locator('.input-summary').innerText();
+    check(
+      /fis2$/.test(sideSummary) && aboveSummary === sideSummary,
+      `rechts neben dem Rahmen losgelassen: gesetzt («${sideSummary}»); darüber losgelassen: abgebrochen`,
+    );
+
     // Hochkant auf dem Telefon, zwölf Töne: zwei Zeilen, die Nummern der
     // oberen zwischen den Zeilen, keine übereinander. Auf der obersten Linie
     // jeder Zeile gesetzt, steht fis²: es zählt die Zeile unter dem Finger.

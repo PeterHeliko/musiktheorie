@@ -334,6 +334,12 @@ function locate(rendered: RenderedScore | null, at: Point, previous: Location | 
  * Vorschau bleibt. `preview`: ob die Vorschau gezeigt wird; gesetzt werden
  * kann auch ohne (Bearbeiten im Diktat), solange `enabled`.
  *
+ * `sideways`: Loslassen neben dem Rahmen, auf seiner Höhe, setzt trotzdem
+ * (Entscheid 2026-11-26). Für die Tonhöhen-Eingabe, wo nur die Höhe zählt:
+ * gezogen wird gern neben der Note, und beim letzten Platz ganz rechts endet
+ * der Rahmen kurz vor dem Bildschirmrand. Abbrechen geht dort weiter, indem
+ * man über oder unter dem Rahmen loslässt.
+ *
  * `pressed`: ob gerade gedrückt gezogen wird (Finger auf dem Glas, Maustaste
  * unten). Wo die neue Note die gesetzte ersetzt, verschwindet diese dann
  * sofort (PitchInput).
@@ -345,6 +351,7 @@ function usePointerPlacement<L>(options: {
   enabled: boolean;
   commit: (at: L) => void;
   area: RefObject<HTMLElement>;
+  sideways?: boolean;
 }) {
   const { enabled, area } = options;
   const [hover, setHover] = useState<L | null>(null);
@@ -395,11 +402,8 @@ function usePointerPlacement<L>(options: {
     active.current = null;
     setPressed(false);
     const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const inside =
-      event.clientX >= box.left &&
-      event.clientX <= box.right &&
-      event.clientY >= box.top &&
-      event.clientY <= box.bottom;
+    const besideOrIn = latest.current.sideways || (event.clientX >= box.left && event.clientX <= box.right);
+    const inside = besideOrIn && event.clientY >= box.top && event.clientY <= box.bottom;
     if (apply && inside) {
       const at = event.pointerType === 'mouse' ? where(event, null) : settledAt(event.timeStamp);
       if (at) latest.current.commit(at);
@@ -672,6 +676,8 @@ function PitchInput({ task, answer, update, history, readOnly }: ModeProps) {
     enabled: !readOnly,
     commit: handleClick,
     area,
+    // Nur die Höhe zählt: der Platz ist der aktive oder der nächste.
+    sideways: true,
   });
   const { hover } = pointer;
 
