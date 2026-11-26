@@ -1621,15 +1621,27 @@
   }
 }
 
-.interval-grid .choice {
+/* Nie getrennt: umbrochen wird nur zwischen den Wörtern, «kleine Sekunde»
+   steht notfalls auf zwei Zeilen (Entscheid 2026-11-26). */
+.interval-grid .choice,
+.size-grid .choice {
   min-width: 0;
   padding: 6px 4px;
   line-height: 1.2;
   white-space: normal;
-  /* Quer sind die Felder schmal: «Sekunde» darf getrennt werden, aber nicht
-     mitten in einer Silbe (lang="de-CH" am <html>). */
-  hyphens: auto;
-  -webkit-hyphens: auto;
+  hyphens: manual;
+  -webkit-hyphens: manual;
+}
+
+/* Quer ist ein Knopf ein Achtel der Spalte breit, abzüglich Abstand, Polster
+   und Rand. Wo das für das längste Wort («Sekunde», «Tritonus», gut 4em)
+   nicht reicht, wird die Schrift kleiner, statt dass das Wort übersteht.
+   4.4em lässt Luft für breitere Schriften (San Francisco auf dem iPhone). */
+@container (min-width: 600px) {
+  .interval-grid .choice,
+  .size-grid .choice {
+    font-size: min(1rem, ((100cqi - 7 * 6px) / 8 - 10px) / 4.4);
+  }
 }
 
 /* Grobbestimmung: hochkant zwei je Zeile, quer alle in einer Reihe. Quer so
@@ -1648,15 +1660,6 @@
     grid-template-columns: repeat(var(--count), calc((100% - 7 * 6px) / 8));
     justify-content: center;
   }
-}
-
-.size-grid .choice {
-  min-width: 0;
-  padding: 6px 4px;
-  line-height: 1.2;
-  white-space: normal;
-  hyphens: auto;
-  -webkit-hyphens: auto;
 }
 
 /* Tonnamen: eine Spalte je Stammton, Zeilen nach Vorzeichen (SelectTaskView.tsx).
