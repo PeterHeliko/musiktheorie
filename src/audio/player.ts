@@ -71,6 +71,11 @@ const SCHEDULE_LEAD = 0.06;
  * klingt also unverändert. Web Audio hebt dabei alles um gut 1 dB an (das
  * gehört zum Verfahren); auch ein Zusammenklang von +6 dBFS kommt so noch
  * unter 0 dBFS heraus, in Chromium nachgemessen.
+ *
+ * Der Begrenzer schaut 6 ms voraus und hält dafür jeden Ton 6 ms zurück. In
+ * `play()` geht das im Vorlauf unter. Die Klaviatur (`strike`) führt an ihm
+ * vorbei: dort soll zwischen Antippen und Klang nichts liegen, und ein
+ * angeschlagener Ton übersteuert allein nicht.
  */
 const LIMIT_THRESHOLD = -2;
 const LIMIT_RATIO = 20;
@@ -368,7 +373,8 @@ export class SamplePlayer {
     if (context.state !== 'running') void context.resume();
     const { name, rate } = sampleFor(pitch);
     const sound = () => {
-      const scheduled = this.schedule(name, rate, context.currentTime, seconds, release, []);
+      // Direkt zum Lautsprecher, am Begrenzer vorbei (siehe LIMIT_THRESHOLD).
+      const scheduled = this.schedule(name, rate, context.currentTime, seconds, release, [], context.destination);
       if (!scheduled) return;
       const { source } = scheduled;
       this.struck.add(source);
@@ -393,6 +399,8 @@ export class SamplePlayer {
     /** Ausklingzeit des Schlusstons; null = gewöhnlicher Ton. */
     ringOut: number | null,
     sources: AudioBufferSourceNode[],
+    /** Wohin der Ton geht; gewöhnlich durch den Begrenzer. */
+    output?: AudioNode,
   ): { source: AudioBufferSourceNode; heardUntil: number } | null {
     const buffer = this.buffers.get(name);
     if (!buffer) return null;
@@ -415,7 +423,7 @@ export class SamplePlayer {
     // aber nie auf 0 laufen — deshalb der winzige Restwert.
     gain.gain.exponentialRampToValueAtTime(0.0001, dampenAt + release);
 
-    source.connect(gain).connect(this.out());
+    source.connect(gain).connect(output ?? this.out());
     source.start(at);
     source.stop(dampenAt + release);
     sources.push(source);

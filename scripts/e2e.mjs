@@ -967,11 +967,24 @@ async function main() {
         if (url) samples.set(buffer, Number(/(\d+)\.mp3/.exec(url)?.[1]));
         return buffer;
       };
+      // Der Weg jedes Tons zum Lautsprecher: ein Begrenzer darauf hielte ihn
+      // zurück (er schaut voraus).
+      const links = new WeakMap();
+      const connect = AudioNode.prototype.connect;
+      AudioNode.prototype.connect = function (target, ...rest) {
+        if (target instanceof AudioNode) links.set(this, [...(links.get(this) ?? []), target]);
+        return connect.call(this, target, ...rest);
+      };
+      const route = (node) => {
+        const names = [];
+        for (let next = links.get(node)?.[0]; next; next = links.get(next)?.[0]) names.push(next.constructor.name);
+        return names;
+      };
       const original = AudioBufferSourceNode.prototype.start;
       window.__tones = [];
       AudioBufferSourceNode.prototype.start = function (when = 0, ...rest) {
         if ((this.buffer?.length ?? 0) > 1) {
-          window.__tones.push({ lead: when - this.context.currentTime, key: samples.get(this.buffer) });
+          window.__tones.push({ lead: when - this.context.currentTime, key: samples.get(this.buffer), route: route(this) });
         }
         return original.call(this, when, ...rest);
       };
@@ -999,6 +1012,11 @@ async function main() {
     check(
       tonesWhileDown.length === 1 && tonesWhileDown[0].lead <= 0.005,
       `und sie klingt sofort, ohne Vorlauf (${tonesWhileDown.map((tone) => `${Math.round(tone.lead * 1000)} ms`).join(', ')})`,
+    );
+    const route = tonesWhileDown[0]?.route ?? [];
+    check(
+      route.at(-1) === 'AudioDestinationNode' && !route.includes('DynamicsCompressorNode'),
+      `auch nicht durch den Begrenzer verzögert (${route.join(' → ')})`,
     );
     await page.mouse.up();
     check((await page.evaluate(() => window.__tones.length)) === 1, 'das Loslassen schlägt sie nicht noch einmal an');
