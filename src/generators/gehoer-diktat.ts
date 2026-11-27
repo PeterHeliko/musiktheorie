@@ -85,7 +85,7 @@ export const gehoerDiktat: Generator<Filters> = {
   title: 'Rhythmus- und Melodiediktat',
   instruction:
     'Du hörst eine Melodie. Notiere den Rhythmus und wenn du kannst, auch die Tonhöhen. Ist die erste Note vorgegeben, steht sie schon im System.',
-  hint: 'Rhythmus und Tonhöhen werden getrennt bewertet — ein verpasster Notenwert kostet die Tonhöhenpunkte nicht.',
+  hint: 'Rhythmus und Tonhöhen werden getrennt bewertet: ein verpasster Notenwert macht die Tonhöhen nicht falsch.',
 
   filters: [
     { kind: 'range', key: 'bars', label: 'Länge', min: 2, max: 8, unit: 'Takte' },

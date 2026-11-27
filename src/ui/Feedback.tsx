@@ -7,7 +7,9 @@
  *  - `Verdict`: eine Zeile in der Leiste unten, direkt über «Weiter». Zeigt
  *    die Aufgabe die Lösung, steht dort nur das Urteil («✓ Richtig»,
  *    «✗ Falsch»). Sonst, bei einer einzigen Antwort, auch sie («✗ Richtig
- *    wäre: e2»).
+ *    wäre: e2»). Bei mehreren Teilen (Felder, Töne, Takte), nicht alle
+ *    richtig, steht statt des Urteils, wie viele es sind («≈ 5 von 7
+ *    richtig»). Punkte gibt es nicht zu sehen (Entscheid 2026-11-27).
  *  - `FeedbackDetails`: die Liste unter der Aufgabe, nur bei mehrteiligen
  *    Aufgaben, deren Lösung nicht schon zu sehen ist, und beim Diktat.
  *
@@ -91,8 +93,11 @@ export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
   const shown = showsSolution(task);
   const single = result.details.length === 1 && !hasDetails(result, task) ? result.details[0] : undefined;
 
+  const count = countOf(result);
+
   let text: string;
-  if (shown || !single) text = WORD[grade];
+  if (count && grade !== 'correct') text = `${count.right} von ${count.of} richtig`;
+  else if (shown || !single) text = WORD[grade];
   else if (grade === 'correct') text = `${WORD.correct}: ${single.studentResponse}`;
   else text = `Richtig wäre: ${single.correctResponse}`;
 
@@ -108,11 +113,6 @@ export function Verdict({ result, task }: { result: TaskResult; task: Task }) {
       </span>
       <span class="verdict-text">{text}</span>
       {spoken && <span class="visually-hidden">: {spoken}</span>}
-      {result.details.length > 1 && result.possible > 1 && (
-        <span class="verdict-score">
-          {format(result.earned)} von {format(result.possible)} Punkten
-        </span>
-      )}
     </p>
   );
 }
@@ -153,9 +153,18 @@ export function FeedbackDetails({ result, task }: { result: TaskResult; task: Ta
   );
 }
 
-/** Punkte lesbar: «3» statt «3», aber «2.5» statt «2.5000000001». */
-function format(value: number): string {
-  return String(Math.round(value * 100) / 100);
+/**
+ * Wie viele Teile einer mehrteiligen Aufgabe richtig sind. Ein Teil ohne
+ * Gewicht (ein leer gelassener freier Platz) zählt nicht mit. Null bei
+ * weniger als zwei Teilen, und wo ein Teil halb zählen kann (Rhythmus und
+ * Tonhöhen im Diktat): «0 von 2 richtig» stimmte dort nicht, die Liste unter
+ * der Aufgabe zeigt es genauer.
+ */
+function countOf(result: TaskResult): { right: number; of: number } | null {
+  const parts = result.details.filter((detail) => detail.possible > 0);
+  const full = (detail: Detail) => detail.earned >= detail.possible - 1e-9;
+  if (parts.length < 2 || parts.some((detail) => detail.earned > 1e-9 && !full(detail))) return null;
+  return { right: parts.filter(full).length, of: parts.length };
 }
 
 /**

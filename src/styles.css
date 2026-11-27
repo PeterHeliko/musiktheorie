@@ -1497,13 +1497,6 @@
   border: 0;
 }
 
-.verdict-score {
-  margin-left: 8px;
-  font-weight: 400;
-  font-size: 0.88rem;
-  color: var(--ink-soft);
-}
-
 /*
  * Nach dem Prüfen: die Leiste hell getönt in der Farbe des Urteils, oben eine
  * Linie im vollen Ton (Entscheid 2026-11-25). Auf einen Blick zu sehen, und
