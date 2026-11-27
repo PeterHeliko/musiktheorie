@@ -603,16 +603,18 @@ function attemptScore(task: SingTask, verdict: SequenceVerdict): ScoreSpec {
 /**
  * Eine Melodie vom Blatt (`task.notated`, Entscheid 2026-11-25): alle Töne
  * stehen von Anfang an da. Grün, was auf Anhieb richtig gesungen ist; rot, wo
- * ein falscher Versuch kam (im Tempo auch ein stummer Schlag), und das bleibt
- * so, auch wenn der Ton danach stimmt. Blau der Ton, der als Nächstes dran
- * ist (`current`), solange gesungen wird; ein roter bleibt dabei rot.
+ * ein falscher Versuch kam (im Tempo auch ein stummer Schlag). Kommt der Ton
+ * danach doch richtig, wird er orange (Entscheid 2026-11-27): man sieht, dass
+ * die Korrektur sass, und am Ende, welche Töne einen zweiten Anlauf brauchten.
+ * Blau der Ton, der als Nächstes dran ist (`current`), solange gesungen wird;
+ * ein roter bleibt dabei rot.
  */
 function notatedScore(task: SingTask, verdict: TimedVerdict | null, current: number | null): ScoreSpec {
   const wrong = new Set([...(verdict?.wrong.map((entry) => entry.expected) ?? []), ...(verdict?.missing ?? [])]);
   const right = new Set(verdict?.right.map((entry) => entry.step) ?? []);
   const [measure] = task.score.measures;
   const notes = measure.notes.map((note, step): NoteSpec => {
-    if (wrong.has(step)) return { ...note, mark: 'wrong' };
+    if (wrong.has(step)) return { ...note, mark: right.has(step) ? 'corrected' : 'wrong' };
     if (right.has(step)) return { ...note, mark: 'correct' };
     return step === current ? { ...note, highlight: true } : note;
   });

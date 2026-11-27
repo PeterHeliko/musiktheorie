@@ -57,9 +57,11 @@ export interface NoteSpec {
   /**
    * Nach dem Prüfen: selbst gesetzte Note grün (richtig) oder rot (falsch).
    * «usual» (bernsteinfarben): so stünde es üblicherweise, das Gesetzte ist
-   * aber auch richtig (Vorzeichen in einer anderen Oktave).
+   * aber auch richtig (Vorzeichen in einer anderen Oktave). «corrected»
+   * (ebenso bernsteinfarben): erst falsch, dann richtig gesungen (Melodie
+   * vom Blatt).
    */
-  mark?: 'correct' | 'wrong' | 'usual';
+  mark?: 'correct' | 'wrong' | 'usual' | 'corrected';
   /**
    * Dasselbe je Notenkopf eines Akkords, in der Reihenfolge von `keys` —
    * für frei gesetzte Akkorde, bei denen einzelne Töne falsch sein können.

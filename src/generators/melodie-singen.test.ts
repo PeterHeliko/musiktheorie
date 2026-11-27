@@ -264,25 +264,37 @@ describe('Generierte Melodie singen', () => {
     }
   });
 
-  it('bewertet Ton für Ton: ein früherer Ton statt des verlangten ist falsch', () => {
+  it('bewertet Ton für Ton, jeden für sich: ein früherer Ton statt des verlangten ist falsch', () => {
     for (const task of tasks({ scales: ['dur', 'chromatisch'] }, 30)) {
       const values = pitches(task).map(midi);
-      expect(scoreTask(task, { notes: values }).earned).toBe(task.points);
+      const all = scoreTask(task, { notes: values });
+      expect(all.earned).toBe(task.points);
+      // Je Ton eine Antwort; der vorgespielte Anfangston zählt nicht.
+      expect(all.details.map((detail) => detail.label)).toEqual(values.slice(1).map((_, index) => `Ton ${index + 2}`));
+      expect(all.details.every((detail) => detail.correct)).toBe(true);
       // Eine Oktave tiefer, ohne den Anfangston: richtig.
       expect(scoreTask(task, { notes: values.slice(1).map((value) => value - 12) }).earned).toBe(task.points);
-      // Statt des dritten Tons der erste, dann richtig weiter: falsch.
+      // Statt des dritten Tons der erste, dann richtig weiter: nur der dritte
+      // ist falsch, auch wenn er danach stimmt.
       if (values[2] % 12 !== values[0] % 12 && values[1] % 12 !== values[0] % 12) {
-        expect(scoreTask(task, { notes: [values[0], values[1], values[0], ...values.slice(2)] }).earned).toBe(0);
+        const result = scoreTask(task, { notes: [values[0], values[1], values[0], ...values.slice(2)] });
+        expect(result.details.filter((detail) => !detail.correct).map((detail) => detail.label)).toEqual(['Ton 3']);
+        expect(result.details[1].studentResponse).not.toBe('—');
+        expect(result.earned).toBeCloseTo(task.points - task.points / result.details.length);
       }
     }
   });
 
-  it('bewertet mit Metronom Schlag für Schlag', () => {
+  it('bewertet mit Metronom Schlag für Schlag, den Anfangston mit', () => {
     for (const task of tasks({ metronome: '60' }, 10)) {
       expect(task.tempo).toBe(60);
       const values = pitches(task).map(midi);
-      expect(scoreTask(task, { notes: [], beats: values }).earned).toBe(task.points);
-      expect(scoreTask(task, { notes: [], beats: [...values.slice(0, -1), null] }).earned).toBe(0);
+      const all = scoreTask(task, { notes: [], beats: values });
+      expect(all.earned).toBe(task.points);
+      expect(all.details).toHaveLength(values.length);
+      const silent = scoreTask(task, { notes: [], beats: [...values.slice(0, -1), null] });
+      expect(silent.details.map((detail) => detail.correct)).toEqual([...values.slice(1).map(() => true), false]);
+      expect(silent.details[values.length - 1].studentResponse).toBe('—');
     }
   });
 });

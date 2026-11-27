@@ -2493,10 +2493,11 @@ async function main() {
     );
     await singPage.screenshot({ path: join(SHOTS, 'melodie-singen-zaehlt.png') });
 
-    // Mit Metronom, vier Töne g a h g, ohne etwas davor: danach Falsch, a und
-    // h rot, und jeder Ton ist bewertet. Ob die beiden g grün werden, hängt
-    // davon ab, ob das künstliche Mikrofon auf dem Schlag gerade klingt: sein
-    // Dauerton setzt zwischendurch aus (gestrichelte Kurve).
+    // Mit Metronom, vier Töne g a h g, ohne etwas davor: danach a und h rot,
+    // jeder Ton bewertet, und die Leiste zählt die richtigen («2 von 4
+    // richtig»). Ob die beiden g grün werden, hängt davon ab, ob das
+    // künstliche Mikrofon auf dem Schlag gerade klingt: sein Dauerton setzt
+    // zwischendurch aus (gestrichelte Kurve).
     await singPage.goto(
       `${BASE}ueben/generierte-melodie-singen/?tonleitern=dur&max-vorzeichen=1&laenge=4&vorspiel=nichts&metronom=100&aufgabe=a&v=2`,
       { waitUntil: 'networkidle' },
@@ -2507,13 +2508,15 @@ async function main() {
       [...document.querySelectorAll('.sing-task .score svg .vf-stavenote')].some((note) => note.outerHTML.includes('#b3261e')),
     );
     const timedMelody = await melodyColours();
+    const timedVerdict = await singPage.locator('.verdict-text').innerText();
+    const timedRight = timedMelody.filter((colour) => colour === 'green').length;
     check(
-      (await singPage.locator('.verdict-text').innerText()) === 'Falsch' &&
+      timedVerdict === `${timedRight} von 4 richtig` &&
         timedMelody.length === 4 &&
         timedMelody[1] === 'red' &&
         timedMelody[2] === 'red' &&
         timedMelody.every((colour) => colour === 'green' || colour === 'red'),
-      `im Tempo: Falsch, a und h rot, jeder Ton bewertet (${timedMelody.join(', ')})`,
+      `im Tempo: a und h rot, jeder Ton bewertet, «${timedVerdict}» (${timedMelody.join(', ')})`,
     );
     await singPage.screenshot({ path: join(SHOTS, 'melodie-singen-metronom.png') });
 

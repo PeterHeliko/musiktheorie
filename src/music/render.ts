@@ -295,7 +295,8 @@ export const WRONG_COLOUR = '#b3261e';
 export const USUAL_COLOUR = '#e09a00';
 
 function markColour(mark: NonNullable<NoteSpec['mark']>): string {
-  return mark === 'correct' ? CORRECT_COLOUR : mark === 'usual' ? USUAL_COLOUR : WRONG_COLOUR;
+  if (mark === 'correct') return CORRECT_COLOUR;
+  return mark === 'usual' || mark === 'corrected' ? USUAL_COLOUR : WRONG_COLOUR;
 }
 
 /** Farbe für vorgegebene Töne, die der Prüfling nicht ändern darf. */

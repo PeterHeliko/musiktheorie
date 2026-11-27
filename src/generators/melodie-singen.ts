@@ -11,7 +11,8 @@
  * nichts, der Grundton, eine Kadenz, die Tonleiter bis zur Quinte und zurück
  * oder der Grundton-Akkord. Chromatisch erklingt nur der Anfangston. Gesungen
  * wird Ton für Ton wie bei den Tonleitern (`judgeSequence`), mit Metronom ein
- * Ton je Schlag (`judgeTimed`).
+ * Ton je Schlag (`judgeTimed`). Bewertet wird jeder Ton für sich: richtig ist,
+ * was auf Anhieb stimmte (Entscheid 2026-11-27).
  */
 
 import type { NoteSpec, SelectOption, SingTask } from '../content/schema';
@@ -130,7 +131,8 @@ export const melodieSingen: Generator<Filters> = {
       notated: true,
       holdMs: MELODY_HOLD_MS,
       ...(sounds ? { prelude: sounds } : {}),
-      points: 2,
+      // Ein Punkt je gewertetem Ton; Ton für Ton zählt der Anfangston nicht.
+      points: tempo ? melody.length : melody.length - 1,
     };
 
     const said = `${preludeText(prelude, 'den Anfangston')} ${SING_TEXT}`;

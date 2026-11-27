@@ -488,7 +488,46 @@ function scoreSingSequence(task: SingTask, sequence: string[], answer: SingAnswe
   ];
 }
 
+/**
+ * Eine Melodie vom Blatt (`task.notated`): jeder Ton zählt für sich, wie beim
+ * Melodiediktat und auf der Klaviatur (Entscheid 2026-11-27). Richtig ist ein
+ * Ton, der auf Anhieb stimmte; ein erst im zweiten Anlauf richtiger ist
+ * falsch. Ton für Ton zählt der Anfangston nicht: er ist vorgespielt, ihn
+ * mitzusingen ist frei. Im Tempo singt man ihn auf den ersten Schlag, dort
+ * zählt er mit.
+ */
+function scoreSingMelody(task: SingTask, sequence: string[], answer: SingAnswer | undefined): Detail[] {
+  const targets = sequence.map(parsePitch);
+  const goal = sequenceGoalOf(task, sequence);
+  const timed = task.tempo !== undefined;
+  const verdict = timed ? judgeTimed(goal, answer?.beats ?? []) : judgeSequence(goal, answer?.notes ?? []);
+  const steps = targets.map((_, step) => step).slice(timed ? 0 : 1);
+  const perNote = task.points / Math.max(1, steps.length);
+  return steps.map((step) => {
+    const target = targets[step];
+    const right = verdict.right.find((entry) => entry.step === step);
+    const wrong = verdict.wrong.filter((entry) => entry.expected === step);
+    const correct = right !== undefined && wrong.length === 0;
+    // Richtig: wie notiert, in der gesungenen Oktave. Falsch: die falschen
+    // Versuche, wie man sie meist liest; stumm oder nie erreicht «—».
+    let sung = '—';
+    if (correct) sung = toGermanPitch({ ...target, octave: target.octave + right.verdict.octaveShift });
+    else if (wrong.length > 0) sung = wrong.map((entry) => nameFromMidi(Math.round(entry.note))).join(', ');
+    return {
+      id: `${task.id}_t${step + 1}`,
+      label: `Ton ${step + 1}`,
+      earned: correct ? perNote : 0,
+      possible: perNote,
+      studentResponse: sung,
+      correctResponse: toGermanPitch(target),
+      correct,
+      interactionType: 'performance' as const,
+    };
+  });
+}
+
 function scoreSing(task: SingTask, answer: SingAnswer | undefined): Detail[] {
+  if (task.sequence && task.notated) return scoreSingMelody(task, task.sequence, answer);
   if (task.sequence) return scoreSingSequence(task, task.sequence, answer);
   const target = parsePitch(task.target);
   const verdict = judgeSung(
